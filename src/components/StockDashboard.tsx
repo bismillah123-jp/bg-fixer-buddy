@@ -67,13 +67,16 @@ export function StockDashboard() {
       
       if (error) throw error;
 
-      // Filter out duplicate entries - only count aggregated entries (imei = null) for totals
+      // Calculate totals from all entries (both aggregated and individual IMEI entries)
+      // First try to use aggregated entries (imei = null), otherwise sum all entries
       const aggregatedEntries = data.filter(entry => entry.imei === null);
+      const useAggregated = aggregatedEntries.length > 0;
+      const entriesToSum = useAggregated ? aggregatedEntries : data;
       
-      const totalMorningStock = aggregatedEntries.reduce((sum, entry) => sum + entry.morning_stock, 0);
-      const totalNightStock = aggregatedEntries.reduce((sum, entry) => sum + entry.night_stock, 0);
-      const totalSold = aggregatedEntries.reduce((sum, entry) => sum + entry.sold, 0);
-      const totalIncoming = aggregatedEntries.reduce((sum, entry) => sum + entry.incoming, 0);
+      const totalMorningStock = entriesToSum.reduce((sum, entry) => sum + entry.morning_stock, 0);
+      const totalNightStock = entriesToSum.reduce((sum, entry) => sum + entry.night_stock, 0);
+      const totalSold = entriesToSum.reduce((sum, entry) => sum + entry.sold, 0);
+      const totalIncoming = entriesToSum.reduce((sum, entry) => sum + entry.incoming, 0);
       const totalFinalStock = totalNightStock;
 
       const breakdown: { [location: string]: LocationData } = {};
