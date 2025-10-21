@@ -105,44 +105,6 @@ export function AddStockDialog({ open, onOpenChange }: AddStockDialogProps) {
       const date = format(selectedDate, "yyyy-MM-dd");
       const quantityNum = 1; // Always 1 since 1 IMEI = 1 stock
 
-      // Ensure base stock_entries row exists to avoid NULL morning_stock during cascade
-      const { data: existingEntryList, error: findSeedError } = await supabase
-        .from('stock_entries')
-        .select('id')
-        .eq('date', date)
-        .eq('location_id', selectedLocation)
-        .eq('phone_model_id', selectedModel)
-        .eq('imei', null); // Only check aggregated entries (NULL imei)
-
-      if (findSeedError) {
-        throw new Error(`Gagal memeriksa entri stok: ${findSeedError.message}`);
-      }
-
-      const existingEntry = existingEntryList && existingEntryList.length > 0 ? existingEntryList[0] : null;
-
-      if (!existingEntry) {
-        const { error: insertSeedError } = await supabase
-          .from('stock_entries')
-          .insert({
-            date,
-            location_id: selectedLocation,
-            phone_model_id: selectedModel,
-            imei: null,  // Use NULL for aggregated entries
-            morning_stock: 0,
-            incoming: 0,
-            sold: 0,
-            returns: 0,
-            adjustment: 0,
-            night_stock: 0
-          });
-
-        if (insertSeedError) {
-          throw new Error(`Gagal menyiapkan entri stok: ${insertSeedError.message}`);
-        }
-      }
-
-      // Stock correction no longer requires prior "HP Datang" entry
-
       // Parse cost price - remove dots and convert to number
       const costPriceNum = costPrice ? parseInt(costPrice.replace(/\./g, '')) : 0;
 
@@ -151,7 +113,7 @@ export function AddStockDialog({ open, onOpenChange }: AddStockDialogProps) {
         .from('stock_events')
         .select('id, event_type, date')
         .eq('imei', imei.trim())
-        .in('event_type', ['masuk', 'retur_in', 'koreksi']) // Only check incoming events
+        .limit(1)
         .maybeSingle();
 
       if (checkError) throw new Error(`Gagal memeriksa IMEI: ${checkError.message}`);

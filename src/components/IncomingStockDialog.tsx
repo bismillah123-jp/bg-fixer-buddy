@@ -105,12 +105,12 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
       const date = format(selectedDate, "yyyy-MM-dd");
       const quantityNum = 1; // Always 1 since 1 IMEI = 1 stock
 
-      // Check if IMEI already exists in stock_events (event-sourcing source of truth)
+      // Check if IMEI already exists (any event type)
       const { data: existingImei, error: checkError } = await supabase
         .from('stock_events')
         .select('id, event_type, date')
         .eq('imei', imei.trim())
-        .in('event_type', ['masuk', 'retur_in']) // Only check incoming events
+        .limit(1)
         .maybeSingle();
 
       if (checkError) throw new Error(`Gagal memeriksa IMEI: ${checkError.message}`);
