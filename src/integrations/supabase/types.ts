@@ -504,6 +504,13 @@ export type Database = {
             }
           | {
               p_from_date: string
+              p_imei?: string
+              p_location_id?: string
+              p_phone_model_id?: string
+              p_to_date?: string
+            }
+          | {
+              p_from_date: string
               p_location_id?: string
               p_phone_model_id?: string
               p_to_date?: string
