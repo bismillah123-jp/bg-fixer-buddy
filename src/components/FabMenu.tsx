@@ -19,14 +19,14 @@ export function FabMenu() {
 
   const actions = [
     {
-      label: 'Tambah/Koreksi Stok',
-      icon: Plus,
-      dialog: 'addStock',
-    },
-    {
       label: 'HP Datang',
       icon: Truck,
       dialog: 'incomingStock',
+    },
+    {
+      label: 'Koreksi Stok Pagi',
+      icon: Plus,
+      dialog: 'addStock',
     },
     {
       label: 'Tambah Model HP',

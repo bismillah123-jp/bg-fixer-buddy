@@ -108,22 +108,11 @@ export function AddStockDialog({ open, onOpenChange }: AddStockDialogProps) {
       // Parse cost price - remove dots and convert to number
       const costPriceNum = costPrice ? parseInt(costPrice.replace(/\./g, '')) : 0;
 
-      // Check if this IMEI already exists in stock_events (event-sourcing source of truth)
-      const { data: existingImei, error: checkError } = await supabase
-        .from('stock_events')
-        .select('id, event_type, date')
-        .eq('imei', imei.trim())
-        .limit(1)
-        .maybeSingle();
+      // Note: We allow koreksi for both new and existing IMEIs
+      // This is for correcting/adjusting morning stock
 
-      if (checkError) throw new Error(`Gagal memeriksa IMEI: ${checkError.message}`);
-      
-      if (existingImei) {
-        throw new Error(`Stok dengan IMEI ini sudah terdaftar di sistem (${existingImei.event_type} pada ${existingImei.date})`);
-      }
-
-      // Always use 'masuk' for new stock entries in this dialog
-      const eventType = 'masuk';
+      // Use 'koreksi' for adjusting/correcting morning stock
+      const eventType = 'koreksi';
 
       // 1. Write to stock_events (event-sourcing primary source)
       const { error: eventError } = await supabase
@@ -152,7 +141,7 @@ export function AddStockDialog({ open, onOpenChange }: AddStockDialogProps) {
     onSuccess: () => {
       toast({
         title: "Berhasil",
-        description: "Stok berhasil ditambahkan",
+        description: "Stok pagi berhasil dikoreksi",
       });
       queryClient.invalidateQueries({ queryKey: ['stock-entries'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
@@ -179,9 +168,9 @@ export function AddStockDialog({ open, onOpenChange }: AddStockDialogProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader className="sticky top-0 bg-background z-10 pb-4">
-          <DialogTitle>Tambah/Koreksi Stok</DialogTitle>
+          <DialogTitle>Tambah/Koreksi Stok Pagi</DialogTitle>
           <DialogDescription>
-            Tambah stok baru atau koreksi stok yang sudah ada di sistem. Sistem akan otomatis menentukan jenis operasi berdasarkan IMEI.
+            Koreksi atau tambah stok pagi untuk HP yang sudah ada atau baru di sistem.
           </DialogDescription>
         </DialogHeader>
         
@@ -263,13 +252,13 @@ export function AddStockDialog({ open, onOpenChange }: AddStockDialogProps) {
           <div className="space-y-2">
             <Label>IMEI *</Label>
             <Input
-              placeholder="Masukkan IMEI (baru atau sudah ada)"
+              placeholder="Masukkan IMEI"
               value={imei}
               onChange={(e) => setImei(e.target.value)}
               inputMode="numeric"
               required
             />
-            <p className="text-sm text-muted-foreground">📱 Bisa koreksi untuk IMEI baru maupun yang sudah ada</p>
+            <p className="text-sm text-muted-foreground">📱 Koreksi stok pagi untuk IMEI ini</p>
           </div>
 
           <div className="space-y-2">
@@ -307,7 +296,7 @@ export function AddStockDialog({ open, onOpenChange }: AddStockDialogProps) {
               disabled={addStockMutation.isPending}
               className="flex-1"
             >
-              {addStockMutation.isPending ? "Memproses..." : "Tambah/Koreksi Stok"}
+              {addStockMutation.isPending ? "Memproses..." : "Koreksi Stok"}
             </Button>
           </div>
         </div>
