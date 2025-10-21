@@ -45,7 +45,7 @@ export function TransferStockDialog({ open, onOpenChange, stockEntry }: Transfer
         .insert({
           date: stockEntry.date,
           imei: stockEntry.imei,
-          location_id: stockEntry.location_id,
+          location_id: stockEntry.stock_locations.id,
           phone_model_id: stockEntry.phone_models.id,
           event_type: 'transfer_out',
           qty: transferQty,
@@ -66,7 +66,7 @@ export function TransferStockDialog({ open, onOpenChange, stockEntry }: Transfer
           event_type: 'transfer_in',
           qty: transferQty,
           notes: `Transfer dari ${sourceLocationName}`,
-          metadata: { source_location_id: stockEntry.location_id, source_location_name: sourceLocationName }
+          metadata: { source_location_id: stockEntry.stock_locations.id, source_location_name: sourceLocationName }
         });
       
       if (transferInError) throw new Error(`Gagal mencatat transfer masuk: ${transferInError.message}`);

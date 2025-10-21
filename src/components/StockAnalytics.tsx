@@ -495,12 +495,6 @@ export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProp
                           value > 0 ? `${name}: ${value}` : ''
                         }
                         labelLine={false}
-                        labelStyle={{ 
-                          fontSize: '10px', 
-                          fontWeight: '500',
-                          fill: 'hsl(var(--foreground))',
-                          textShadow: '0 1px 2px rgba(0,0,0,0.1)'
-                        }}
                         animationBegin={0}
                         animationDuration={1200}
                         activeIndex={activeIndex}
