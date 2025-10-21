@@ -1,0 +1,100 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 346 77% 49.8%;
+    --primary-foreground: 355.7 100% 97.3%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 346 77% 49.8%;
+    --radius: 0.75rem;
+
+    /* Modern gradient colors */
+    --gradient-primary: linear-gradient(135deg, hsl(346 77% 49.8%), hsl(326 82% 54%));
+    --gradient-secondary: linear-gradient(135deg, hsl(240 3.7% 15.9%), hsl(240 5% 20%));
+    --gradient-accent: linear-gradient(135deg, hsl(260 100% 65%), hsl(346 77% 49.8%));
+    
+    /* Custom semantic tokens */
+    --success: 142 76% 36%;
+    --success-foreground: 355.7 100% 97.3%;
+    --warning: 48 96% 50%;
+    --warning-foreground: 0 0% 98%;
+    --info: 200 100% 50%;
+    --info-foreground: 0 0% 98%;
+    
+    /* Modern shadows */
+    --shadow-elevated: 0 10px 30px -5px hsl(240 10% 3.9% / 0.5);
+    --shadow-card: 0 4px 20px -2px hsl(240 10% 3.9% / 0.3);
+    --shadow-button: 0 2px 10px -2px hsl(346 77% 49.8% / 0.3);
+  }
+
+  .dark {
+    --background: 0 0% 98%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 346 77% 49.8%;
+    --primary-foreground: 355.7 100% 97.3%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 346 77% 49.8%;
+
+    /* Modern gradient colors */
+    --gradient-primary: linear-gradient(135deg, hsl(346 77% 49.8%), hsl(326 82% 54%));
+    --gradient-secondary: linear-gradient(135deg, hsl(240 4.8% 95.9%), hsl(240 5% 92%));
+    --gradient-accent: linear-gradient(135deg, hsl(260 100% 65%), hsl(346 77% 49.8%));
+    
+    /* Custom semantic tokens */
+    --success: 142 76% 36%;
+    --success-foreground: 355.7 100% 97.3%;
+    --warning: 48 96% 50%;
+    --warning-foreground: 240 10% 3.9%;
+    --info: 200 100% 50%;
+    --info-foreground: 0 0% 98%;
+    
+    /* Modern shadows */
+    --shadow-elevated: 0 10px 30px -5px hsl(240 10% 3.9% / 0.2);
+    --shadow-card: 0 4px 20px -2px hsl(240 10% 3.9% / 0.1);
+    --shadow-button: 0 2px 10px -2px hsl(346 77% 49.8% / 0.3);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
