@@ -297,43 +297,43 @@ export type Database = {
       }
       stock_events: {
         Row: {
-          id: number
           created_at: string
+          created_by: string | null
           date: string
+          event_type: string
+          id: number
           imei: string
           location_id: string
-          phone_model_id: string
-          event_type: 'masuk' | 'laku' | 'retur_in' | 'retur_out' | 'transfer_out' | 'transfer_in' | 'koreksi'
-          qty: number
-          notes: string | null
-          created_by: string | null
           metadata: Json
+          notes: string | null
+          phone_model_id: string
+          qty: number
         }
         Insert: {
-          id?: number
           created_at?: string
+          created_by?: string | null
           date: string
+          event_type: string
+          id?: number
           imei: string
           location_id: string
-          phone_model_id: string
-          event_type: 'masuk' | 'laku' | 'retur_in' | 'retur_out' | 'transfer_out' | 'transfer_in' | 'koreksi'
-          qty?: number
-          notes?: string | null
-          created_by?: string | null
           metadata?: Json
+          notes?: string | null
+          phone_model_id: string
+          qty?: number
         }
         Update: {
-          id?: number
           created_at?: string
+          created_by?: string | null
           date?: string
+          event_type?: string
+          id?: number
           imei?: string
           location_id?: string
-          phone_model_id?: string
-          event_type?: 'masuk' | 'laku' | 'retur_in' | 'retur_out' | 'transfer_out' | 'transfer_in' | 'koreksi'
-          qty?: number
-          notes?: string | null
-          created_by?: string | null
           metadata?: Json
+          notes?: string | null
+          phone_model_id?: string
+          qty?: number
         }
         Relationships: [
           {
@@ -479,6 +479,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      bulk_insert_stock: {
+        Args: { entries: Json[] }
+        Returns: undefined
+      }
       calculate_night_stock: {
         Args: {
           p_add_stock: number
@@ -490,6 +494,46 @@ export type Database = {
         }
         Returns: number
       }
+      cascade_recalc_stock: {
+        Args:
+          | {
+              p_from_date: string
+              p_imei: string
+              p_location_id: string
+              p_phone_model_id: string
+            }
+          | {
+              p_from_date: string
+              p_location_id?: string
+              p_phone_model_id?: string
+              p_to_date?: string
+            }
+        Returns: {
+          affected_entries: number
+          recalculated_days: number
+        }[]
+      }
+      cascade_recalc_stock_simple: {
+        Args: {
+          p_date: string
+          p_location_id: string
+          p_phone_model_id: string
+        }
+        Returns: undefined
+      }
+      cascade_recalc_stock_with_imei: {
+        Args: {
+          p_from_date: string
+          p_imei?: string
+          p_location_id?: string
+          p_phone_model_id?: string
+          p_to_date?: string
+        }
+        Returns: {
+          affected_entries: number
+          recalculated_days: number
+        }[]
+      }
       check_and_rollover_if_needed: {
         Args: Record<PropertyKey, never>
         Returns: boolean
@@ -500,6 +544,20 @@ export type Database = {
       }
       delete_stock_entry_and_logs: {
         Args: { entry_id: string }
+        Returns: undefined
+      }
+      fix_rollover_issues: {
+        Args: { p_from_date?: string; p_to_date?: string }
+        Returns: {
+          fixed_entries: number
+        }[]
+      }
+      rebuild_stock_entries_from_events: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      recalculate_stock_range: {
+        Args: { p_from_date: string; p_to_date?: string }
         Returns: undefined
       }
       reset_all_data: {
