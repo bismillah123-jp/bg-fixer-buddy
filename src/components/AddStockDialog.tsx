@@ -108,11 +108,9 @@ export function AddStockDialog({ open, onOpenChange }: AddStockDialogProps) {
       // Parse cost price - remove dots and convert to number
       const costPriceNum = costPrice ? parseInt(costPrice.replace(/\./g, '')) : 0;
 
-      // Note: We allow koreksi for both new and existing IMEIs
-      // This is for correcting/adjusting morning stock
-
-      // Use 'koreksi' for adjusting/correcting morning stock
-      const eventType = 'koreksi';
+      // Use 'koreksi_pagi' for correcting morning stock (sesuai Excel)
+      // Koreksi pagi akan mengubah stok pagi hari ini
+      const eventType = 'koreksi_pagi';
 
       // 1. Write to stock_events (event-sourcing primary source)
       const { error: eventError } = await supabase
@@ -168,9 +166,9 @@ export function AddStockDialog({ open, onOpenChange }: AddStockDialogProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader className="sticky top-0 bg-background z-10 pb-4">
-          <DialogTitle>Tambah/Koreksi Stok Pagi</DialogTitle>
+          <DialogTitle>Koreksi Stok Pagi</DialogTitle>
           <DialogDescription>
-            Koreksi atau tambah stok pagi untuk HP yang sudah ada atau baru di sistem.
+            Koreksi stok pagi untuk perbedaan antara sistem dan stok fisik. Stok pagi akan disesuaikan dengan koreksi ini.
           </DialogDescription>
         </DialogHeader>
         
@@ -258,7 +256,12 @@ export function AddStockDialog({ open, onOpenChange }: AddStockDialogProps) {
               inputMode="numeric"
               required
             />
-            <p className="text-sm text-muted-foreground">📱 Koreksi stok pagi untuk IMEI ini</p>
+            <p className="text-sm text-muted-foreground">
+              📱 Koreksi stok pagi untuk IMEI ini (bisa + atau -)
+            </p>
+            <p className="text-xs text-amber-600 dark:text-amber-500">
+              ⚠️ Gunakan untuk: HP hilang/rusak, kesalahan input, atau perbedaan stok fisik
+            </p>
           </div>
 
           <div className="space-y-2">
