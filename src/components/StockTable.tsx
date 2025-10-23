@@ -189,6 +189,19 @@ export function StockTable({ selectedDate }: StockTableProps) {
         .eq('id', id);
 
       if (entryError) throw new Error(`Gagal menghapus entri stok: ${entryError.message}`);
+
+      // Cascade recalculation to update morning_stock and night_stock for future dates
+      const { error: recalcError } = await supabase.rpc('cascade_recalc_stock_with_imei', {
+        p_from_date: stockEntry.date,
+        p_to_date: format(new Date(), 'yyyy-MM-dd'),
+        p_location_id: stockEntry.location_id,
+        p_phone_model_id: stockEntry.phone_model_id,
+        p_imei: stockEntry.imei
+      });
+
+      if (recalcError) {
+        console.warn('Warning: Recalculation failed but delete succeeded:', recalcError);
+      }
     },
     onSuccess: () => {
       toast({ title: "Sukses", description: "Entri stok telah berhasil dihapus." });
