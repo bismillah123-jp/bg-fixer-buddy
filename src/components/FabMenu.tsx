@@ -23,11 +23,12 @@ export function FabMenu() {
       icon: Truck,
       dialog: 'incomingStock',
     },
-    {
-      label: 'Koreksi Stok Pagi',
-      icon: Plus,
-      dialog: 'addStock',
-    },
+    // Hidden: Koreksi Stok Pagi
+    // {
+    //   label: 'Koreksi Stok Pagi',
+    //   icon: Plus,
+    //   dialog: 'addStock',
+    // },
     {
       label: 'Tambah Model HP',
       icon: Smartphone,

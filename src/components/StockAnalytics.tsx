@@ -58,7 +58,7 @@ export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProp
 
   // 1. Query for KPI cards
   const { data: kpiStats, isLoading: kpiLoading } = useQuery({
-    queryKey: ['kpi-stats', selectedDate],
+    queryKey: ['kpi-stats', selectedDate.toISOString()],
     queryFn: async () => {
       const thirtyDaysAgo = new Date(selectedDate);
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -68,17 +68,15 @@ export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProp
       const [
         { data: monthlySalesData, error: salesError },
         { data: availableStockData, error: stockError },
-        { data: oldestStockData, error: oldestError },
         { data: todaySalesData, error: todayError }
       ] = await Promise.all([
-        supabase.from('stock_entries').select('sold, phone_models(brand)').gte('date', thirtyDaysAgo.toISOString()),
+        supabase.from('stock_entries').select('sold, phone_models(brand)').gte('date', thirtyDaysAgo.toISOString()).lte('date', today),
         supabase.from('stock_entries').select('night_stock').eq('date', today).gt('night_stock', 0),
-        supabase.from('stock_entries').select('date, phone_models(model)').eq('date', today).gt('night_stock', 0).order('date', { ascending: true }).limit(1),
         supabase.from('stock_entries').select('selling_price, profit_loss, sold').eq('date', today).gt('sold', 0)
       ]);
 
-      if (salesError || stockError || oldestError || todayError) {
-        throw new Error(salesError?.message || stockError?.message || oldestError?.message || todayError?.message);
+      if (salesError || stockError || todayError) {
+        throw new Error(salesError?.message || stockError?.message || todayError?.message);
       }
 
       // Process sales data
@@ -95,20 +93,47 @@ export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProp
       // Process available stock - sum night_stock values for today
       const availableStock = availableStockData?.reduce((sum, entry) => sum + (entry.night_stock || 0), 0) || 0;
 
-      // Process oldest stock
+      // Process oldest stock - find items currently in stock and their age
       let oldestStock = null;
-      if (oldestStockData && oldestStockData.length > 0 && oldestStockData[0].date) {
-        try {
-          const oldestDate = new Date(oldestStockData[0].date);
-          if (!isNaN(oldestDate.getTime())) { // Check if the date is valid
-            oldestStock = {
-              model: oldestStockData[0].phone_models?.model || 'N/A',
-              days: differenceInDays(new Date(), oldestDate),
-            };
+      if (availableStockData && availableStockData.length > 0) {
+        // Get stock entries with night_stock > 0 on selected date
+        const { data: oldestQuery, error: oldestQueryError } = await supabase
+          .from('stock_entries')
+          .select('imei, phone_models(model)')
+          .eq('date', today)
+          .gt('night_stock', 0);
+        
+        if (!oldestQueryError && oldestQuery && oldestQuery.length > 0) {
+          // For each IMEI, find the earliest date it appeared
+          let oldestItem = null;
+          let maxDays = 0;
+          
+          for (const item of oldestQuery) {
+            if (item.imei) {
+              const { data: firstAppearance } = await supabase
+                .from('stock_events')
+                .select('date')
+                .eq('imei', item.imei)
+                .eq('event_type', 'masuk')
+                .order('date', { ascending: true })
+                .limit(1);
+              
+              if (firstAppearance && firstAppearance.length > 0) {
+                const firstDate = new Date(firstAppearance[0].date);
+                const days = differenceInDays(selectedDate, firstDate);
+                
+                if (days > maxDays) {
+                  maxDays = days;
+                  oldestItem = {
+                    model: item.phone_models?.model || 'N/A',
+                    days: days
+                  };
+                }
+              }
+            }
           }
-        } catch (e) {
-          // Date parsing failed, leave oldestStock as null
-          console.error("Error parsing oldest stock date:", e);
+          
+          oldestStock = oldestItem;
         }
       }
 
@@ -130,11 +155,12 @@ export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProp
 
   // 2. Query for Daily Sales Chart
   const { data: dailySalesData, isLoading: dailySalesLoading } = useQuery({
-    queryKey: ['daily-sales-chart', selectedDate],
+    queryKey: ['daily-sales-chart', selectedDate.toISOString()],
     queryFn: async () => {
       const thirtyDaysAgo = new Date(selectedDate);
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      const { data, error } = await supabase.from('stock_entries').select('date, sold').gte('date', thirtyDaysAgo.toISOString()).order('date');
+      const today = selectedDate.toISOString().split('T')[0];
+      const { data, error } = await supabase.from('stock_entries').select('date, sold').gte('date', thirtyDaysAgo.toISOString()).lte('date', today).order('date');
       if (error) throw error;
 
       const grouped = data.filter(e => e.sold > 0).reduce((acc, entry) => {
@@ -149,7 +175,7 @@ export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProp
 
   // 3. Query for Stock Composition Pie Chart
   const { data: stockCompositionData, isLoading: compositionLoading } = useQuery({
-    queryKey: ['stock-composition', selectedDate],
+    queryKey: ['stock-composition', selectedDate.toISOString()],
     queryFn: async () => {
         const today = selectedDate.toISOString().split('T')[0];
         const { data, error } = await supabase.from('stock_entries').select('night_stock, phone_models(brand)').eq('date', today).gt('night_stock', 0);
@@ -167,7 +193,7 @@ export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProp
 
   // 3b. Query for Selected Brand Details
   const { data: brandDetails, isLoading: brandDetailsLoading } = useQuery({
-    queryKey: ['brand-details', selectedBrand, selectedDate],
+    queryKey: ['brand-details', selectedBrand, selectedDate.toISOString()],
     enabled: !!selectedBrand,
     queryFn: async () => {
       if (!selectedBrand) return [];
@@ -196,11 +222,12 @@ export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProp
 
   // 4. Query for Best Selling Models Table
   const { data: bestSellingModels, isLoading: modelsLoading } = useQuery({
-    queryKey: ['best-selling-models', selectedDate],
+    queryKey: ['best-selling-models', selectedDate.toISOString()],
     queryFn: async () => {
         const thirtyDaysAgo = new Date(selectedDate);
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        const { data, error } = await supabase.from('stock_entries').select('sold, phone_models(brand, model, color)').gte('date', thirtyDaysAgo.toISOString());
+        const today = selectedDate.toISOString().split('T')[0];
+        const { data, error } = await supabase.from('stock_entries').select('sold, phone_models(brand, model, color)').gte('date', thirtyDaysAgo.toISOString()).lte('date', today);
         if (error) throw error;
 
         const grouped = data.filter(e => e.sold > 0).reduce((acc, entry) => {

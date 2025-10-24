@@ -74,6 +74,12 @@ export function StockTable({ selectedDate }: StockTableProps) {
   const [brandFilter, setBrandFilter] = useState(() => {
     return localStorage.getItem('stockTableBrandFilter') || "all";
   });
+  const [locationFilter, setLocationFilter] = useState(() => {
+    return localStorage.getItem('stockTableLocationFilter') || "all";
+  });
+  const [statusFilter, setStatusFilter] = useState(() => {
+    return localStorage.getItem('stockTableStatusFilter') || "all";
+  });
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isSaleConfirmDialogOpen, setIsSaleConfirmDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -95,8 +101,20 @@ export function StockTable({ selectedDate }: StockTableProps) {
     localStorage.setItem('stockTableBrandFilter', value);
   };
 
+  // Save location filter to localStorage when it changes
+  const handleLocationFilterChange = (value: string) => {
+    setLocationFilter(value);
+    localStorage.setItem('stockTableLocationFilter', value);
+  };
+
+  // Save status filter to localStorage when it changes
+  const handleStatusFilterChange = (value: string) => {
+    setStatusFilter(value);
+    localStorage.setItem('stockTableStatusFilter', value);
+  };
+
   const { data: stockEntries, isLoading } = useQuery({
-    queryKey: ['stock-entries', searchTerm, brandFilter, selectedDate],
+    queryKey: ['stock-entries', searchTerm, brandFilter, locationFilter, statusFilter, selectedDate],
     queryFn: async (): Promise<StockEntry[]> => {
       const date = format(selectedDate, "yyyy-MM-dd");
 
@@ -135,6 +153,20 @@ export function StockTable({ selectedDate }: StockTableProps) {
         );
       }
 
+      // Apply location filter
+      if (locationFilter !== 'all') {
+        filtered = filtered.filter(entry => 
+          entry.stock_locations?.name === locationFilter
+        );
+      }
+
+      // Apply status filter
+      if (statusFilter === 'tersedia') {
+        filtered = filtered.filter(entry => entry.night_stock > 0);
+      } else if (statusFilter === 'terjual') {
+        filtered = filtered.filter(entry => entry.sold > 0);
+      }
+
       return filtered;
     }
   });
@@ -151,6 +183,20 @@ export function StockTable({ selectedDate }: StockTableProps) {
       
       const uniqueBrands = [...new Set(data?.map(item => item.brand) || [])];
       return uniqueBrands;
+    }
+  });
+
+  const { data: locations } = useQuery({
+    queryKey: ['stock-locations'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('stock_locations')
+        .select('name')
+        .order('name');
+      
+      if (error) throw error;
+      
+      return data?.map(item => item.name) || [];
     }
   });
 
@@ -344,6 +390,27 @@ export function StockTable({ selectedDate }: StockTableProps) {
                   {brand}
                 </option>
               ))}
+            </select>
+            <select
+              value={locationFilter}
+              onChange={(e) => handleLocationFilterChange(e.target.value)}
+              className="bg-background border border-border rounded-lg px-3 py-2 text-sm min-w-32"
+            >
+              <option value="all">Semua Lokasi</option>
+              {locations?.map(location => (
+                <option key={location} value={location}>
+                  {location}
+                </option>
+              ))}
+            </select>
+            <select
+              value={statusFilter}
+              onChange={(e) => handleStatusFilterChange(e.target.value)}
+              className="bg-background border border-border rounded-lg px-3 py-2 text-sm min-w-32"
+            >
+              <option value="all">Semua Status</option>
+              <option value="tersedia">Tersedia</option>
+              <option value="terjual">Terjual</option>
             </select>
           </div>
         </CardHeader>
