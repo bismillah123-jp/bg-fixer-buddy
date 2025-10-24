@@ -22,7 +22,7 @@ const Login = () => {
       if (event === "SIGNED_IN") {
         toast({
           title: "Login Berhasil",
-          description: "Selamat Datang Sir.",
+          description: "Bismillah Semangat-Semangat",
         });
         navigate("/");
       }
@@ -81,7 +81,7 @@ const Login = () => {
                 <Input
                   id="email"
                   type="email"
-                  placeholder="emailkamu@email.com"
+                  placeholder="email@email.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
