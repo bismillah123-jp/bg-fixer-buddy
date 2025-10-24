@@ -178,7 +178,7 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
         <DialogHeader className="sticky top-0 bg-background z-10 pb-4">
           <DialogTitle>HP Datang</DialogTitle>
           <DialogDescription>
-            Catat HP yang datang untuk tanggal yang dipilih.
+            Rekap HP datang
           </DialogDescription>
         </DialogHeader>
         
@@ -266,7 +266,7 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
               inputMode="numeric"
               required
             />
-            <p className="text-sm text-muted-foreground">📱 1 IMEI = 1 unit stok</p>
+            <p className="text-sm text-muted-foreground">Pastikan IMEI Benar!</p>
           </div>
 
           <div className="space-y-2">
@@ -281,7 +281,7 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
               inputMode="numeric"
             />
             <p className="text-sm text-muted-foreground">
-              💡 Auto-terisi dari SRP, bisa diedit kalau harga beli berbeda
+              Auto-terisi dari SRP, bisa diedit kalau harga beli berbeda
             </p>
           </div>
 
@@ -304,7 +304,7 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
               disabled={incomingStockMutation.isPending}
               className="flex-1"
             >
-              {incomingStockMutation.isPending ? "Memproses..." : "Catat HP Datang"}
+              {incomingStockMutation.isPending ? "Memproses..." : "Rekap HP Datang"}
             </Button>
           </div>
         </div>
