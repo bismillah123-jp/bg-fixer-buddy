@@ -39,6 +39,71 @@ export function BarcodeScanner({
 
   const startScanner = async () => {
     try {
+      // Check if running in secure context (HTTPS or localhost)
+      if (!window.isSecureContext) {
+        toast({
+          title: "Kamera memerlukan HTTPS",
+          description: "Akses kamera hanya bisa di HTTPS atau localhost",
+          variant: "destructive"
+        });
+        onOpenChange(false);
+        return;
+      }
+
+      // Check if camera is available
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        toast({
+          title: "Kamera tidak tersedia",
+          description: "Browser ini tidak mendukung akses kamera",
+          variant: "destructive"
+        });
+        onOpenChange(false);
+        return;
+      }
+
+      // Request camera permission explicitly first
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { facingMode: "environment" } 
+        });
+        // Stop the test stream immediately
+        stream.getTracks().forEach(track => track.stop());
+      } catch (permErr: any) {
+        console.error("Permission error:", permErr);
+        let errorMsg = "Tidak dapat mengakses kamera.";
+        let actionMsg = "";
+
+        if (permErr.name === "NotAllowedError" || permErr.name === "PermissionDeniedError") {
+          errorMsg = "Akses kamera ditolak.";
+          // Detect device type
+          const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+          const isAndroid = /Android/.test(navigator.userAgent);
+          
+          if (isIOS) {
+            actionMsg = "Buka Settings > Safari > Camera, pilih 'Ask' atau 'Allow'";
+          } else if (isAndroid) {
+            actionMsg = "Buka Settings > Apps > Browser > Permissions > Camera, aktifkan";
+          } else {
+            actionMsg = "Klik icon kamera di address bar browser, lalu Allow";
+          }
+        } else if (permErr.name === "NotFoundError") {
+          errorMsg = "Kamera tidak ditemukan.";
+          actionMsg = "Pastikan device memiliki kamera";
+        } else if (permErr.name === "NotReadableError") {
+          errorMsg = "Kamera sedang digunakan aplikasi lain.";
+          actionMsg = "Tutup aplikasi lain yang menggunakan kamera";
+        }
+
+        toast({
+          title: errorMsg,
+          description: actionMsg,
+          variant: "destructive",
+          duration: 8000,
+        });
+        onOpenChange(false);
+        return;
+      }
+
       setIsScanning(true);
       const scanner = new Html5Qrcode("qr-reader");
       scannerRef.current = scanner;
@@ -84,9 +149,10 @@ export function BarcodeScanner({
     } catch (err) {
       console.error("Scanner error:", err);
       toast({
-        title: "Error",
-        description: "Tidak dapat mengakses kamera. Pastikan permission kamera sudah diaktifkan.",
-        variant: "destructive"
+        title: "Error memulai scanner",
+        description: "Terjadi kesalahan. Coba refresh halaman dan izinkan akses kamera.",
+        variant: "destructive",
+        duration: 8000,
       });
       onOpenChange(false);
     }
