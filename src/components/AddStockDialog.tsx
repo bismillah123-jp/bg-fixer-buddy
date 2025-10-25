@@ -10,10 +10,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
-import { Calendar as CalendarIcon } from "lucide-react";
+import { Calendar as CalendarIcon, Camera } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
+import { BarcodeScanner } from "@/components/BarcodeScanner";
 
 interface AddStockDialogProps {
   open: boolean;
@@ -28,6 +29,7 @@ export function AddStockDialog({ open, onOpenChange }: AddStockDialogProps) {
   const [notes, setNotes] = useState<string>("");
   const [imei, setImei] = useState<string>("");
   const [costPrice, setCostPrice] = useState<string>("");
+  const [scannerOpen, setScannerOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -248,14 +250,26 @@ export function AddStockDialog({ open, onOpenChange }: AddStockDialogProps) {
           </div>
 
           <div className="space-y-2">
-            <Label>IMEI *</Label>
-            <Input
-              placeholder="Masukkan IMEI"
-              value={imei}
-              onChange={(e) => setImei(e.target.value)}
-              inputMode="numeric"
-              required
-            />
+            <Label>IMEI * (15 digit)</Label>
+            <div className="flex gap-2">
+              <Input
+                placeholder="Masukkan IMEI"
+                value={imei}
+                onChange={(e) => setImei(e.target.value)}
+                maxLength={15}
+                inputMode="numeric"
+                required
+                className="flex-1"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => setScannerOpen(true)}
+              >
+                <Camera className="h-4 w-4" />
+              </Button>
+            </div>
             <p className="text-sm text-muted-foreground">
               📱 Koreksi stok pagi untuk IMEI ini (bisa + atau -)
             </p>
@@ -304,6 +318,15 @@ export function AddStockDialog({ open, onOpenChange }: AddStockDialogProps) {
           </div>
         </div>
       </DialogContent>
+
+      <BarcodeScanner
+        open={scannerOpen}
+        onOpenChange={setScannerOpen}
+        onScanSuccess={(scannedImei) => {
+          setImei(scannedImei);
+          setScannerOpen(false);
+        }}
+      />
     </Dialog>
   );
 }

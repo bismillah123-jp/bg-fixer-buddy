@@ -10,10 +10,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
-import { Calendar as CalendarIcon } from "lucide-react";
+import { Calendar as CalendarIcon, Camera, Plus, X } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
+import { BarcodeScanner } from "@/components/BarcodeScanner";
 
 interface IncomingStockDialogProps {
   open: boolean;
@@ -26,8 +27,9 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
   const [selectedBrand, setSelectedBrand] = useState<string>("");
   const [selectedModel, setSelectedModel] = useState<string>("");
   const [notes, setNotes] = useState<string>("");
-  const [imei, setImei] = useState<string>("");
+  const [imeiList, setImeiList] = useState<string[]>([""]);
   const [costPrice, setCostPrice] = useState<string>("");
+  const [scanningIndex, setScanningIndex] = useState<number | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -95,61 +97,71 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
       if (!selectedModel) {
         throw new Error('Model HP wajib dipilih');
       }
-      if (!imei.trim()) {
-        throw new Error('IMEI wajib diisi');
+
+      // Filter out empty IMEIs
+      const validImeis = imeiList.filter(imei => imei.trim() !== "");
+      
+      if (validImeis.length === 0) {
+        throw new Error('Harap masukkan minimal 1 IMEI');
       }
-      if (imei.trim().length < 10) {
-        throw new Error('IMEI tidak valid (minimal 10 karakter)');
+
+      // Validate IMEI format (15 digits)
+      for (const imei of validImeis) {
+        if (imei.length !== 15) {
+          throw new Error(`IMEI ${imei} harus 15 digit`);
+        }
+      }
+
+      // Check for duplicates in the list
+      const duplicates = validImeis.filter((imei, index) => validImeis.indexOf(imei) !== index);
+      if (duplicates.length > 0) {
+        throw new Error(`IMEI duplikat: ${duplicates.join(", ")}`);
       }
 
       const date = format(selectedDate, "yyyy-MM-dd");
-      const quantityNum = 1; // Always 1 since 1 IMEI = 1 stock
 
-      // Check if IMEI already exists (any event type)
-      const { data: existingImei, error: checkError } = await supabase
+      // Check for duplicate IMEI in database
+      const { data: existingStock, error: checkError } = await supabase
         .from('stock_events')
-        .select('id, event_type, date')
-        .eq('imei', imei.trim())
-        .limit(1)
-        .maybeSingle();
+        .select('imei')
+        .in('imei', validImeis);
 
       if (checkError) throw new Error(`Gagal memeriksa IMEI: ${checkError.message}`);
-      
-      if (existingImei) {
-        throw new Error(`Stok dengan IMEI ini sudah terdaftar di sistem (${existingImei.event_type} pada ${existingImei.date})`);
+
+      if (existingStock && existingStock.length > 0) {
+        const existingImeis = existingStock.map(s => s.imei).join(", ");
+        throw new Error(`IMEI sudah terdaftar: ${existingImeis}`);
       }
 
       // Parse cost price - remove dots and convert to number
       const costPriceNum = costPrice ? parseInt(costPrice.replace(/\./g, '')) : 0;
 
-      // 1. Write to stock_events (event-sourcing primary source)
+      // Insert multiple stock events
+      const eventsToInsert = validImeis.map(imei => ({
+        date: date,
+        imei: imei.trim(),
+        location_id: selectedLocation,
+        phone_model_id: selectedModel,
+        event_type: 'masuk',
+        qty: 1,
+        notes: notes || null,
+        metadata: costPriceNum > 0 ? { cost_price: costPriceNum } : {}
+      }));
+
       const { error: eventError } = await supabase
         .from('stock_events')
-        .insert({
-          date: date,
-          imei: imei.trim(),
-          location_id: selectedLocation,
-          phone_model_id: selectedModel,
-          event_type: 'masuk', // Incoming stock
-          qty: quantityNum,
-          notes: notes || null,
-          metadata: costPriceNum > 0 ? { cost_price: costPriceNum } : {}
-        });
+        .insert(eventsToInsert);
 
       if (eventError) {
         throw new Error(`Gagal menyimpan event: ${eventError.message}`);
       }
 
       // 2. Cascade recalculation happens automatically via database trigger
-      // stock_entries will be updated automatically by cascade_recalc_stock()
-      
-      // Note: Old direct insert to stock_entries removed - now calculated from events
-      // This ensures consistency and enables retroactive corrections
     },
     onSuccess: () => {
       toast({
         title: "Berhasil",
-        description: "HP datang berhasil dicatat",
+        description: `${imeiList.filter(i => i.trim()).length} unit berhasil dicatat`,
       });
       queryClient.invalidateQueries({ queryKey: ['stock-entries'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
@@ -160,7 +172,7 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
       setSelectedBrand("");
       setSelectedModel("");
       setNotes("");
-      setImei("");
+      setImeiList([""]);
       setCostPrice("");
     },
     onError: (error: any) => {
@@ -258,15 +270,59 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
           </div>
 
           <div className="space-y-2">
-            <Label>IMEI *</Label>
-            <Input
-              placeholder="Masukkan IMEI (wajib)"
-              value={imei}
-              onChange={(e) => setImei(e.target.value)}
-              inputMode="numeric"
-              required
-            />
-            <p className="text-sm text-muted-foreground">Pastikan IMEI Benar!</p>
+            <div className="flex items-center justify-between">
+              <Label>IMEI * (15 digit)</Label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setImeiList([...imeiList, ""])}
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Tambah
+              </Button>
+            </div>
+            
+            <div className="space-y-2 max-h-[200px] overflow-y-auto">
+              {imeiList.map((imei, index) => (
+                <div key={index} className="flex gap-2">
+                  <Input
+                    placeholder={`IMEI #${index + 1}`}
+                    value={imei}
+                    onChange={(e) => {
+                      const newList = [...imeiList];
+                      newList[index] = e.target.value;
+                      setImeiList(newList);
+                    }}
+                    maxLength={15}
+                    inputMode="numeric"
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setScanningIndex(index)}
+                  >
+                    <Camera className="h-4 w-4" />
+                  </Button>
+                  {imeiList.length > 1 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        const newList = imeiList.filter((_, i) => i !== index);
+                        setImeiList(newList.length === 0 ? [""] : newList);
+                      }}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+            <p className="text-sm text-muted-foreground">Scan atau input manual</p>
           </div>
 
           <div className="space-y-2">
@@ -309,6 +365,19 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
           </div>
         </div>
       </DialogContent>
+
+      <BarcodeScanner
+        open={scanningIndex !== null}
+        onOpenChange={(open) => !open && setScanningIndex(null)}
+        onScanSuccess={(scannedImei) => {
+          if (scanningIndex !== null) {
+            const newList = [...imeiList];
+            newList[scanningIndex] = scannedImei;
+            setImeiList(newList);
+            setScanningIndex(null);
+          }
+        }}
+      />
     </Dialog>
   );
 }
