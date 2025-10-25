@@ -22,8 +22,10 @@ export function BarcodeScanner({
 }: BarcodeScannerProps) {
   const { toast } = useToast();
   const scannerRef = useRef<Html5Qrcode | null>(null);
+  const videoTrackRef = useRef<MediaStreamTrack | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [torchEnabled, setTorchEnabled] = useState(false);
+  const [torchSupported, setTorchSupported] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -64,8 +66,19 @@ export function BarcodeScanner({
       // Request camera permission explicitly first
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { facingMode: "environment" } 
+          video: { 
+            facingMode: "environment"
+          } 
         });
+        
+        // Check torch capability
+        const videoTrack = stream.getVideoTracks()[0];
+        const capabilities = videoTrack.getCapabilities() as any;
+        if (capabilities.torch) {
+          setTorchSupported(true);
+          videoTrackRef.current = videoTrack;
+        }
+        
         // Stop the test stream immediately
         stream.getTracks().forEach(track => track.stop());
       } catch (permErr: any) {
@@ -110,7 +123,8 @@ export function BarcodeScanner({
 
       const config = {
         fps: 10,
-        qrbox: { width: 250, height: 250 },
+        qrbox: { width: 300, height: 150 }, // Lebih lebar untuk barcode horizontal
+        aspectRatio: 2.0, // Aspect ratio untuk barcode
         formatsToSupport: [
           Html5QrcodeSupportedFormats.CODE_128,
           Html5QrcodeSupportedFormats.CODE_39,
@@ -173,23 +187,39 @@ export function BarcodeScanner({
   };
 
   const toggleTorch = async () => {
-    if (scannerRef.current) {
-      try {
-        const state = await scannerRef.current.getState();
-        if (state === 2) { // Html5QrcodeScannerState.SCANNING
-          // Note: Torch control is experimental and may not work on all devices
-          setTorchEnabled(!torchEnabled);
-          toast({
-            title: torchEnabled ? "Flashlight Off" : "Flashlight On",
-          });
-        }
-      } catch (err) {
+    if (!torchSupported) {
+      toast({
+        title: "Flashlight tidak tersedia",
+        description: "Device ini tidak mendukung flashlight",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      // Get current video track from scanner
+      const videoElement = document.querySelector('#qr-reader video') as HTMLVideoElement;
+      if (videoElement && videoElement.srcObject) {
+        const stream = videoElement.srcObject as MediaStream;
+        const track = stream.getVideoTracks()[0];
+        
+        const newTorchState = !torchEnabled;
+        await track.applyConstraints({
+          advanced: [{ torch: newTorchState } as any]
+        });
+        
+        setTorchEnabled(newTorchState);
         toast({
-          title: "Flashlight tidak tersedia",
-          description: "Device ini tidak mendukung flashlight control",
-          variant: "destructive"
+          title: newTorchState ? "Flashlight Nyala" : "Flashlight Mati",
         });
       }
+    } catch (err) {
+      console.error("Torch error:", err);
+      toast({
+        title: "Gagal toggle flashlight",
+        description: "Terjadi kesalahan saat mengaktifkan flashlight",
+        variant: "destructive"
+      });
     }
   };
 
@@ -216,10 +246,10 @@ export function BarcodeScanner({
               variant="outline"
               className="flex-1"
               onClick={toggleTorch}
-              disabled={!isScanning}
+              disabled={!isScanning || !torchSupported}
             >
-              <Flashlight className="h-4 w-4 mr-2" />
-              Flashlight
+              <Flashlight className={`h-4 w-4 mr-2 ${torchEnabled ? 'text-yellow-500' : ''}`} />
+              {torchEnabled ? 'Matikan' : 'Flashlight'}
             </Button>
             <Button
               variant="outline"
