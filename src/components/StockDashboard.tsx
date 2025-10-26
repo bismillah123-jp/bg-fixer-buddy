@@ -80,9 +80,7 @@ export function StockDashboard() {
       const totalFinalStock = totalNightStock;
 
       const breakdown: { [location: string]: LocationData } = {};
-      let toSoko = 0;
-      let toMbutoh = 0;
-
+      
       for (const entry of data) {
         const loc = entry.stock_locations?.name || 'Unknown';
         if (!breakdown[loc]) {
@@ -91,12 +89,28 @@ export function StockDashboard() {
         breakdown[loc].morning_stock += entry.morning_stock;
         breakdown[loc].night_stock += entry.night_stock;
         breakdown[loc].sold += entry.sold;
+      }
 
-        if (entry.notes?.includes('Transfer In from SOKO')) {
-          toMbutoh += entry.adjustment;
-        }
-        if (entry.notes?.includes('Transfer In from MBUTOH')) {
-          toSoko += entry.adjustment;
+      // Get transfer data from stock_events
+      const { data: transferEvents } = await supabase
+        .from('stock_events')
+        .select('event_type, qty, location_id, stock_locations(name)')
+        .eq('date', selectedDate)
+        .in('event_type', ['transfer_in', 'transfer_out']);
+
+      let toSoko = 0;
+      let toMbutoh = 0;
+
+      if (transferEvents) {
+        for (const event of transferEvents) {
+          if (event.event_type === 'transfer_in') {
+            const locationName = event.stock_locations?.name;
+            if (locationName === 'SOKO') {
+              toSoko += event.qty;
+            } else if (locationName === 'MBUTOH') {
+              toMbutoh += event.qty;
+            }
+          }
         }
       }
 

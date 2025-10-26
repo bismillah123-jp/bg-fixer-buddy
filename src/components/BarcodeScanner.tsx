@@ -67,7 +67,9 @@ export function BarcodeScanner({
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ 
           video: { 
-            facingMode: "environment"
+            facingMode: "environment",
+            width: { ideal: 1920 },
+            height: { ideal: 1080 }
           } 
         });
         

@@ -201,7 +201,11 @@ export function StockTable({ selectedDate }: StockTableProps) {
   });
 
   const getStockStatus = (entry: StockEntry) => {
-    if (entry.sold > 0) return { label: "Terjual", variant: "destructive" as const };
+    // Check if item was sold (either sold on this date OR has a sale_date set)
+    if (entry.sold > 0 || entry.sale_date) return { label: "Terjual", variant: "destructive" as const };
+    // Check current stock level
+    if (entry.night_stock > 0) return { label: "Tersedia", variant: "success" as const };
+    // If no stock and not sold, might be transferred or other
     return { label: "Tersedia", variant: "success" as const };
   };
 
@@ -379,6 +383,23 @@ export function StockTable({ selectedDate }: StockTableProps) {
                 className="pl-10"
               />
             </div>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setSearchTerm("");
+                setBrandFilter("all");
+                setLocationFilter("all");
+                setStatusFilter("all");
+                localStorage.removeItem('stockTableSearchTerm');
+                localStorage.removeItem('stockTableBrandFilter');
+                localStorage.removeItem('stockTableLocationFilter');
+                localStorage.removeItem('stockTableStatusFilter');
+              }}
+              className="whitespace-nowrap"
+            >
+              <Filter className="w-4 h-4 mr-2" />
+              Reset Filter
+            </Button>
             <select
               value={brandFilter}
               onChange={(e) => handleBrandFilterChange(e.target.value)}
