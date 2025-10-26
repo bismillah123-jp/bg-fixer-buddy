@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -52,6 +52,7 @@ export interface StockEntry {
   sale_date: string | null;
   profit_loss: number;
   cost_price: number;
+  metadata?: { color?: string };
   stock_locations: {
     id: string;
     name: string;
@@ -112,6 +113,17 @@ export function StockTable({ selectedDate }: StockTableProps) {
     setStatusFilter(value);
     localStorage.setItem('stockTableStatusFilter', value);
   };
+
+  // Reset filters on component unmount or page refresh
+  useEffect(() => {
+    return () => {
+      // Clear all filters when leaving the component
+      localStorage.removeItem('stockTableSearchTerm');
+      localStorage.removeItem('stockTableBrandFilter');
+      localStorage.removeItem('stockTableLocationFilter');
+      localStorage.removeItem('stockTableStatusFilter');
+    };
+  }, []);
 
   const { data: stockEntries, isLoading } = useQuery({
     queryKey: ['stock-entries', searchTerm, brandFilter, locationFilter, statusFilter, selectedDate],
@@ -495,7 +507,10 @@ export function StockTable({ selectedDate }: StockTableProps) {
                               {entry.phone_models?.brand} {entry.phone_models?.model}
                             </div>
                             <div className="text-xs text-muted-foreground">
-                              {entry.phone_models?.storage_capacity} • {entry.phone_models?.color}
+                              {entry.phone_models?.storage_capacity}
+                              {(entry.metadata?.color || entry.phone_models?.color) && 
+                                ` • ${entry.metadata?.color || entry.phone_models?.color}`
+                              }
                             </div>
                           </div>
                         </TableCell>

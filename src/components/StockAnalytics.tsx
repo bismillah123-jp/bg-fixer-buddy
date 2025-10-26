@@ -9,16 +9,41 @@ import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 
-const COLORS = [
-  'hsl(142, 76%, 36%)',   // Green
-  'hsl(200, 100%, 50%)',  // Blue  
-  'hsl(346, 77%, 50%)',   // Pink
-  'hsl(48, 96%, 50%)',    // Yellow
+// Brand-specific colors mapping
+const BRAND_COLORS: Record<string, string> = {
+  'infinix': 'hsl(142, 76%, 36%)',     // Green
+  'Infinix': 'hsl(142, 76%, 36%)',     // Green
+  'Xiaomi': 'hsl(24, 100%, 50%)',      // Orange
+  'xiaomi': 'hsl(24, 100%, 50%)',      // Orange
+  'realme': 'hsl(48, 96%, 50%)',       // Yellow
+  'Realme': 'hsl(48, 96%, 50%)',       // Yellow
+  'vivo': 'hsl(200, 100%, 50%)',       // Blue
+  'Vivo': 'hsl(200, 100%, 50%)',       // Blue
+  'Itel': 'hsl(0, 84%, 60%)',          // Red
+  'itel': 'hsl(0, 84%, 60%)',          // Red
+  'nokia': 'hsl(220, 90%, 56%)',       // Blue
+  'Nokia': 'hsl(220, 90%, 56%)',       // Blue
+  'Samsung': 'hsl(210, 100%, 50%)',    // Blue
+  'samsung': 'hsl(210, 100%, 50%)',    // Blue
+  'oppo': 'hsl(120, 100%, 35%)',       // Green
+  'Oppo': 'hsl(120, 100%, 35%)',       // Green
+  'OPPO': 'hsl(120, 100%, 35%)',       // Green
+  'zte': 'hsl(200, 100%, 50%)',        // Blue
+  'ZTE': 'hsl(200, 100%, 50%)',        // Blue
+  'tecno': 'hsl(200, 100%, 45%)',      // Blue
+  'Tecno': 'hsl(200, 100%, 45%)',      // Blue
+};
+
+// Fallback colors for unknown brands
+const FALLBACK_COLORS = [
   'hsl(260, 100%, 65%)',  // Purple
-  'hsl(0, 84%, 60%)',     // Red
-  'hsl(24, 100%, 50%)',   // Orange
-  'hsl(120, 100%, 25%)'   // Dark Green
+  'hsl(346, 77%, 50%)',   // Pink
+  'hsl(180, 100%, 35%)',  // Cyan
 ];
+
+const getBrandColor = (brandName: string, index: number): string => {
+  return BRAND_COLORS[brandName] || FALLBACK_COLORS[index % FALLBACK_COLORS.length];
+};
 
 // Render active shape for pie chart
 const renderActiveShape = (props: any) => {
@@ -190,7 +215,13 @@ export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProp
             return acc;
         }, {} as Record<string, number>);
 
-        return Object.entries(grouped).map(([name, value]) => ({ name, value }));
+        const total = Object.values(grouped).reduce((sum, val) => sum + val, 0);
+        
+        return Object.entries(grouped).map(([name, value]) => ({ 
+          name, 
+          value,
+          percentage: total > 0 ? (value / total * 100) : 0
+        }));
     }
   });
 
@@ -487,7 +518,7 @@ export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProp
                 )}
               </div>
             </CardHeader>
-            <CardContent className="h-[400px] p-6">
+            <CardContent className="h-[450px] p-6">
               {compositionLoading ? <AnalyticsLoader /> : (
                 stockCompositionData && stockCompositionData.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%" className="chart-container">
@@ -506,13 +537,16 @@ export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProp
                         dataKey="value" 
                         nameKey="name" 
                         cx="50%" 
-                        cy="50%" 
-                        innerRadius={60}
-                        outerRadius={100} 
-                        label={({ name, value, percent }) => 
-                          value > 0 ? `${name}: ${value}` : ''
+                        cy="45%" 
+                        innerRadius={70}
+                        outerRadius={110} 
+                        label={({ name, percentage }) => 
+                          percentage > 0 ? `${name}: ${percentage.toFixed(1)}%` : ''
                         }
-                        labelLine={false}
+                        labelLine={{
+                          stroke: 'hsl(var(--foreground))',
+                          strokeWidth: 1
+                        }}
                         animationBegin={0}
                         animationDuration={1200}
                         activeIndex={activeIndex}
@@ -523,10 +557,10 @@ export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProp
                         }}
                         style={{ cursor: 'pointer' }}
                       >
-                        {stockCompositionData?.map((_entry, index) => (
+                        {stockCompositionData?.map((entry, index) => (
                           <Cell 
                             key={`cell-${index}`} 
-                            fill={COLORS[index % COLORS.length]}
+                            fill={getBrandColor(entry.name, index)}
                             className="transition-all duration-300 hover:opacity-80 hover-glow"
                             filter={activeIndex === index ? "url(#glow)" : "none"}
                           />
@@ -550,7 +584,7 @@ export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProp
                                 </p>
                                 <p className="text-xs text-muted-foreground">
                                   Persentase: <span className="font-semibold text-foreground">
-                                    {((data.payload.percent || 0) * 100).toFixed(1)}%
+                                    {data.payload.percentage?.toFixed(1)}%
                                   </span>
                                 </p>
                               </div>
@@ -561,29 +595,28 @@ export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProp
                       />
                       <RechartsLegend 
                         wrapperStyle={{ 
-                          fontSize: '11px', 
-                          paddingTop: '20px',
+                          fontSize: '12px', 
+                          paddingTop: '15px',
                           display: 'flex',
                           flexWrap: 'wrap',
                           justifyContent: 'center',
-                          gap: '12px',
-                          maxHeight: '80px',
-                          overflow: 'hidden'
+                          gap: '10px',
+                          maxHeight: '100px',
+                          overflow: 'auto'
                         }}
                         iconType="circle"
-                        formatter={(value, entry) => (
-                          <span style={{ 
-                            color: entry.color, 
-                            fontWeight: '500',
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            maxWidth: '80px',
-                            display: 'inline-block'
-                          }}>
-                            {value}
-                          </span>
-                        )}
+                        formatter={(value, entry) => {
+                          const data = stockCompositionData?.find(d => d.name === value);
+                          return (
+                            <span style={{ 
+                              color: 'hsl(var(--foreground))', 
+                              fontWeight: '500',
+                              whiteSpace: 'nowrap'
+                            }}>
+                              {value} ({data?.percentage?.toFixed(1)}%)
+                            </span>
+                          );
+                        }}
                       />
                     </PieChart>
                   </ResponsiveContainer>

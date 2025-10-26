@@ -17,13 +17,28 @@ self.addEventListener('install', (event) => {
         console.error('Cache install failed:', error);
       })
   );
+  // Force the waiting service worker to become the active service worker
   self.skipWaiting();
 });
 
-// Fetch event - network first, fallback to cache for offline
+// Fetch event - network first with aggressive cache busting
 self.addEventListener('fetch', (event) => {
+  // For navigation requests, always go to network with no-cache
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request, { cache: 'no-cache' })
+        .catch(() => {
+          return caches.match(event.request);
+        })
+    );
+    return;
+  }
+
+  // For other requests, use network first strategy
   event.respondWith(
-    fetch(event.request)
+    fetch(event.request, { 
+      cache: 'reload' // Always fetch fresh
+    })
       .then((response) => {
         // Check if valid response
         if (!response || response.status !== 200 || response.type !== 'basic') {

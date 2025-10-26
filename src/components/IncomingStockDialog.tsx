@@ -26,9 +26,9 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
   const [selectedLocation, setSelectedLocation] = useState<string>("");
   const [selectedBrand, setSelectedBrand] = useState<string>("");
   const [selectedModel, setSelectedModel] = useState<string>("");
+  const [selectedColor, setSelectedColor] = useState<string>("");
   const [notes, setNotes] = useState<string>("");
   const [imeiList, setImeiList] = useState<string[]>([""]);
-  const [costPrice, setCostPrice] = useState<string>("");
   const [scanningIndex, setScanningIndex] = useState<number | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -75,15 +75,10 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
     enabled: !!selectedBrand
   });
 
-  // Auto-fill cost price with SRP when model is selected
+  // Reset color when brand changes
   useEffect(() => {
-    if (selectedModel && phoneModels) {
-      const model = phoneModels.find(m => m.id === selectedModel);
-      if (model && model.srp && model.srp > 0) {
-        setCostPrice(model.srp.toLocaleString('id-ID'));
-      }
-    }
-  }, [selectedModel, phoneModels]);
+    setSelectedColor("");
+  }, [selectedBrand]);
 
   const incomingStockMutation = useMutation({
     mutationFn: async () => {
@@ -96,6 +91,9 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
       }
       if (!selectedModel) {
         throw new Error('Model HP wajib dipilih');
+      }
+      if (!selectedColor) {
+        throw new Error('Warna wajib dipilih');
       }
 
       // Filter out empty IMEIs
@@ -133,9 +131,6 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
         throw new Error(`IMEI sudah terdaftar: ${existingImeis}`);
       }
 
-      // Parse cost price - remove dots and convert to number
-      const costPriceNum = costPrice ? parseInt(costPrice.replace(/\./g, '')) : 0;
-
       // Insert multiple stock events
       const eventsToInsert = validImeis.map(imei => ({
         date: date,
@@ -145,7 +140,7 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
         event_type: 'masuk',
         qty: 1,
         notes: notes || null,
-        metadata: costPriceNum > 0 ? { cost_price: costPriceNum } : {}
+        metadata: { color: selectedColor }
       }));
 
       const { error: eventError } = await supabase
@@ -171,9 +166,9 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
       setSelectedLocation("");
       setSelectedBrand("");
       setSelectedModel("");
+      setSelectedColor("");
       setNotes("");
       setImeiList([""]);
-      setCostPrice("");
     },
     onError: (error: any) => {
       toast({
@@ -262,11 +257,20 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
               <SelectContent>
                 {phoneModels?.map(model => (
                   <SelectItem key={model.id} value={model.id}>
-                    {model.model} {model.storage_capacity && `- ${model.storage_capacity}`} {model.color && `- ${model.color}`}
+                    {model.model} {model.storage_capacity && `- ${model.storage_capacity}`}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Warna *</Label>
+            <Input
+              placeholder="Masukkan warna HP"
+              value={selectedColor}
+              onChange={(e) => setSelectedColor(e.target.value)}
+            />
           </div>
 
           <div className="space-y-2">
@@ -323,22 +327,6 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
               ))}
             </div>
             <p className="text-sm text-muted-foreground">Scan atau input manual</p>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Harga Modal</Label>
-            <Input
-              placeholder="Harga modal (auto-fill dari SRP)"
-              value={costPrice}
-              onChange={(e) => {
-                const numOnly = e.target.value.replace(/\D/g, '');
-                setCostPrice(numOnly ? parseInt(numOnly).toLocaleString('id-ID') : '');
-              }}
-              inputMode="numeric"
-            />
-            <p className="text-sm text-muted-foreground">
-              Auto-terisi dari SRP, bisa diedit kalau harga beli berbeda
-            </p>
           </div>
 
           <div className="space-y-2">
