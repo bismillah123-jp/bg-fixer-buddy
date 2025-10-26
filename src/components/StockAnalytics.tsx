@@ -59,6 +59,7 @@ export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProp
   // 1. Query for KPI cards
   const { data: kpiStats, isLoading: kpiLoading } = useQuery({
     queryKey: ['kpi-stats', selectedDate.toISOString()],
+    staleTime: 1000 * 60 * 5, // 5 minutes
     queryFn: async () => {
       const thirtyDaysAgo = new Date(selectedDate);
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -156,6 +157,7 @@ export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProp
   // 2. Query for Daily Sales Chart
   const { data: dailySalesData, isLoading: dailySalesLoading } = useQuery({
     queryKey: ['daily-sales-chart', selectedDate.toISOString()],
+    staleTime: 1000 * 60 * 5, // 5 minutes
     queryFn: async () => {
       const thirtyDaysAgo = new Date(selectedDate);
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -176,6 +178,7 @@ export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProp
   // 3. Query for Stock Composition Pie Chart
   const { data: stockCompositionData, isLoading: compositionLoading } = useQuery({
     queryKey: ['stock-composition', selectedDate.toISOString()],
+    staleTime: 1000 * 60 * 5, // 5 minutes
     queryFn: async () => {
         const today = selectedDate.toISOString().split('T')[0];
         const { data, error } = await supabase.from('stock_entries').select('night_stock, phone_models(brand)').eq('date', today).gt('night_stock', 0);
@@ -223,6 +226,7 @@ export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProp
   // 4. Query for Best Selling Models Table
   const { data: bestSellingModels, isLoading: modelsLoading } = useQuery({
     queryKey: ['best-selling-models', selectedDate.toISOString()],
+    staleTime: 1000 * 60 * 5, // 5 minutes
     queryFn: async () => {
         const thirtyDaysAgo = new Date(selectedDate);
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);

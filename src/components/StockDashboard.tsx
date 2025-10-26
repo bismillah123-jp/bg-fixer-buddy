@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -44,6 +44,17 @@ export function StockDashboard() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'table' | 'analytics' | 'settings'>('dashboard');
   const [date, setDate] = useState<Date>(new Date());
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  // Invalidate all queries when date changes to force refetch
+  useEffect(() => {
+    queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+    queryClient.invalidateQueries({ queryKey: ['stock-entries'] });
+    queryClient.invalidateQueries({ queryKey: ['kpi-stats'] });
+    queryClient.invalidateQueries({ queryKey: ['daily-sales-chart'] });
+    queryClient.invalidateQueries({ queryKey: ['stock-composition'] });
+    queryClient.invalidateQueries({ queryKey: ['best-selling-models'] });
+  }, [date, queryClient]);
 
   // Fetch dashboard statistics with automatic rollover check
   const { data: stats, isLoading: statsLoading, refetch } = useQuery({
