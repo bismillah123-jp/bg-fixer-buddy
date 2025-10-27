@@ -43,8 +43,14 @@ interface DashboardStats {
 export function StockDashboard() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'table' | 'analytics' | 'settings'>('dashboard');
   const [date, setDate] = useState<Date>(new Date());
+  const [quickFilter, setQuickFilter] = useState<'incoming' | 'sold' | 'transfer' | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  const handleCardClick = (filterType: 'incoming' | 'sold' | 'transfer') => {
+    setQuickFilter(filterType);
+    setActiveTab('table');
+  };
 
   // Invalidate all queries when date changes to force refetch
   useEffect(() => {
@@ -250,7 +256,10 @@ export function StockDashboard() {
                 </Card>
 
                 {/* HP Datang */}
-                <Card className="bg-green-500/10 border-green-500/20">
+                <Card 
+                  className="bg-green-500/10 border-green-500/20 cursor-pointer hover:bg-green-500/20 transition-colors"
+                  onClick={() => handleCardClick('incoming')}
+                >
                   <CardHeader className="flex flex-row items-center justify-between pb-2">
                     <CardTitle className="text-base font-medium">HP Datang</CardTitle>
                     <Plus className="w-5 h-5 text-green-600" />
@@ -262,7 +271,10 @@ export function StockDashboard() {
                 </Card>
 
                 {/* Total Laku */}
-                <Card className="bg-red-500/10 border-red-500/20">
+                <Card 
+                  className="bg-red-500/10 border-red-500/20 cursor-pointer hover:bg-red-500/20 transition-colors"
+                  onClick={() => handleCardClick('sold')}
+                >
                   <CardHeader className="flex flex-row items-center justify-between pb-2">
                     <CardTitle className="text-base font-medium">Total Laku</CardTitle>
                     <Tag className="w-5 h-5 text-red-600" />
@@ -276,7 +288,10 @@ export function StockDashboard() {
                 </Card>
 
                 {/* Transfer */}
-                <Card className="bg-blue-500/10 border-blue-500/20">
+                <Card 
+                  className="bg-blue-500/10 border-blue-500/20 cursor-pointer hover:bg-blue-500/20 transition-colors"
+                  onClick={() => handleCardClick('transfer')}
+                >
                   <CardHeader className="flex flex-row items-center justify-between pb-2">
                     <CardTitle className="text-base font-medium">Transfer</CardTitle>
                     <ArrowLeftRight className="w-5 h-5 text-blue-600" />
@@ -320,7 +335,7 @@ export function StockDashboard() {
 
           {/* Stock Table View */}
           {activeTab === 'table' && (
-            <StockTable selectedDate={date} />
+            <StockTable selectedDate={date} quickFilter={quickFilter} onFilterChange={() => setQuickFilter(null)} />
           )}
 
 

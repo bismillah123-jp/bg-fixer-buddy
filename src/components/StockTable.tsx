@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -23,7 +23,7 @@ import {
   TableHeader, 
   TableRow 
 } from "@/components/ui/table";
-import { Search, Filter, Edit, Eye, ArrowRightLeft, Trash2, CheckCircle } from "lucide-react";
+import { Search, Filter, Edit, Eye, ArrowRightLeft, Trash2, CheckCircle, Package } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { EditStockDialog } from "./EditStockDialog";
@@ -34,6 +34,8 @@ import { cn } from "@/lib/utils";
 
 interface StockTableProps {
   selectedDate: Date;
+  quickFilter?: 'incoming' | 'sold' | 'transfer' | null;
+  onFilterChange?: () => void;
 }
 
 export interface StockEntry {
@@ -67,7 +69,7 @@ export interface StockEntry {
   };
 }
 
-export function StockTable({ selectedDate }: StockTableProps) {
+export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockTableProps) {
   // Load filters from localStorage
   const [searchTerm, setSearchTerm] = useState(() => {
     return localStorage.getItem('stockTableSearchTerm') || "";
@@ -81,6 +83,19 @@ export function StockTable({ selectedDate }: StockTableProps) {
   const [statusFilter, setStatusFilter] = useState(() => {
     return localStorage.getItem('stockTableStatusFilter') || "all";
   });
+
+  // Apply quick filter from dashboard
+  useEffect(() => {
+    if (quickFilter) {
+      if (quickFilter === 'incoming') {
+        setStatusFilter('tersedia');
+      } else if (quickFilter === 'sold') {
+        setStatusFilter('terjual');
+      } else if (quickFilter === 'transfer') {
+        setStatusFilter('tersedia');
+      }
+    }
+  }, [quickFilter]);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isSaleConfirmDialogOpen, setIsSaleConfirmDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -147,6 +162,15 @@ export function StockTable({ selectedDate }: StockTableProps) {
       // Only show entries with IMEI (individual items)
       // This ensures each row represents a unique phone
       filtered = filtered.filter(entry => entry.imei && entry.imei.trim() !== '');
+
+      // Quick filter logic
+      if (quickFilter === 'incoming') {
+        filtered = filtered.filter(entry => entry.incoming > 0);
+      } else if (quickFilter === 'sold') {
+        filtered = filtered.filter(entry => entry.sold > 0);
+      } else if (quickFilter === 'transfer') {
+        filtered = filtered.filter(entry => entry.adjustment !== 0);
+      }
 
       // Apply search filter
       if (searchTerm) {
@@ -377,22 +401,36 @@ export function StockTable({ selectedDate }: StockTableProps) {
 
   return (
     <>
-      <Card className="border-border/50 bg-card/50 backdrop-blur">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Eye className="w-5 h-5" />
-            Inventori Stok
-          </CardTitle>
+      <Card className="border-0 shadow-lg">
+        <CardHeader className="space-y-4 bg-gradient-to-r from-primary/5 to-primary/10">
+          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+            <div className="space-y-1">
+              <CardTitle className="text-2xl font-bold flex items-center gap-2">
+                <Eye className="w-6 h-6" />
+                Data Stok
+              </CardTitle>
+              {quickFilter && (
+                <div className="flex items-center gap-2 mt-2">
+                  <Badge variant="default" className="capitalize">
+                    Filter: {quickFilter === 'incoming' ? 'HP Datang' : quickFilter === 'sold' ? 'Laku' : 'Transfer'}
+                  </Badge>
+                  <Button variant="ghost" size="sm" onClick={onFilterChange}>
+                    ✕ Hapus
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
 
           {/* Filters */}
           <div className="flex flex-col sm:flex-row gap-4 pt-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Cari berdasarkan merk, model, IMEI, atau warna..."
+                placeholder="🔍 Cari model, IMEI, warna..."
                 value={searchTerm}
                 onChange={(e) => handleSearchChange(e.target.value)}
-                className="pl-10"
+                className="pl-10 border-2 focus:border-primary"
               />
             </div>
             <Button
@@ -458,19 +496,23 @@ export function StockTable({ selectedDate }: StockTableProps) {
               ))}
             </div>
           ) : (
-            <div className="rounded-lg border border-border/50 overflow-x-auto">
+            <div className="rounded-lg border-2 border-border overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-muted/30">
-                     <TableHead className="min-w-[100px]">Tanggal</TableHead>
-                     <TableHead className="min-w-[80px]">Lokasi</TableHead>
-                     <TableHead className="min-w-[150px]">Tipe</TableHead>
-                     <TableHead className="min-w-[120px]">IMEI</TableHead>
-                     <TableHead className="min-w-[60px]">Awal</TableHead>
-                     <TableHead className="min-w-[60px]">Akhir</TableHead>
-                     <TableHead className="min-w-[100px]">Harga Jual</TableHead>
-                     <TableHead className="min-w-[80px]">Status</TableHead>
-                     <TableHead className="min-w-[140px]">Aksi</TableHead>
+                  <TableRow className="bg-muted/50">
+                     <TableHead className="min-w-[100px] font-semibold">Tanggal</TableHead>
+                     <TableHead className="min-w-[80px] font-semibold">Lokasi</TableHead>
+                     <TableHead className="min-w-[200px] font-semibold">Tipe & Warna</TableHead>
+                     <TableHead className="min-w-[120px] font-semibold">IMEI</TableHead>
+                     <TableHead className="min-w-[60px] text-center font-semibold">Pagi</TableHead>
+                     <TableHead className="min-w-[60px] text-center font-semibold">Masuk</TableHead>
+                     <TableHead className="min-w-[60px] text-center font-semibold">Retur</TableHead>
+                     <TableHead className="min-w-[60px] text-center font-semibold">Laku</TableHead>
+                     <TableHead className="min-w-[60px] text-center font-semibold">Koreksi</TableHead>
+                     <TableHead className="min-w-[60px] text-center font-semibold">Malam</TableHead>
+                     <TableHead className="min-w-[100px] font-semibold">Harga Jual</TableHead>
+                     <TableHead className="min-w-[80px] font-semibold">Status</TableHead>
+                     <TableHead className="min-w-[140px] font-semibold">Aksi</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -481,7 +523,7 @@ export function StockTable({ selectedDate }: StockTableProps) {
                     if (isEditing) {
                       return (
                         <TableRow key={entry.id} className="hover:bg-muted/20 transition-colors">
-                          <TableCell colSpan={9} className="p-0">
+                          <TableCell colSpan={13} className="p-0">
                             <EditStockInline
                               stockEntry={entry}
                               onCancel={() => setEditingEntryId(null)}
@@ -492,38 +534,72 @@ export function StockTable({ selectedDate }: StockTableProps) {
                     }
                     
                     return (
-                      <TableRow key={entry.id} className="hover:bg-muted/20 transition-colors">
+                      <TableRow key={entry.id} className="hover:bg-primary/5 transition-all border-b">
                         <TableCell className="font-medium">
-                          {new Date(entry.date).toLocaleDateString('id-ID')}
+                          {new Date(entry.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' })}
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline" className="text-xs">
+                          <Badge variant="outline" className="font-semibold">
                             {entry.stock_locations?.name}
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <div className="space-y-1">
-                            <div className="font-medium text-sm">
-                              {entry.phone_models?.brand} {entry.phone_models?.model}
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <Badge variant="secondary" className="font-semibold">
+                                {entry.phone_models?.brand}
+                              </Badge>
+                              <span className="font-medium text-sm">
+                                {entry.phone_models?.model}
+                              </span>
                             </div>
-                            <div className="text-xs text-muted-foreground">
-                              {entry.phone_models?.storage_capacity}
-                              {(entry.metadata?.color || entry.phone_models?.color) && 
-                                ` • ${entry.metadata?.color || entry.phone_models?.color}`
-                              }
+                            <div className="flex items-center gap-2">
+                              {entry.phone_models?.storage_capacity && (
+                                <Badge variant="outline" className="text-xs">
+                                  {entry.phone_models?.storage_capacity}
+                                </Badge>
+                              )}
+                              {(entry.metadata?.color || entry.phone_models?.color) && (
+                                <Badge className="text-xs bg-gradient-to-r from-purple-500 to-pink-500">
+                                  {entry.metadata?.color || entry.phone_models?.color}
+                                </Badge>
+                              )}
                             </div>
                           </div>
                         </TableCell>
-                         <TableCell className="font-mono text-xs">
+                         <TableCell className="font-mono text-xs text-muted-foreground">
                            {entry.imei || "—"}
                          </TableCell>
                          <TableCell className="text-center">
-                           <Badge variant="secondary" className="text-xs">
+                           <Badge variant="outline" className="font-semibold">
                              {entry.morning_stock}
                            </Badge>
                          </TableCell>
                          <TableCell className="text-center">
-                           <Badge variant="outline" className="text-xs">
+                           <Badge className="bg-green-500 hover:bg-green-600 font-bold">
+                             {entry.incoming}
+                           </Badge>
+                         </TableCell>
+                         <TableCell className="text-center">
+                           <Badge className="bg-blue-500 hover:bg-blue-600 font-bold">
+                             {entry.returns}
+                           </Badge>
+                         </TableCell>
+                         <TableCell className="text-center">
+                           <Badge className="bg-red-500 hover:bg-red-600 font-bold">
+                             {entry.sold}
+                           </Badge>
+                         </TableCell>
+                         <TableCell className="text-center">
+                           <Badge 
+                             variant={entry.adjustment !== 0 ? "default" : "outline"} 
+                             className={entry.adjustment !== 0 ? "bg-yellow-500 hover:bg-yellow-600 font-bold" : ""}
+                           >
+                             {entry.adjustment}
+                           </Badge>
+                         </TableCell>
+                         <TableCell className="text-center">
+                           <Badge className="bg-primary hover:bg-primary/90 font-bold text-base">
                              {entry.night_stock}
                            </Badge>
                          </TableCell>
@@ -546,26 +622,55 @@ export function StockTable({ selectedDate }: StockTableProps) {
                             ) : (
                               <span className="text-xs text-muted-foreground">—</span>
                             )}
+                          </TableCell>
+                          <TableCell>
+                            <Badge 
+                              variant={status.variant} 
+                              className="text-xs font-semibold px-3 py-1"
+                            >
+                              {status.label}
+                            </Badge>
+                          </TableCell>
+                         <TableCell className="flex items-center gap-1">
+                           <Button 
+                             variant="ghost" 
+                             size="icon" 
+                             className="h-9 w-9 hover:bg-green-500/20" 
+                             onClick={() => handleMarkAsSoldClick(entry)} 
+                             disabled={entry.night_stock === 0}
+                             title="Tandai Terjual"
+                           >
+                             <CheckCircle className="h-5 w-5 text-green-600" />
+                           </Button>
+                           <Button 
+                             variant="ghost" 
+                             size="icon" 
+                             className="h-9 w-9 hover:bg-blue-500/20" 
+                             onClick={() => handleTransferClick(entry)} 
+                             disabled={entry.night_stock === 0}
+                             title="Transfer"
+                           >
+                             <ArrowRightLeft className="h-5 w-5 text-blue-600" />
+                           </Button>
+                           <Button 
+                             variant="ghost" 
+                             size="icon" 
+                             className="h-9 w-9 hover:bg-yellow-500/20" 
+                             onClick={() => setEditingEntryId(entry.id)}
+                             title="Edit"
+                           >
+                             <Edit className="h-5 w-5 text-yellow-600" />
+                           </Button>
+                           <Button 
+                             variant="ghost" 
+                             size="icon" 
+                             className="h-9 w-9 hover:bg-red-500/20" 
+                             onClick={() => handleDeleteClick(entry)}
+                             title="Hapus"
+                           >
+                             <Trash2 className="h-5 w-5 text-red-600" />
+                           </Button>
                          </TableCell>
-                         <TableCell>
-                           <Badge variant={status.variant} className="text-xs">
-                             {status.label}
-                           </Badge>
-                         </TableCell>
-                        <TableCell className="flex items-center gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleMarkAsSoldClick(entry)} disabled={entry.night_stock === 0}>
-                            <CheckCircle className="h-4 w-4 text-green-500" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleTransferClick(entry)} disabled={entry.night_stock === 0}>
-                            <ArrowRightLeft className="h-4 w-4 text-blue-500" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditingEntryId(entry.id)}>
-                            <Edit className="h-4 w-4 text-yellow-500" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDeleteClick(entry)}>
-                            <Trash2 className="h-4 w-4 text-red-500" />
-                          </Button>
-                        </TableCell>
                       </TableRow>
                     );
                   })}
@@ -573,8 +678,10 @@ export function StockTable({ selectedDate }: StockTableProps) {
               </Table>
 
               {stockEntries?.length === 0 && (
-                <div className="text-center py-8 text-muted-foreground">
-                  Tidak ada data stok ditemukan.
+                <div className="text-center py-12 text-muted-foreground">
+                  <Package className="w-16 h-16 mx-auto mb-4 opacity-20" />
+                  <p className="text-lg font-medium">Tidak ada data stok ditemukan</p>
+                  <p className="text-sm mt-2">Coba ubah filter atau tanggal yang dipilih</p>
                 </div>
               )}
             </div>
