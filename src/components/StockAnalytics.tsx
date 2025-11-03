@@ -518,28 +518,20 @@ export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProp
                 )}
               </div>
             </CardHeader>
-            <CardContent className="h-[450px] p-6">
+            <CardContent className="h-[400px] p-6">
               {compositionLoading ? <AnalyticsLoader /> : (
                 stockCompositionData && stockCompositionData.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%" className="chart-container">
                     <PieChart className="chart-pie">
-                      <defs>
-                        <filter id="glow">
-                          <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
-                          <feMerge> 
-                            <feMergeNode in="coloredBlur"/>
-                            <feMergeNode in="SourceGraphic"/>
-                          </feMerge>
-                        </filter>
-                      </defs>
+...
                       <Pie 
                         data={stockCompositionData} 
                         dataKey="value" 
                         nameKey="name" 
                         cx="50%" 
-                        cy="45%" 
-                        innerRadius={70}
-                        outerRadius={110} 
+                        cy="50%" 
+                        innerRadius={75}
+                        outerRadius={120}
                         label={({ name, percentage }) => 
                           percentage > 0 ? `${name}: ${percentage.toFixed(1)}%` : ''
                         }

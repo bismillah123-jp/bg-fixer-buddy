@@ -498,33 +498,28 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
           ) : (
             <div className="rounded-lg border-2 border-border overflow-x-auto">
               <Table>
-                <TableHeader>
+                 <TableHeader>
                   <TableRow className="bg-muted/50">
-                     <TableHead className="min-w-[100px] font-semibold">Tanggal</TableHead>
                      <TableHead className="min-w-[80px] font-semibold">Lokasi</TableHead>
-                     <TableHead className="min-w-[200px] font-semibold">Tipe & Warna</TableHead>
+                     <TableHead className="min-w-[200px] font-semibold">Tipe</TableHead>
+                     <TableHead className="min-w-[100px] font-semibold">Warna</TableHead>
                      <TableHead className="min-w-[120px] font-semibold">IMEI</TableHead>
-                     <TableHead className="min-w-[60px] text-center font-semibold">Pagi</TableHead>
-                     <TableHead className="min-w-[60px] text-center font-semibold">Masuk</TableHead>
-                     <TableHead className="min-w-[60px] text-center font-semibold">Retur</TableHead>
-                     <TableHead className="min-w-[60px] text-center font-semibold">Laku</TableHead>
-                     <TableHead className="min-w-[60px] text-center font-semibold">Koreksi</TableHead>
-                     <TableHead className="min-w-[60px] text-center font-semibold">Malam</TableHead>
-                     <TableHead className="min-w-[100px] font-semibold">Harga Jual</TableHead>
+                     <TableHead className="min-w-[80px] text-center font-semibold">Stok Awal</TableHead>
+                     <TableHead className="min-w-[80px] text-center font-semibold">Stok Akhir</TableHead>
                      <TableHead className="min-w-[80px] font-semibold">Status</TableHead>
                      <TableHead className="min-w-[140px] font-semibold">Aksi</TableHead>
                   </TableRow>
-                </TableHeader>
+                 </TableHeader>
                 <TableBody>
                   {stockEntries?.map((entry) => {
                     const status = getStockStatus(entry);
                     const isEditing = editingEntryId === entry.id;
                     
                     if (isEditing) {
-                      return (
+                       return (
                         <TableRow key={entry.id} className="hover:bg-muted/20 transition-colors">
-                          <TableCell colSpan={13} className="p-0">
-                            <EditStockInline
+                <TableCell colSpan={8} className="p-0">
+                  <EditStockInline
                               stockEntry={entry}
                               onCancel={() => setEditingEntryId(null)}
                             />
@@ -535,16 +530,13 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
                     
                     return (
                       <TableRow key={entry.id} className="hover:bg-primary/5 transition-all border-b">
-                        <TableCell className="font-medium">
-                          {new Date(entry.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' })}
-                        </TableCell>
                         <TableCell>
-                          <Badge variant="outline" className="font-semibold">
+                          <Badge variant="outline" className="font-semibold text-sm">
                             {entry.stock_locations?.name}
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <div className="space-y-2">
+                          <div className="space-y-1">
                             <div className="flex items-center gap-2">
                               <Badge variant="secondary" className="font-semibold">
                                 {entry.phone_models?.brand}
@@ -553,49 +545,28 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
                                 {entry.phone_models?.model}
                               </span>
                             </div>
-                            <div className="flex items-center gap-2">
-                              {entry.phone_models?.storage_capacity && (
-                                <Badge variant="outline" className="text-xs">
-                                  {entry.phone_models?.storage_capacity}
-                                </Badge>
-                              )}
-                              {(entry.metadata?.color || entry.phone_models?.color) && (
-                                <Badge className="text-xs bg-gradient-to-r from-purple-500 to-pink-500">
-                                  {entry.metadata?.color || entry.phone_models?.color}
-                                </Badge>
-                              )}
-                            </div>
+                            {entry.phone_models?.storage_capacity && (
+                              <Badge variant="outline" className="text-xs">
+                                {entry.phone_models?.storage_capacity}
+                              </Badge>
+                            )}
                           </div>
+                        </TableCell>
+                        <TableCell>
+                          {(entry.metadata?.color || entry.phone_models?.color) ? (
+                            <Badge className="text-sm font-semibold bg-gradient-to-r from-purple-500 to-pink-500 shadow-lg">
+                              {entry.metadata?.color || entry.phone_models?.color}
+                            </Badge>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
                         </TableCell>
                          <TableCell className="font-mono text-xs text-muted-foreground">
                            {entry.imei || "—"}
                          </TableCell>
                          <TableCell className="text-center">
-                           <Badge variant="outline" className="font-semibold">
+                           <Badge variant="outline" className="font-bold text-base">
                              {entry.morning_stock}
-                           </Badge>
-                         </TableCell>
-                         <TableCell className="text-center">
-                           <Badge className="bg-green-500 hover:bg-green-600 font-bold">
-                             {entry.incoming}
-                           </Badge>
-                         </TableCell>
-                         <TableCell className="text-center">
-                           <Badge className="bg-blue-500 hover:bg-blue-600 font-bold">
-                             {entry.returns}
-                           </Badge>
-                         </TableCell>
-                         <TableCell className="text-center">
-                           <Badge className="bg-red-500 hover:bg-red-600 font-bold">
-                             {entry.sold}
-                           </Badge>
-                         </TableCell>
-                         <TableCell className="text-center">
-                           <Badge 
-                             variant={entry.adjustment !== 0 ? "default" : "outline"} 
-                             className={entry.adjustment !== 0 ? "bg-yellow-500 hover:bg-yellow-600 font-bold" : ""}
-                           >
-                             {entry.adjustment}
                            </Badge>
                          </TableCell>
                          <TableCell className="text-center">
@@ -603,26 +574,6 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
                              {entry.night_stock}
                            </Badge>
                          </TableCell>
-                          <TableCell>
-                            {entry.selling_price > 0 ? (
-                              <div className="space-y-1">
-                                <div className={cn(
-                                  "text-sm font-medium",
-                                  entry.profit_loss >= 0 ? "text-success" : "text-destructive"
-                                )}>
-                                  Rp {entry.selling_price.toLocaleString('id-ID')}
-                                </div>
-                                <div className={cn(
-                                  "text-xs font-semibold",
-                                  entry.profit_loss >= 0 ? "text-success" : "text-destructive"
-                                )}>
-                                  {entry.profit_loss >= 0 ? 'Untung' : 'Rugi'}: Rp {Math.abs(entry.profit_loss).toLocaleString('id-ID')}
-                                </div>
-                              </div>
-                            ) : (
-                              <span className="text-xs text-muted-foreground">—</span>
-                            )}
-                          </TableCell>
                           <TableCell>
                             <Badge 
                               variant={status.variant} 
