@@ -54,7 +54,7 @@ export interface StockEntry {
   sale_date: string | null;
   profit_loss: number;
   cost_price: number;
-  metadata?: { color?: string };
+  metadata?: any;
   stock_locations: {
     id: string;
     name: string;

@@ -225,6 +225,7 @@ export type Database = {
           imei: string | null
           incoming: number
           location_id: string
+          metadata: Json | null
           morning_stock: number
           night_stock: number
           notes: string | null
@@ -246,6 +247,7 @@ export type Database = {
           imei?: string | null
           incoming?: number
           location_id: string
+          metadata?: Json | null
           morning_stock?: number
           night_stock?: number
           notes?: string | null
@@ -267,6 +269,7 @@ export type Database = {
           imei?: string | null
           incoming?: number
           location_id?: string
+          metadata?: Json | null
           morning_stock?: number
           night_stock?: number
           notes?: string | null
@@ -479,10 +482,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      bulk_insert_stock: {
-        Args: { entries: Json[] }
-        Returns: undefined
-      }
+      bulk_insert_stock: { Args: { entries: Json[] }; Returns: undefined }
       calculate_night_stock: {
         Args: {
           p_add_stock: number
@@ -494,32 +494,41 @@ export type Database = {
         }
         Returns: number
       }
-      cascade_recalc_stock: {
-        Args:
-          | {
+      cascade_recalc_stock:
+        | {
+            Args: {
+              p_from_date: string
+              p_location_id?: string
+              p_phone_model_id?: string
+              p_to_date?: string
+            }
+            Returns: {
+              affected_entries: number
+              recalculated_days: number
+            }[]
+          }
+        | {
+            Args: {
               p_from_date: string
               p_imei: string
               p_location_id: string
               p_phone_model_id: string
             }
-          | {
+            Returns: undefined
+          }
+        | {
+            Args: {
               p_from_date: string
               p_imei?: string
               p_location_id?: string
               p_phone_model_id?: string
               p_to_date?: string
             }
-          | {
-              p_from_date: string
-              p_location_id?: string
-              p_phone_model_id?: string
-              p_to_date?: string
-            }
-        Returns: {
-          affected_entries: number
-          recalculated_days: number
-        }[]
-      }
+            Returns: {
+              affected_entries: number
+              recalculated_days: number
+            }[]
+          }
       cascade_recalc_stock_simple: {
         Args: {
           p_date: string
@@ -541,14 +550,8 @@ export type Database = {
           recalculated_days: number
         }[]
       }
-      check_and_rollover_if_needed: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
-      }
-      delete_brand: {
-        Args: { brand_name: string }
-        Returns: undefined
-      }
+      check_and_rollover_if_needed: { Args: never; Returns: boolean }
+      delete_brand: { Args: { brand_name: string }; Returns: undefined }
       delete_stock_entry_and_logs: {
         Args: { entry_id: string }
         Returns: undefined
@@ -559,22 +562,13 @@ export type Database = {
           fixed_entries: number
         }[]
       }
-      rebuild_stock_entries_from_events: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
+      rebuild_stock_entries_from_events: { Args: never; Returns: undefined }
       recalculate_stock_range: {
         Args: { p_from_date: string; p_to_date?: string }
         Returns: undefined
       }
-      reset_all_data: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
-      rollover_to_new_day: {
-        Args: { target_date: string }
-        Returns: undefined
-      }
+      reset_all_data: { Args: never; Returns: undefined }
+      rollover_to_new_day: { Args: { target_date: string }; Returns: undefined }
       update_brand_name: {
         Args: { new_brand_name: string; old_brand_name: string }
         Returns: undefined

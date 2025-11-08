@@ -33,6 +33,7 @@ export function StockDetailView({ selectedDate }: StockDetailViewProps) {
         .select(`
           imei,
           night_stock,
+          metadata,
           phone_models (brand, model, color, storage_capacity),
           stock_locations (name)
         `)
@@ -47,7 +48,7 @@ export function StockDetailView({ selectedDate }: StockDetailViewProps) {
       for (const entry of data || []) {
         const brand = entry.phone_models?.brand || 'Unknown';
         const model = entry.phone_models?.model || 'Unknown';
-        const color = entry.phone_models?.color || '-';
+        const color = (entry.metadata as any)?.color || entry.phone_models?.color || '-';
         const storage = entry.phone_models?.storage_capacity || '-';
         const location = entry.stock_locations?.name || 'Unknown';
         
