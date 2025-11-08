@@ -18,6 +18,7 @@ interface EditStockDialogProps {
 export function EditStockDialog({ open, onOpenChange, stockEntry }: EditStockDialogProps) {
   const [notes, setNotes] = useState("");
   const [imei, setImei] = useState("");
+  const [color, setColor] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -25,6 +26,7 @@ export function EditStockDialog({ open, onOpenChange, stockEntry }: EditStockDia
     if (stockEntry) {
       setNotes(stockEntry.notes || "");
       setImei(stockEntry.imei || "");
+      setColor(stockEntry.phone_models?.color || "");
     }
   }, [stockEntry]);
 
@@ -100,6 +102,22 @@ export function EditStockDialog({ open, onOpenChange, stockEntry }: EditStockDia
             <Input
               disabled
               value={stockEntry ? `${stockEntry.phone_models.brand} ${stockEntry.phone_models.model}` : ""}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Warna</Label>
+            <Input
+              disabled
+              value={color || "-"}
+              className="bg-muted"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Kapasitas</Label>
+            <Input
+              disabled
+              value={stockEntry?.phone_models?.storage_capacity || "-"}
+              className="bg-muted"
             />
           </div>
           <div className="space-y-2">

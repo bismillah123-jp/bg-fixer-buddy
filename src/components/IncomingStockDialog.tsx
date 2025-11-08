@@ -21,14 +21,18 @@ interface IncomingStockDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
+interface ImeiEntry {
+  imei: string;
+  color: string;
+}
+
 export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogProps) {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedLocation, setSelectedLocation] = useState<string>("");
   const [selectedBrand, setSelectedBrand] = useState<string>("");
   const [selectedModel, setSelectedModel] = useState<string>("");
-  const [selectedColor, setSelectedColor] = useState<string>("");
   const [notes, setNotes] = useState<string>("");
-  const [imeiList, setImeiList] = useState<string[]>([""]);
+  const [imeiList, setImeiList] = useState<ImeiEntry[]>([{ imei: "", color: "" }]);
   const [scanningIndex, setScanningIndex] = useState<number | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -75,9 +79,9 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
     enabled: !!selectedBrand
   });
 
-  // Reset color when brand changes
+  // Reset form when brand changes
   useEffect(() => {
-    setSelectedColor("");
+    setSelectedModel("");
   }, [selectedBrand]);
 
   const incomingStockMutation = useMutation({
@@ -92,26 +96,30 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
       if (!selectedModel) {
         throw new Error('Model HP wajib dipilih');
       }
-      if (!selectedColor) {
-        throw new Error('Warna wajib dipilih');
-      }
 
-      // Filter out empty IMEIs
-      const validImeis = imeiList.filter(imei => imei.trim() !== "");
+      // Filter out empty entries
+      const validEntries = imeiList.filter(entry => entry.imei.trim() !== "" || entry.color.trim() !== "");
       
-      if (validImeis.length === 0) {
-        throw new Error('Harap masukkan minimal 1 IMEI');
+      if (validEntries.length === 0) {
+        throw new Error('Harap masukkan minimal 1 unit dengan IMEI dan warna');
       }
 
-      // Validate IMEI format (15 digits)
-      for (const imei of validImeis) {
-        if (imei.length !== 15) {
-          throw new Error(`IMEI ${imei} harus 15 digit`);
+      // Validate each entry has both IMEI and color
+      for (const entry of validEntries) {
+        if (!entry.imei.trim()) {
+          throw new Error('Semua unit harus memiliki IMEI');
+        }
+        if (!entry.color.trim()) {
+          throw new Error('Semua unit harus memiliki warna');
+        }
+        if (entry.imei.length !== 15) {
+          throw new Error(`IMEI ${entry.imei} harus 15 digit`);
         }
       }
 
       // Check for duplicates in the list
-      const duplicates = validImeis.filter((imei, index) => validImeis.indexOf(imei) !== index);
+      const imeis = validEntries.map(e => e.imei);
+      const duplicates = imeis.filter((imei, index) => imeis.indexOf(imei) !== index);
       if (duplicates.length > 0) {
         throw new Error(`IMEI duplikat: ${duplicates.join(", ")}`);
       }
@@ -122,7 +130,7 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
       const { data: existingStock, error: checkError } = await supabase
         .from('stock_events')
         .select('imei')
-        .in('imei', validImeis);
+        .in('imei', imeis);
 
       if (checkError) throw new Error(`Gagal memeriksa IMEI: ${checkError.message}`);
 
@@ -131,17 +139,56 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
         throw new Error(`IMEI sudah terdaftar: ${existingImeis}`);
       }
 
-      // Insert multiple stock events
-      const eventsToInsert = validImeis.map(imei => ({
-        date: date,
-        imei: imei.trim(),
-        location_id: selectedLocation,
-        phone_model_id: selectedModel,
-        event_type: 'masuk',
-        qty: 1,
-        notes: notes || null,
-        metadata: { color: selectedColor }
-      }));
+      // Get or create phone models for each entry with different colors
+      const eventsToInsert = [];
+      
+      for (const entry of validEntries) {
+        // Try to find existing phone model with this specific color
+        let { data: phoneModel } = await supabase
+          .from('phone_models')
+          .select('*')
+          .eq('brand', selectedBrand)
+          .eq('model', selectedModel)
+          .eq('color', entry.color.trim())
+          .maybeSingle();
+
+        // If not found, get the base model info and create new variant with color
+        if (!phoneModel) {
+          const { data: baseModel } = await supabase
+            .from('phone_models')
+            .select('*')
+            .eq('id', selectedModel)
+            .single();
+
+          if (!baseModel) throw new Error('Model HP tidak ditemukan');
+
+          const { data: newModel, error: createError } = await supabase
+            .from('phone_models')
+            .insert({
+              brand: selectedBrand,
+              model: baseModel.model,
+              color: entry.color.trim(),
+              storage_capacity: baseModel.storage_capacity,
+              srp: baseModel.srp || 0
+            })
+            .select()
+            .single();
+
+          if (createError) throw new Error(`Gagal membuat varian warna: ${createError.message}`);
+          phoneModel = newModel;
+        }
+
+        eventsToInsert.push({
+          date: date,
+          imei: entry.imei.trim(),
+          location_id: selectedLocation,
+          phone_model_id: phoneModel.id,
+          event_type: 'masuk',
+          qty: 1,
+          notes: notes || null,
+          metadata: { color: entry.color.trim() }
+        });
+      }
 
       const { error: eventError } = await supabase
         .from('stock_events')
@@ -150,13 +197,11 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
       if (eventError) {
         throw new Error(`Gagal menyimpan event: ${eventError.message}`);
       }
-
-      // 2. Cascade recalculation happens automatically via database trigger
     },
     onSuccess: () => {
       toast({
         title: "Berhasil",
-        description: `${imeiList.filter(i => i.trim()).length} unit berhasil dicatat`,
+        description: `${imeiList.filter(e => e.imei.trim()).length} unit berhasil dicatat`,
       });
       queryClient.invalidateQueries({ queryKey: ['stock-entries'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
@@ -166,9 +211,8 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
       setSelectedLocation("");
       setSelectedBrand("");
       setSelectedModel("");
-      setSelectedColor("");
       setNotes("");
-      setImeiList([""]);
+      setImeiList([{ imei: "", color: "" }]);
     },
     onError: (error: any) => {
       toast({
@@ -265,68 +309,73 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
           </div>
 
           <div className="space-y-2">
-            <Label>Warna *</Label>
-            <Input
-              placeholder="Masukkan warna HP"
-              value={selectedColor}
-              onChange={(e) => setSelectedColor(e.target.value)}
-            />
-          </div>
-
-          <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label>IMEI * (15 digit)</Label>
+              <Label>IMEI & Warna * (15 digit per unit)</Label>
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => setImeiList([...imeiList, ""])}
+                onClick={() => setImeiList([...imeiList, { imei: "", color: "" }])}
               >
                 <Plus className="h-4 w-4 mr-1" />
-                Tambah
+                Tambah Unit
               </Button>
             </div>
             
-            <div className="space-y-2 max-h-[200px] overflow-y-auto">
-              {imeiList.map((imei, index) => (
-                <div key={index} className="flex gap-2">
-                  <Input
-                    placeholder={`IMEI #${index + 1}`}
-                    value={imei}
-                    onChange={(e) => {
-                      const newList = [...imeiList];
-                      newList[index] = e.target.value;
-                      setImeiList(newList);
-                    }}
-                    maxLength={15}
-                    inputMode="numeric"
-                    className="flex-1"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    onClick={() => setScanningIndex(index)}
-                  >
-                    <Camera className="h-4 w-4" />
-                  </Button>
-                  {imeiList.length > 1 && (
+            <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2">
+              {imeiList.map((entry, index) => (
+                <div key={index} className="p-3 border rounded-lg bg-muted/30 space-y-2">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium">Unit #{index + 1}</span>
+                    {imeiList.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          const newList = imeiList.filter((_, i) => i !== index);
+                          setImeiList(newList.length === 0 ? [{ imei: "", color: "" }] : newList);
+                        }}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="IMEI (15 digit)"
+                      value={entry.imei}
+                      onChange={(e) => {
+                        const newList = [...imeiList];
+                        newList[index].imei = e.target.value;
+                        setImeiList(newList);
+                      }}
+                      maxLength={15}
+                      inputMode="numeric"
+                      className="flex-1"
+                    />
                     <Button
                       type="button"
-                      variant="ghost"
+                      variant="outline"
                       size="icon"
-                      onClick={() => {
-                        const newList = imeiList.filter((_, i) => i !== index);
-                        setImeiList(newList.length === 0 ? [""] : newList);
-                      }}
+                      onClick={() => setScanningIndex(index)}
                     >
-                      <X className="h-4 w-4" />
+                      <Camera className="h-4 w-4" />
                     </Button>
-                  )}
+                  </div>
+                  <Input
+                    placeholder="Warna (contoh: Hitam, Putih)"
+                    value={entry.color}
+                    onChange={(e) => {
+                      const newList = [...imeiList];
+                      newList[index].color = e.target.value;
+                      setImeiList(newList);
+                    }}
+                  />
                 </div>
               ))}
             </div>
-            <p className="text-sm text-muted-foreground">Scan atau input manual</p>
+            <p className="text-sm text-muted-foreground">Scan atau input manual untuk setiap unit</p>
           </div>
 
           <div className="space-y-2">
@@ -360,7 +409,7 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
         onScanSuccess={(scannedImei) => {
           if (scanningIndex !== null) {
             const newList = [...imeiList];
-            newList[scanningIndex] = scannedImei;
+            newList[scanningIndex].imei = scannedImei;
             setImeiList(newList);
             setScanningIndex(null);
           }

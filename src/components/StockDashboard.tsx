@@ -8,11 +8,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { Plus, Truck, TrendingUp, AlertTriangle, Package, BarChart3, LogOut, Calendar as CalendarIcon, PackageOpen, ArrowLeftRight, Settings as SettingsIcon, Sun, Tag, Moon } from "lucide-react";
+import { Plus, Truck, TrendingUp, AlertTriangle, Package, BarChart3, LogOut, Calendar as CalendarIcon, PackageOpen, ArrowLeftRight, Settings as SettingsIcon, Sun, Tag, Moon, ListTree } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { StockTable } from "./StockTable";
 import { StockAnalytics } from "./StockAnalytics";
+import { StockDetailView } from "./StockDetailView";
 import Settings from "@/pages/Settings";
 import { ThemeToggle } from "./ThemeToggle";
 import { MobileNavigation } from "./MobileNavigation";
@@ -31,6 +32,7 @@ interface DashboardStats {
   totalIncoming: number;
   totalTransfers: number;
   totalFinalStock: number;
+  totalSoldThisMonth: number;
   breakdown: {
     [location: string]: LocationData;
   };
@@ -41,7 +43,7 @@ interface DashboardStats {
 }
 
 export function StockDashboard() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'table' | 'analytics' | 'settings'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'table' | 'stock-detail' | 'analytics' | 'settings'>('dashboard');
   const [date, setDate] = useState<Date>(new Date());
   const [quickFilter, setQuickFilter] = useState<'incoming' | 'sold' | 'transfer' | null>(null);
   const { toast } = useToast();
@@ -133,6 +135,18 @@ export function StockDashboard() {
 
       const totalTransfers = toSoko + toMbutoh;
 
+      // Calculate total sold this month
+      const startOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
+      const endOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+      
+      const { data: monthlyData } = await supabase
+        .from('stock_entries')
+        .select('sold')
+        .gte('date', format(startOfMonth, 'yyyy-MM-dd'))
+        .lte('date', format(endOfMonth, 'yyyy-MM-dd'));
+      
+      const totalSoldThisMonth = monthlyData?.reduce((sum, entry) => sum + entry.sold, 0) || 0;
+
       return {
         totalMorningStock,
         totalNightStock,
@@ -140,6 +154,7 @@ export function StockDashboard() {
         totalIncoming,
         totalTransfers,
         totalFinalStock: totalFinalStock,
+        totalSoldThisMonth,
         breakdown: breakdown,
         transferBreakdown: { toSoko, toMbutoh }
       };
@@ -209,6 +224,7 @@ export function StockDashboard() {
             {[
               { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
               { id: 'table', label: 'Data Stok', icon: Package },
+              { id: 'stock-detail', label: 'Detail Stok', icon: ListTree },
               { id: 'analytics', label: 'Statistik', icon: TrendingUp },
               { id: 'settings', label: 'Pengaturan', icon: SettingsIcon },
             ].map((tab) => {
@@ -270,19 +286,33 @@ export function StockDashboard() {
                   </CardContent>
                 </Card>
 
-                {/* Total Laku */}
+                {/* Total Laku Hari Ini */}
                 <Card 
                   className="bg-red-500/10 border-red-500/20 cursor-pointer hover:bg-red-500/20 transition-colors"
                   onClick={() => handleCardClick('sold')}
                 >
                   <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-base font-medium">Total Laku</CardTitle>
+                    <CardTitle className="text-base font-medium">Laku Hari Ini</CardTitle>
                     <Tag className="w-5 h-5 text-red-600" />
                   </CardHeader>
                   <CardContent>
                     <div className="text-3xl font-bold">{stats?.totalSold ?? 0}</div>
                     <p className="text-xs text-muted-foreground">
                       Mbutoh: {stats?.breakdown['MBUTOH']?.sold ?? 0} | Soko: {stats?.breakdown['SOKO']?.sold ?? 0}
+                    </p>
+                  </CardContent>
+                </Card>
+
+                {/* Terjual Bulan Ini */}
+                <Card className="bg-orange-500/10 border-orange-500/20">
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardTitle className="text-base font-medium">Terjual Bulan Ini</CardTitle>
+                    <TrendingUp className="w-5 h-5 text-orange-600" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-bold">{stats?.totalSoldThisMonth ?? 0}</div>
+                    <p className="text-xs text-muted-foreground">
+                      {format(date, 'MMMM yyyy', { locale: id })}
                     </p>
                   </CardContent>
                 </Card>
@@ -338,6 +368,10 @@ export function StockDashboard() {
             <StockTable selectedDate={date} quickFilter={quickFilter} onFilterChange={() => setQuickFilter(null)} />
           )}
 
+          {/* Stock Detail View */}
+          {activeTab === 'stock-detail' && (
+            <StockDetailView selectedDate={date} />
+          )}
 
           {/* Analytics View */}
           {activeTab === 'analytics' && (
