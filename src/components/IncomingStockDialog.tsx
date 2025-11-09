@@ -142,26 +142,28 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
       // Get or create phone models for each entry with different colors
       const eventsToInsert = [];
       
+      // Get base model info first
+      const { data: baseModel } = await supabase
+        .from('phone_models')
+        .select('*')
+        .eq('id', selectedModel)
+        .single();
+
+      if (!baseModel) throw new Error('Model HP tidak ditemukan');
+
       for (const entry of validEntries) {
         // Try to find existing phone model with this specific color
         let { data: phoneModel } = await supabase
           .from('phone_models')
           .select('*')
           .eq('brand', selectedBrand)
-          .eq('model', selectedModel)
+          .eq('model', baseModel.model)
+          .eq('storage_capacity', baseModel.storage_capacity || '')
           .eq('color', entry.color.trim())
           .maybeSingle();
 
-        // If not found, get the base model info and create new variant with color
+        // If not found, create new variant with color
         if (!phoneModel) {
-          const { data: baseModel } = await supabase
-            .from('phone_models')
-            .select('*')
-            .eq('id', selectedModel)
-            .single();
-
-          if (!baseModel) throw new Error('Model HP tidak ditemukan');
-
           const { data: newModel, error: createError } = await supabase
             .from('phone_models')
             .insert({
