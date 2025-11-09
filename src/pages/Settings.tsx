@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import Papa from "papaparse";
-import { Upload, Pencil, LogOut } from "lucide-react";
+import { Upload, Pencil, LogOut, Trash2 } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { EditPhoneModelDialog } from "@/components/EditPhoneModelDialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useNavigate } from "react-router-dom";
@@ -28,6 +29,8 @@ const Settings = () => {
   const [importErrors, setImportErrors] = useState<string[]>([]);
   const [editingModel, setEditingModel] = useState<any>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [deletingModel, setDeletingModel] = useState<any>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
@@ -316,6 +319,38 @@ const Settings = () => {
     else toast({ title: "Konfirmasi Salah", description: "Silakan ketik 'RESET DATA' untuk mengkonfirmasi.", variant: "destructive" });
   };
 
+  const deleteModelMutation = useMutation({
+    mutationFn: async (modelId: string) => {
+      const { error } = await supabase
+        .from('phone_models')
+        .delete()
+        .eq('id', modelId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ 
+        title: "Model Dihapus", 
+        description: "Model HP telah berhasil dihapus." 
+      });
+      queryClient.invalidateQueries({ queryKey: ['phone-models'] });
+      setIsDeleteDialogOpen(false);
+      setDeletingModel(null);
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Gagal Menghapus", 
+        description: error.message, 
+        variant: "destructive" 
+      });
+    },
+  });
+
+  const handleDeleteModel = () => {
+    if (deletingModel) {
+      deleteModelMutation.mutate(deletingModel.id);
+    }
+  };
+
   const handleFileChange = (event: any) => {
     if (event.target.files) setSelectedFile(event.target.files[0]);
     setImportErrors([]);
@@ -366,16 +401,28 @@ const Settings = () => {
                       }
                     </TableCell>
                     <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setEditingModel(model);
-                          setIsEditDialogOpen(true);
-                        }}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setEditingModel(model);
+                            setIsEditDialogOpen(true);
+                          }}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setDeletingModel(model);
+                            setIsDeleteDialogOpen(true);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -442,6 +489,27 @@ const Settings = () => {
         onOpenChange={setIsEditDialogOpen}
         phoneModel={editingModel}
       />
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hapus Model HP?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Apakah Anda yakin ingin menghapus model HP <strong>{deletingModel?.brand} {deletingModel?.model} {deletingModel?.storage_capacity}</strong>?
+              {' '}Tindakan ini tidak dapat dibatalkan.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteModel}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Hapus
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
