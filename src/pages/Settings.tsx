@@ -384,6 +384,7 @@ const Settings = () => {
                   <TableHead>Merk</TableHead>
                   <TableHead>Model</TableHead>
                   <TableHead>Kapasitas</TableHead>
+                  <TableHead>Warna</TableHead>
                   <TableHead>SRP</TableHead>
                   <TableHead className="w-[100px]">Aksi</TableHead>
                 </TableRow>
@@ -394,6 +395,7 @@ const Settings = () => {
                     <TableCell>{model.brand}</TableCell>
                     <TableCell>{model.model}</TableCell>
                     <TableCell>{model.storage_capacity || '-'}</TableCell>
+                    <TableCell>{model.color || '-'}</TableCell>
                     <TableCell>
                       {model.srp > 0 
                         ? `Rp ${model.srp.toLocaleString('id-ID')}`
