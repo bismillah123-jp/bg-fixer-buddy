@@ -139,10 +139,7 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
         throw new Error(`IMEI sudah terdaftar: ${existingImeis}`);
       }
 
-      // Get or create phone models for each entry with different colors
-      const eventsToInsert = [];
-      
-      // Get base model info first
+      // Get base model info - use the same model for all colors
       const { data: baseModel } = await supabase
         .from('phone_models')
         .select('*')
@@ -151,46 +148,18 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
 
       if (!baseModel) throw new Error('Model HP tidak ditemukan');
 
-      for (const entry of validEntries) {
-        // Try to find existing phone model with this specific color
-        let { data: phoneModel } = await supabase
-          .from('phone_models')
-          .select('*')
-          .eq('brand', selectedBrand)
-          .eq('model', baseModel.model)
-          .eq('storage_capacity', baseModel.storage_capacity || '')
-          .eq('color', entry.color.trim())
-          .maybeSingle();
-
-        // If not found, create new variant with color
-        if (!phoneModel) {
-          const { data: newModel, error: createError } = await supabase
-            .from('phone_models')
-            .insert({
-              brand: selectedBrand,
-              model: baseModel.model,
-              color: entry.color.trim(),
-              storage_capacity: baseModel.storage_capacity,
-              srp: baseModel.srp || 0
-            })
-            .select()
-            .single();
-
-          if (createError) throw new Error(`Gagal membuat varian warna: ${createError.message}`);
-          phoneModel = newModel;
-        }
-
-        eventsToInsert.push({
-          date: date,
-          imei: entry.imei.trim(),
-          location_id: selectedLocation,
-          phone_model_id: phoneModel.id,
-          event_type: 'masuk',
-          qty: 1,
-          notes: notes || null,
-          metadata: { color: entry.color.trim() }
-        });
-      }
+      // Create events using the same phone_model_id for all colors
+      // Color info is stored in metadata only
+      const eventsToInsert = validEntries.map(entry => ({
+        date: date,
+        imei: entry.imei.trim(),
+        location_id: selectedLocation,
+        phone_model_id: baseModel.id, // Same model for all colors
+        event_type: 'masuk',
+        qty: 1,
+        notes: notes || null,
+        metadata: { color: entry.color.trim() }
+      }));
 
       const { error: eventError } = await supabase
         .from('stock_events')
