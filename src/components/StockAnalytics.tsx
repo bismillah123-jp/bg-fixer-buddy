@@ -86,9 +86,12 @@ export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProp
     queryKey: ['kpi-stats', selectedDate.toISOString()],
     staleTime: 1000 * 60 * 5, // 5 minutes
     queryFn: async () => {
-      const thirtyDaysAgo = new Date(selectedDate);
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      // Calculate start and end of the current month based on selectedDate
+      const startOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+      const endOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
       const today = selectedDate.toISOString().split('T')[0];
+      const startOfMonthStr = startOfMonth.toISOString().split('T')[0];
+      const endOfMonthStr = endOfMonth.toISOString().split('T')[0];
 
       // Fetch all relevant data in parallel
       const [
@@ -96,7 +99,7 @@ export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProp
         { data: availableStockData, error: stockError },
         { data: todaySalesData, error: todayError }
       ] = await Promise.all([
-        supabase.from('stock_entries').select('sold, phone_models(brand)').gte('date', thirtyDaysAgo.toISOString()).lte('date', today),
+        supabase.from('stock_entries').select('sold, phone_models(brand)').gte('date', startOfMonthStr).lte('date', endOfMonthStr),
         supabase.from('stock_entries').select('night_stock').eq('date', today).gt('night_stock', 0),
         supabase.from('stock_entries').select('selling_price, profit_loss, sold').eq('date', today).gt('sold', 0)
       ]);
@@ -184,10 +187,12 @@ export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProp
     queryKey: ['daily-sales-chart', selectedDate.toISOString()],
     staleTime: 1000 * 60 * 5, // 5 minutes
     queryFn: async () => {
-      const thirtyDaysAgo = new Date(selectedDate);
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      const today = selectedDate.toISOString().split('T')[0];
-      const { data, error } = await supabase.from('stock_entries').select('date, sold').gte('date', thirtyDaysAgo.toISOString()).lte('date', today).order('date');
+      // Use actual calendar month
+      const startOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+      const endOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
+      const startOfMonthStr = startOfMonth.toISOString().split('T')[0];
+      const endOfMonthStr = endOfMonth.toISOString().split('T')[0];
+      const { data, error } = await supabase.from('stock_entries').select('date, sold').gte('date', startOfMonthStr).lte('date', endOfMonthStr).order('date');
       if (error) throw error;
 
       const grouped = data.filter(e => e.sold > 0).reduce((acc, entry) => {
@@ -259,10 +264,12 @@ export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProp
     queryKey: ['best-selling-models', selectedDate.toISOString()],
     staleTime: 1000 * 60 * 5, // 5 minutes
     queryFn: async () => {
-        const thirtyDaysAgo = new Date(selectedDate);
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        const today = selectedDate.toISOString().split('T')[0];
-        const { data, error } = await supabase.from('stock_entries').select('sold, phone_models(brand, model, color)').gte('date', thirtyDaysAgo.toISOString()).lte('date', today);
+        // Use actual calendar month
+        const startOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+        const endOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
+        const startOfMonthStr = startOfMonth.toISOString().split('T')[0];
+        const endOfMonthStr = endOfMonth.toISOString().split('T')[0];
+        const { data, error } = await supabase.from('stock_entries').select('sold, phone_models(brand, model, color)').gte('date', startOfMonthStr).lte('date', endOfMonthStr);
         if (error) throw error;
 
         const grouped = data.filter(e => e.sold > 0).reduce((acc, entry) => {
@@ -272,6 +279,38 @@ export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProp
         }, {} as Record<string, number>);
 
         return Object.entries(grouped).map(([name, sales]) => ({ name, sales })).sort((a, b) => b.sales - a.sales);
+    }
+  });
+
+  // 5. Query for Sales by Brand (This Month)
+  const { data: salesByBrand, isLoading: salesByBrandLoading } = useQuery({
+    queryKey: ['sales-by-brand', selectedDate.toISOString()],
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    queryFn: async () => {
+        // Use actual calendar month
+        const startOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+        const endOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
+        const startOfMonthStr = startOfMonth.toISOString().split('T')[0];
+        const endOfMonthStr = endOfMonth.toISOString().split('T')[0];
+        
+        const { data, error } = await supabase
+          .from('stock_entries')
+          .select('sold, phone_models(brand)')
+          .gte('date', startOfMonthStr)
+          .lte('date', endOfMonthStr)
+          .gt('sold', 0);
+        
+        if (error) throw error;
+
+        const grouped = data.reduce((acc, entry) => {
+            const brand = entry.phone_models?.brand || 'Unknown';
+            acc[brand] = (acc[brand] || 0) + entry.sold;
+            return acc;
+        }, {} as Record<string, number>);
+
+        return Object.entries(grouped)
+          .map(([name, value]) => ({ name, value }))
+          .sort((a, b) => b.value - a.value);
     }
   });
 
@@ -408,11 +447,11 @@ export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProp
         <div className="lg:col-span-2">
           <Card className="animate-fade-in overflow-hidden bg-gradient-to-br from-card to-card/50 border-0 shadow-xl">
             <CardHeader className="bg-gradient-to-r from-primary/5 to-primary/10 border-b">
-              <CardTitle className="flex items-center gap-2 text-xl">
-                <TrendingUp className="h-5 w-5 text-primary" />
-                Grafik Penjualan Harian
-                <span className="text-sm font-normal text-muted-foreground">(30 hari terakhir)</span>
-              </CardTitle>
+                <CardTitle className="flex items-center gap-2 text-xl">
+                  <TrendingUp className="h-5 w-5 text-primary" />
+                  Grafik Penjualan Harian
+                  <span className="text-sm font-normal text-muted-foreground">(Bulan Ini)</span>
+                </CardTitle>
             </CardHeader>
             <CardContent className="h-[350px] p-6">
               {dailySalesLoading ? <AnalyticsLoader /> : (
@@ -672,6 +711,62 @@ export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProp
           </Card>
         </div>
       )}
+
+      {/* Sales by Brand (This Month) */}
+      <div>
+        <Card className="animate-fade-in overflow-hidden bg-gradient-to-br from-card to-card/50 border-0 shadow-xl" style={{ animationDelay: '0.15s' }}>
+          <CardHeader className="bg-gradient-to-r from-primary/5 to-primary/10 border-b">
+            <CardTitle className="flex items-center gap-2 text-xl">
+              <BarChart className="h-5 w-5 text-primary" />
+              Penjualan Per Merek (Bulan Ini)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-6">
+            {salesByBrandLoading ? <AnalyticsLoader /> : (
+              salesByBrand && salesByBrand.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-b border-border/50">
+                      <TableHead className="font-bold">No.</TableHead>
+                      <TableHead className="font-bold">Merek</TableHead>
+                      <TableHead className="text-right font-bold">Unit Terjual</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {salesByBrand.map((brand, index) => (
+                      <TableRow 
+                        key={brand.name}
+                        className="transition-all duration-200 hover:bg-accent/50 animate-fade-in border-b border-border/30"
+                        style={{ animationDelay: `${index * 0.05}s` }}
+                      >
+                        <TableCell className="font-medium">{index + 1}</TableCell>
+                        <TableCell className="font-semibold">
+                          <div className="flex items-center gap-2">
+                            <div 
+                              className="w-3 h-3 rounded-full" 
+                              style={{ backgroundColor: getBrandColor(brand.name, index) }}
+                            />
+                            {brand.name}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <span className="font-bold text-lg" style={{ color: getBrandColor(brand.name, index) }}>
+                            {brand.value}
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <div className="flex items-center justify-center h-24">
+                  <p className="text-muted-foreground">Belum ada penjualan bulan ini</p>
+                </div>
+              )
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       <div>
         <Card className="animate-fade-in overflow-hidden" style={{ animationDelay: '0.2s' }}>
