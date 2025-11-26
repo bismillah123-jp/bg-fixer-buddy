@@ -73,39 +73,71 @@ export function StockDashboard() {
       // Perform automatic rollover for all missing dates up to today (only when viewing current date)
       if (selectedDate === format(new Date(), "yyyy-MM-dd")) {
         try {
+          console.log('Checking for rollover needs...');
+          
           // Get the last date with data
-          const { data: lastEntry } = await supabase
+          const { data: lastEntry, error: lastEntryError } = await supabase
             .from('stock_entries')
             .select('date')
             .order('date', { ascending: false })
             .limit(1)
             .single();
           
-          if (lastEntry) {
+          if (lastEntryError) {
+            console.error('Error fetching last entry:', lastEntryError);
+          } else if (lastEntry) {
             const lastDate = new Date(lastEntry.date);
             const today = new Date();
             today.setHours(0, 0, 0, 0);
             lastDate.setHours(0, 0, 0, 0);
             
+            const daysDiff = Math.floor((today.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
+            console.log(`Last data: ${lastEntry.date}, Today: ${format(today, 'yyyy-MM-dd')}, Gap: ${daysDiff} days`);
+            
             // If there are missing dates, rollover for each missing date
-            if (lastDate < today) {
+            if (daysDiff > 0) {
+              console.log(`Starting rollover for ${daysDiff} missing day(s)...`);
               let currentDate = new Date(lastDate);
               currentDate.setDate(currentDate.getDate() + 1);
               
               while (currentDate <= today) {
                 const dateStr = format(currentDate, 'yyyy-MM-dd');
-                console.log('Rolling over to date:', dateStr);
+                console.log(`Performing rollover to: ${dateStr}`);
                 
-                await supabase.rpc('rollover_to_new_day' as any, { 
+                const { error: rolloverError } = await supabase.rpc('rollover_to_new_day' as any, { 
                   target_date: dateStr 
                 });
                 
+                if (rolloverError) {
+                  console.error(`Rollover error for ${dateStr}:`, rolloverError);
+                  toast({
+                    title: "Error Rollover",
+                    description: `Gagal rollover ke ${dateStr}: ${rolloverError.message}`,
+                    variant: "destructive",
+                  });
+                } else {
+                  console.log(`✓ Rollover successful for ${dateStr}`);
+                }
+                
                 currentDate.setDate(currentDate.getDate() + 1);
               }
+              
+              console.log('All rollovers completed');
+              toast({
+                title: "Rollover Berhasil",
+                description: `Data berhasil di-rollover untuk ${daysDiff} hari`,
+              });
+            } else {
+              console.log('No rollover needed - data is up to date');
             }
           }
         } catch (error) {
-          console.log('Rollover check error (non-critical):', error);
+          console.error('Rollover check error:', error);
+          toast({
+            title: "Error Rollover",
+            description: `Terjadi kesalahan saat rollover: ${error}`,
+            variant: "destructive",
+          });
         }
       }
       
