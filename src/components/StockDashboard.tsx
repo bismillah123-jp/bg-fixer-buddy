@@ -70,10 +70,40 @@ export function StockDashboard() {
     queryFn: async (): Promise<DashboardStats> => {
       const selectedDate = format(date, "yyyy-MM-dd");
       
-      // Check and perform automatic rollover if needed (only for current date)
+      // Perform automatic rollover for all missing dates up to today (only when viewing current date)
       if (selectedDate === format(new Date(), "yyyy-MM-dd")) {
         try {
-          await supabase.rpc('check_and_rollover_if_needed' as any);
+          // Get the last date with data
+          const { data: lastEntry } = await supabase
+            .from('stock_entries')
+            .select('date')
+            .order('date', { ascending: false })
+            .limit(1)
+            .single();
+          
+          if (lastEntry) {
+            const lastDate = new Date(lastEntry.date);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            lastDate.setHours(0, 0, 0, 0);
+            
+            // If there are missing dates, rollover for each missing date
+            if (lastDate < today) {
+              let currentDate = new Date(lastDate);
+              currentDate.setDate(currentDate.getDate() + 1);
+              
+              while (currentDate <= today) {
+                const dateStr = format(currentDate, 'yyyy-MM-dd');
+                console.log('Rolling over to date:', dateStr);
+                
+                await supabase.rpc('rollover_to_new_day' as any, { 
+                  target_date: dateStr 
+                });
+                
+                currentDate.setDate(currentDate.getDate() + 1);
+              }
+            }
+          }
         } catch (error) {
           console.log('Rollover check error (non-critical):', error);
         }
