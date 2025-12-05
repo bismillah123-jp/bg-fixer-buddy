@@ -56,32 +56,60 @@ export function EditStockInline({ stockEntry, onCancel }: EditStockInlineProps) 
 
   const updateStockMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
-      // Validate IMEI if changed
-      if (data.imei.trim() && data.imei.trim() !== stockEntry.imei) {
-        if (data.imei.trim().length < 10) {
+      const newImei = data.imei.trim() || null;
+      
+      // Validate IMEI if provided
+      if (newImei && newImei !== stockEntry.imei) {
+        if (newImei.length < 10) {
           throw new Error('IMEI tidak valid (minimal 10 karakter)');
         }
-        
-        // Check if new IMEI already exists
-        const { data: existingImei, error: checkError } = await supabase
-          .from('stock_entries')
-          .select('id')
-          .eq('imei', data.imei.trim())
-          .neq('id', stockEntry.id)
-          .maybeSingle();
+      }
 
-        if (checkError) throw new Error(`Gagal memeriksa IMEI: ${checkError.message}`);
-        
-        if (existingImei) {
-          throw new Error('IMEI ini sudah terdaftar untuk stok lain');
-        }
+      // Check if the new combination would violate unique constraint
+      // (date + location_id + phone_model_id + COALESCE(imei, ''))
+      const { data: existingEntry, error: checkError } = await supabase
+        .from('stock_entries')
+        .select('id')
+        .eq('date', stockEntry.date)
+        .eq('location_id', data.location_id)
+        .eq('phone_model_id', data.phone_model_id)
+        .neq('id', stockEntry.id);
+
+      if (checkError) throw new Error(`Gagal memeriksa data: ${checkError.message}`);
+
+      // Filter for matching IMEI (handling null/empty)
+      const conflictingEntry = existingEntry?.find(entry => {
+        // Need to fetch the imei for each - do a more specific check
+        return true; // Will be checked by separate query
+      });
+
+      // More specific check for IMEI conflict
+      const imeiToCheck = newImei || '';
+      const { data: exactConflict, error: exactError } = await supabase
+        .from('stock_entries')
+        .select('id, imei')
+        .eq('date', stockEntry.date)
+        .eq('location_id', data.location_id)
+        .eq('phone_model_id', data.phone_model_id)
+        .neq('id', stockEntry.id);
+
+      if (exactError) throw new Error(`Gagal memeriksa data: ${exactError.message}`);
+
+      // Check if any existing entry has the same COALESCE(imei, '') value
+      const hasConflict = exactConflict?.some(entry => {
+        const existingImei = entry.imei || '';
+        return existingImei === imeiToCheck;
+      });
+
+      if (hasConflict) {
+        throw new Error('Data dengan kombinasi tanggal, lokasi, model, dan IMEI yang sama sudah ada');
       }
 
       // Update stock_entries
       const { error: updateError } = await supabase
         .from('stock_entries')
         .update({
-          imei: data.imei.trim() || null,
+          imei: newImei,
           notes: data.notes.trim() || null,
           cost_price: data.cost_price || 0,
           selling_price: data.selling_price || 0,
