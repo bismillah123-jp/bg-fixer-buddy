@@ -22,7 +22,8 @@ export function EditStockInline({ stockEntry, onCancel }: EditStockInlineProps) 
     cost_price: stockEntry.cost_price || 0,
     selling_price: stockEntry.selling_price || 0,
     phone_model_id: stockEntry.phone_models.id,
-    location_id: stockEntry.stock_locations.id
+    location_id: stockEntry.stock_locations.id,
+    label: stockEntry.label || ''
   });
 
   const { toast } = useToast();
@@ -114,7 +115,8 @@ export function EditStockInline({ stockEntry, onCancel }: EditStockInlineProps) 
           cost_price: data.cost_price || 0,
           selling_price: data.selling_price || 0,
           phone_model_id: data.phone_model_id,
-          location_id: data.location_id
+          location_id: data.location_id,
+          label: data.label.trim() || null
         })
         .eq('id', stockEntry.id);
 
@@ -176,7 +178,8 @@ export function EditStockInline({ stockEntry, onCancel }: EditStockInlineProps) 
       cost_price: stockEntry.cost_price || 0,
       selling_price: stockEntry.selling_price || 0,
       phone_model_id: stockEntry.phone_models.id,
-      location_id: stockEntry.stock_locations.id
+      location_id: stockEntry.stock_locations.id,
+      label: stockEntry.label || ''
     });
     setIsEditing(false);
     onCancel();
@@ -266,6 +269,16 @@ export function EditStockInline({ stockEntry, onCancel }: EditStockInlineProps) 
               ))}
             </SelectContent>
           </Select>
+        </div>
+
+        <div>
+          <label className="text-sm font-medium">Label</label>
+          <Input
+            value={formData.label}
+            onChange={(e) => setFormData(prev => ({ ...prev, label: e.target.value }))}
+            placeholder="Contoh: Repack, Second"
+            className="mt-1"
+          />
         </div>
 
         <div className="md:col-span-2">
