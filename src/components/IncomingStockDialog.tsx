@@ -24,6 +24,7 @@ interface IncomingStockDialogProps {
 interface ImeiEntry {
   imei: string;
   color: string;
+  label: string;
 }
 
 export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogProps) {
@@ -32,7 +33,7 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
   const [selectedBrand, setSelectedBrand] = useState<string>("");
   const [selectedModel, setSelectedModel] = useState<string>("");
   const [notes, setNotes] = useState<string>("");
-  const [imeiList, setImeiList] = useState<ImeiEntry[]>([{ imei: "", color: "" }]);
+  const [imeiList, setImeiList] = useState<ImeiEntry[]>([{ imei: "", color: "", label: "" }]);
   const [scanningIndex, setScanningIndex] = useState<number | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -158,7 +159,8 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
         event_type: 'masuk',
         qty: 1,
         notes: notes || null,
-        metadata: { color: entry.color.trim() }
+        metadata: { color: entry.color.trim() },
+        label: entry.label.trim() || null
       }));
 
       const { error: eventError } = await supabase
@@ -183,7 +185,7 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
       setSelectedBrand("");
       setSelectedModel("");
       setNotes("");
-      setImeiList([{ imei: "", color: "" }]);
+      setImeiList([{ imei: "", color: "", label: "" }]);
     },
     onError: (error: any) => {
       toast({
@@ -286,7 +288,7 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => setImeiList([...imeiList, { imei: "", color: "" }])}
+                onClick={() => setImeiList([...imeiList, { imei: "", color: "", label: "" }])}
               >
                 <Plus className="h-4 w-4 mr-1" />
                 Tambah Unit
@@ -305,7 +307,7 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
                         size="sm"
                         onClick={() => {
                           const newList = imeiList.filter((_, i) => i !== index);
-                          setImeiList(newList.length === 0 ? [{ imei: "", color: "" }] : newList);
+                          setImeiList(newList.length === 0 ? [{ imei: "", color: "", label: "" }] : newList);
                         }}
                       >
                         <X className="h-4 w-4" />
@@ -340,6 +342,15 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
                     onChange={(e) => {
                       const newList = [...imeiList];
                       newList[index].color = e.target.value;
+                      setImeiList(newList);
+                    }}
+                  />
+                  <Input
+                    placeholder="Label (contoh: Repack, Second)"
+                    value={entry.label}
+                    onChange={(e) => {
+                      const newList = [...imeiList];
+                      newList[index].label = e.target.value;
                       setImeiList(newList);
                     }}
                   />

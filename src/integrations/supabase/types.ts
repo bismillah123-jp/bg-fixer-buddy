@@ -224,6 +224,7 @@ export type Database = {
           id: string
           imei: string | null
           incoming: number
+          label: string | null
           location_id: string
           metadata: Json | null
           morning_stock: number
@@ -246,6 +247,7 @@ export type Database = {
           id?: string
           imei?: string | null
           incoming?: number
+          label?: string | null
           location_id: string
           metadata?: Json | null
           morning_stock?: number
@@ -268,6 +270,7 @@ export type Database = {
           id?: string
           imei?: string | null
           incoming?: number
+          label?: string | null
           location_id?: string
           metadata?: Json | null
           morning_stock?: number
@@ -306,6 +309,7 @@ export type Database = {
           event_type: string
           id: number
           imei: string
+          label: string | null
           location_id: string
           metadata: Json
           notes: string | null
@@ -319,6 +323,7 @@ export type Database = {
           event_type: string
           id?: number
           imei: string
+          label?: string | null
           location_id: string
           metadata?: Json
           notes?: string | null
@@ -332,6 +337,7 @@ export type Database = {
           event_type?: string
           id?: number
           imei?: string
+          label?: string | null
           location_id?: string
           metadata?: Json
           notes?: string | null

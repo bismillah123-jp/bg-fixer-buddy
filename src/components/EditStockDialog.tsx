@@ -19,6 +19,7 @@ export function EditStockDialog({ open, onOpenChange, stockEntry }: EditStockDia
   const [notes, setNotes] = useState("");
   const [imei, setImei] = useState("");
   const [color, setColor] = useState("");
+  const [label, setLabel] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -27,11 +28,12 @@ export function EditStockDialog({ open, onOpenChange, stockEntry }: EditStockDia
       setNotes(stockEntry.notes || "");
       setImei(stockEntry.imei || "");
       setColor(stockEntry.phone_models?.color || "");
+      setLabel((stockEntry as any).label || "");
     }
   }, [stockEntry]);
 
   const editStockMutation = useMutation({
-    mutationFn: async ({ notes, imei }: { notes: string; imei: string }) => {
+    mutationFn: async ({ notes, imei, label }: { notes: string; imei: string; label: string }) => {
       if (!stockEntry) throw new Error("Tidak ada entri stok yang dipilih");
       
       // Validate IMEI if changed
@@ -59,7 +61,8 @@ export function EditStockDialog({ open, onOpenChange, stockEntry }: EditStockDia
         .from('stock_entries')
         .update({ 
           notes: notes.trim() || null, 
-          imei: imei.trim() || null 
+          imei: imei.trim() || null,
+          label: label.trim() || null
         })
         .eq('id', stockEntry.id);
 
@@ -83,7 +86,7 @@ export function EditStockDialog({ open, onOpenChange, stockEntry }: EditStockDia
   });
 
   const handleSubmit = () => {
-    editStockMutation.mutate({ notes, imei });
+    editStockMutation.mutate({ notes, imei, label });
   };
 
   return (
@@ -128,6 +131,15 @@ export function EditStockDialog({ open, onOpenChange, stockEntry }: EditStockDia
               onChange={(e) => setImei(e.target.value)}
               inputMode="numeric"
             />
+          </div>
+          <div className="space-y-2">
+            <Label>Label (Opsional)</Label>
+            <Input
+              placeholder="Contoh: Repack, Second, Baru"
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">Label akan terollover otomatis ke hari berikutnya</p>
           </div>
           <div className="space-y-2">
             <Label>Catatan</Label>

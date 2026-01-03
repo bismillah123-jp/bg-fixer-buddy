@@ -55,6 +55,7 @@ export interface StockEntry {
   profit_loss: number;
   cost_price: number;
   metadata?: any;
+  label?: string | null;
   stock_locations: {
     id: string;
     name: string;
@@ -503,6 +504,7 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
                      <TableHead className="min-w-[80px] font-semibold">Lokasi</TableHead>
                      <TableHead className="min-w-[200px] font-semibold">Tipe</TableHead>
                      <TableHead className="min-w-[100px] font-semibold">Warna</TableHead>
+                     <TableHead className="min-w-[80px] font-semibold">Label</TableHead>
                      <TableHead className="min-w-[120px] font-semibold">IMEI</TableHead>
                      <TableHead className="min-w-[80px] text-center font-semibold">Stok Awal</TableHead>
                      <TableHead className="min-w-[80px] text-center font-semibold">Stok Akhir</TableHead>
@@ -518,7 +520,7 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
                     if (isEditing) {
                        return (
                         <TableRow key={entry.id} className="hover:bg-muted/20 transition-colors">
-                <TableCell colSpan={8} className="p-0">
+                <TableCell colSpan={9} className="p-0">
                   <EditStockInline
                               stockEntry={entry}
                               onCancel={() => setEditingEntryId(null)}
@@ -556,6 +558,15 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
                           {(entry.metadata?.color || entry.phone_models?.color) ? (
                             <Badge className="text-sm font-semibold bg-gradient-to-r from-purple-500 to-pink-500 shadow-lg">
                               {entry.metadata?.color || entry.phone_models?.color}
+                            </Badge>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {entry.label ? (
+                            <Badge variant="outline" className="text-sm font-semibold border-orange-500 text-orange-600">
+                              {entry.label}
                             </Badge>
                           ) : (
                             <span className="text-xs text-muted-foreground">—</span>
