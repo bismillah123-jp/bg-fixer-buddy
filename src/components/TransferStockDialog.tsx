@@ -39,6 +39,10 @@ export function TransferStockDialog({ open, onOpenChange, stockEntry }: Transfer
       if (!destLocation) throw new Error("Lokasi tujuan tidak ditemukan.");
       const destLocationName = destLocation.name;
 
+      // Get original metadata (contains color) from the stock entry
+      const originalMetadata = stockEntry.metadata || {};
+      const originalLabel = stockEntry.label || null;
+
       // 1. Write transfer_out event to stock_events (source location)
       const { error: transferOutError } = await supabase
         .from('stock_events')
@@ -50,23 +54,33 @@ export function TransferStockDialog({ open, onOpenChange, stockEntry }: Transfer
           event_type: 'transfer_out',
           qty: transferQty,
           notes: `Transfer ke ${destLocationName}`,
-          metadata: { destination_location_id: destinationId, destination_location_name: destLocationName }
+          label: originalLabel,
+          metadata: { 
+            ...originalMetadata,
+            destination_location_id: destinationId, 
+            destination_location_name: destLocationName 
+          }
         });
 
       if (transferOutError) throw new Error(`Gagal mencatat transfer keluar: ${transferOutError.message}`);
 
-      // 2. Write transfer_in event to stock_events (destination location)
+      // 2. Write transfer_in event to stock_events (destination location) - preserve metadata & label
       const { error: transferInError } = await supabase
         .from('stock_events')
-          .insert({
-            date: stockEntry.date,
+        .insert({
+          date: stockEntry.date,
           imei: stockEntry.imei,
-            location_id: destinationId,
-            phone_model_id: stockEntry.phone_models.id,
+          location_id: destinationId,
+          phone_model_id: stockEntry.phone_models.id,
           event_type: 'transfer_in',
           qty: transferQty,
           notes: `Transfer dari ${sourceLocationName}`,
-          metadata: { source_location_id: stockEntry.stock_locations.id, source_location_name: sourceLocationName }
+          label: originalLabel,
+          metadata: { 
+            ...originalMetadata,
+            source_location_id: stockEntry.stock_locations.id, 
+            source_location_name: sourceLocationName 
+          }
         });
       
       if (transferInError) throw new Error(`Gagal mencatat transfer masuk: ${transferInError.message}`);
