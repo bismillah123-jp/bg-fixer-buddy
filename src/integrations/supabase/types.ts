@@ -498,6 +498,15 @@ export type Database = {
         | {
             Args: {
               p_from_date: string
+              p_imei: string
+              p_location_id: string
+              p_phone_model_id: string
+            }
+            Returns: undefined
+          }
+        | {
+            Args: {
+              p_from_date: string
               p_location_id?: string
               p_phone_model_id?: string
               p_to_date?: string
@@ -506,15 +515,6 @@ export type Database = {
               affected_entries: number
               recalculated_days: number
             }[]
-          }
-        | {
-            Args: {
-              p_from_date: string
-              p_imei: string
-              p_location_id: string
-              p_phone_model_id: string
-            }
-            Returns: undefined
           }
         | {
             Args: {
