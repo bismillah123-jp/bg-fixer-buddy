@@ -316,108 +316,157 @@ export function StockDashboard() {
         <div className="container mx-auto px-4 lg:px-6 py-6">
           {/* Dashboard View */}
           {activeTab === 'dashboard' && (
-            <div className="space-y-6">
-              {/* Modern KPI Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="space-y-4 pb-20">
+              {/* Quick Summary Row */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 {/* Stok Pagi */}
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-base font-medium">Stok Pagi</CardTitle>
-                    <Sun className="w-5 h-5 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-bold">{stats?.totalMorningStock ?? 0}</div>
-                    <p className="text-xs text-muted-foreground">
-                      Mbutoh: {stats?.breakdown['MBUTOH']?.morning_stock ?? 0} | Soko: {stats?.breakdown['SOKO']?.morning_stock ?? 0}
-                    </p>
+                <Card className="bg-card/50 border-0 shadow-sm">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-lg bg-muted/50 flex items-center justify-center">
+                        <Sun className="h-5 w-5 text-warning" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Stok Pagi</p>
+                        <p className="text-xl font-bold">{stats?.totalMorningStock ?? 0}</p>
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
 
                 {/* HP Datang */}
                 <Card 
-                  className="bg-green-500/10 border-green-500/20 cursor-pointer hover:bg-green-500/20 transition-colors"
+                  className="bg-success/5 border-success/20 shadow-sm cursor-pointer hover:bg-success/10 transition-colors"
                   onClick={() => handleCardClick('incoming')}
                 >
-                  <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-base font-medium">HP Datang</CardTitle>
-                    <Plus className="w-5 h-5 text-green-600" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-bold">{stats?.totalIncoming ?? 0}</div>
-                    <p className="text-xs text-muted-foreground">Unit Baru Masuk</p>
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-lg bg-success/10 flex items-center justify-center">
+                        <Plus className="h-5 w-5 text-success" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">HP Datang</p>
+                        <p className="text-xl font-bold text-success">{stats?.totalIncoming ?? 0}</p>
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
 
-                {/* Total Laku Hari Ini */}
+                {/* Laku Hari Ini */}
                 <Card 
-                  className="bg-red-500/10 border-red-500/20 cursor-pointer hover:bg-red-500/20 transition-colors"
+                  className="bg-destructive/5 border-destructive/20 shadow-sm cursor-pointer hover:bg-destructive/10 transition-colors"
                   onClick={() => handleCardClick('sold')}
                 >
-                  <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-base font-medium">Laku Hari Ini</CardTitle>
-                    <Tag className="w-5 h-5 text-red-600" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-bold">{stats?.totalSold ?? 0}</div>
-                    <p className="text-xs text-muted-foreground">
-                      Mbutoh: {stats?.breakdown['MBUTOH']?.sold ?? 0} | Soko: {stats?.breakdown['SOKO']?.sold ?? 0}
-                    </p>
-                  </CardContent>
-                </Card>
-
-                {/* Terjual Bulan Ini */}
-                <Card className="bg-orange-500/10 border-orange-500/20">
-                  <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-base font-medium">Terjual Bulan Ini</CardTitle>
-                    <TrendingUp className="w-5 h-5 text-orange-600" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-bold">{stats?.totalSoldThisMonth ?? 0}</div>
-                    <p className="text-xs text-muted-foreground">
-                      {format(date, 'MMMM yyyy', { locale: id })}
-                    </p>
-                  </CardContent>
-                </Card>
-
-                {/* Transfer */}
-                <Card 
-                  className="bg-blue-500/10 border-blue-500/20 cursor-pointer hover:bg-blue-500/20 transition-colors"
-                  onClick={() => handleCardClick('transfer')}
-                >
-                  <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-base font-medium">Transfer</CardTitle>
-                    <ArrowLeftRight className="w-5 h-5 text-blue-600" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-bold">{stats?.totalTransfers ?? 0}</div>
-                    <p className="text-xs text-muted-foreground">
-                      Ke Soko: {stats?.transferBreakdown.toSoko ?? 0} | Ke Mbutoh: {stats?.transferBreakdown.toMbutoh ?? 0}
-                    </p>
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-lg bg-destructive/10 flex items-center justify-center">
+                        <Tag className="h-5 w-5 text-destructive" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Laku Hari Ini</p>
+                        <p className="text-xl font-bold text-destructive">{stats?.totalSold ?? 0}</p>
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
 
                 {/* Stok Malam */}
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-base font-medium">Stok Malam</CardTitle>
-                    <Moon className="w-5 h-5 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-bold">{stats?.totalNightStock ?? 0}</div>
-                    <p className="text-xs text-muted-foreground">
-                      Mbutoh: {stats?.breakdown['MBUTOH']?.night_stock ?? 0} | Soko: {stats?.breakdown['SOKO']?.night_stock ?? 0}
-                    </p>
+                <Card className="bg-card/50 border-0 shadow-sm">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-lg bg-muted/50 flex items-center justify-center">
+                        <Moon className="h-5 w-5 text-info" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Stok Malam</p>
+                        <p className="text-xl font-bold">{stats?.totalNightStock ?? 0}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Location Breakdown */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                {Object.entries(stats?.breakdown || {}).map(([location, data]) => (
+                  <Card key={location} className="bg-card/50 border-0 shadow-sm">
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <div className="h-2 w-2 rounded-full bg-primary" />
+                          <h3 className="font-semibold text-sm">{location}</h3>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-4 text-center">
+                        <div className="p-2 rounded-lg bg-muted/30">
+                          <p className="text-lg font-bold">{data.morning_stock}</p>
+                          <p className="text-[10px] text-muted-foreground">Pagi</p>
+                        </div>
+                        <div className="p-2 rounded-lg bg-destructive/10">
+                          <p className="text-lg font-bold text-destructive">{data.sold}</p>
+                          <p className="text-[10px] text-muted-foreground">Laku</p>
+                        </div>
+                        <div className="p-2 rounded-lg bg-muted/30">
+                          <p className="text-lg font-bold">{data.night_stock}</p>
+                          <p className="text-[10px] text-muted-foreground">Malam</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              {/* Secondary Stats */}
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                {/* Transfer */}
+                <Card 
+                  className="bg-info/5 border-info/20 shadow-sm cursor-pointer hover:bg-info/10 transition-colors"
+                  onClick={() => handleCardClick('transfer')}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Transfer</p>
+                        <p className="text-2xl font-bold text-info">{stats?.totalTransfers ?? 0}</p>
+                        <div className="flex gap-2 mt-2 text-[10px] text-muted-foreground">
+                          <span>→ Soko: {stats?.transferBreakdown.toSoko ?? 0}</span>
+                          <span>→ Mbutoh: {stats?.transferBreakdown.toMbutoh ?? 0}</span>
+                        </div>
+                      </div>
+                      <ArrowLeftRight className="h-4 w-4 text-info" />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Terjual Bulan Ini */}
+                <Card className="bg-warning/5 border-warning/20 shadow-sm">
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Bulan Ini</p>
+                        <p className="text-2xl font-bold text-warning">{stats?.totalSoldThisMonth ?? 0}</p>
+                        <p className="text-[10px] text-muted-foreground mt-2">
+                          {format(date, 'MMMM yyyy', { locale: id })}
+                        </p>
+                      </div>
+                      <TrendingUp className="h-4 w-4 text-warning" />
+                    </div>
                   </CardContent>
                 </Card>
 
                 {/* Total Stok Akhir */}
-                <Card className="bg-primary text-primary-foreground">
-                  <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-base font-medium">Total Stok Akhir</CardTitle>
-                    <Package className="w-5 h-5" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-bold">{stats?.totalFinalStock ?? 0}</div>
+                <Card className="bg-primary text-primary-foreground shadow-sm col-span-2 lg:col-span-1">
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="text-xs opacity-80 mb-1">Total Stok Akhir</p>
+                        <p className="text-2xl font-bold">{stats?.totalFinalStock ?? 0}</p>
+                        <p className="text-[10px] opacity-70 mt-2">
+                          Semua lokasi
+                        </p>
+                      </div>
+                      <Package className="h-4 w-4 opacity-80" />
+                    </div>
                   </CardContent>
                 </Card>
               </div>
