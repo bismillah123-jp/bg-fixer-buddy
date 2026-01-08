@@ -403,7 +403,7 @@ export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProp
           </CardHeader>
           <CardContent>
             {kpiLoading ? <AnalyticsLoader /> : (
-              <div className="text-2xl font-bold animate-scale-in text-green-600">
+              <div className="text-2xl font-bold animate-scale-in text-success">
                 Rp {(kpiStats?.todayRevenue || 0).toLocaleString('id-ID')}
               </div>
             )}
@@ -562,7 +562,15 @@ export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProp
                 stockCompositionData && stockCompositionData.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%" className="chart-container">
                     <PieChart className="chart-pie">
-...
+                      <defs>
+                        <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+                          <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                          <feMerge>
+                            <feMergeNode in="coloredBlur"/>
+                            <feMergeNode in="SourceGraphic"/>
+                          </feMerge>
+                        </filter>
+                      </defs>
                       <Pie 
                         data={stockCompositionData} 
                         dataKey="value" 
