@@ -1,821 +1,514 @@
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { BarChart, TrendingUp, Package, Clock, X, DollarSign } from "lucide-react";
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend as RechartsLegend, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, AreaChart, Area, Sector } from "recharts";
+import { Card, CardContent } from "@/components/ui/card";
+import { 
+  TrendingUp, 
+  TrendingDown, 
+  Package, 
+  ShoppingCart, 
+  Wallet,
+  AlertTriangle,
+  ArrowUpRight,
+  ArrowDownRight,
+  Store,
+  Smartphone
+} from "lucide-react";
+import { 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  ResponsiveContainer, 
+  Tooltip as RechartsTooltip,
+  Cell,
+  PieChart,
+  Pie
+} from "recharts";
 import { supabase } from "@/integrations/supabase/client";
-import { differenceInDays } from "date-fns";
+import { differenceInDays, format, subDays } from "date-fns";
+import { id } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
 
-// Brand-specific colors mapping
+// Brand colors
 const BRAND_COLORS: Record<string, string> = {
-  'infinix': 'hsl(142, 76%, 36%)',     // Green
-  'Infinix': 'hsl(142, 76%, 36%)',     // Green
-  'Xiaomi': 'hsl(24, 100%, 50%)',      // Orange
-  'xiaomi': 'hsl(24, 100%, 50%)',      // Orange
-  'realme': 'hsl(48, 96%, 50%)',       // Yellow
-  'Realme': 'hsl(48, 96%, 50%)',       // Yellow
-  'vivo': 'hsl(200, 100%, 50%)',       // Blue
-  'Vivo': 'hsl(200, 100%, 50%)',       // Blue
-  'Itel': 'hsl(0, 84%, 60%)',          // Red
-  'itel': 'hsl(0, 84%, 60%)',          // Red
-  'nokia': 'hsl(220, 90%, 56%)',       // Blue
-  'Nokia': 'hsl(220, 90%, 56%)',       // Blue
-  'Samsung': 'hsl(210, 100%, 50%)',    // Blue
-  'samsung': 'hsl(210, 100%, 50%)',    // Blue
-  'oppo': 'hsl(120, 100%, 35%)',       // Green
-  'Oppo': 'hsl(120, 100%, 35%)',       // Green
-  'OPPO': 'hsl(120, 100%, 35%)',       // Green
-  'zte': 'hsl(200, 100%, 50%)',        // Blue
-  'ZTE': 'hsl(200, 100%, 50%)',        // Blue
-  'tecno': 'hsl(200, 100%, 45%)',      // Blue
-  'Tecno': 'hsl(200, 100%, 45%)',      // Blue
+  'infinix': 'hsl(var(--success))',
+  'Infinix': 'hsl(var(--success))',
+  'Xiaomi': 'hsl(24, 100%, 50%)',
+  'xiaomi': 'hsl(24, 100%, 50%)',
+  'realme': 'hsl(var(--warning))',
+  'Realme': 'hsl(var(--warning))',
+  'vivo': 'hsl(var(--info))',
+  'Vivo': 'hsl(var(--info))',
+  'Itel': 'hsl(var(--destructive))',
+  'itel': 'hsl(var(--destructive))',
+  'Samsung': 'hsl(210, 100%, 50%)',
+  'samsung': 'hsl(210, 100%, 50%)',
+  'oppo': 'hsl(120, 100%, 35%)',
+  'Oppo': 'hsl(120, 100%, 35%)',
+  'OPPO': 'hsl(120, 100%, 35%)',
+  'tecno': 'hsl(var(--primary))',
+  'Tecno': 'hsl(var(--primary))',
 };
 
-// Fallback colors for unknown brands
-const FALLBACK_COLORS = [
-  'hsl(260, 100%, 65%)',  // Purple
-  'hsl(346, 77%, 50%)',   // Pink
-  'hsl(180, 100%, 35%)',  // Cyan
+const CHART_COLORS = [
+  'hsl(var(--primary))',
+  'hsl(var(--success))',
+  'hsl(var(--info))',
+  'hsl(var(--warning))',
+  'hsl(var(--destructive))',
+  'hsl(260, 100%, 65%)',
 ];
 
 const getBrandColor = (brandName: string, index: number): string => {
-  return BRAND_COLORS[brandName] || FALLBACK_COLORS[index % FALLBACK_COLORS.length];
-};
-
-// Render active shape for pie chart
-const renderActiveShape = (props: any) => {
-  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, payload, value } = props;
-
-  return (
-    <g>
-      <text x={cx} y={cy - 10} dy={8} textAnchor="middle" fill="hsl(var(--foreground))" className="font-bold text-lg">
-        {payload.name}
-      </text>
-      <text x={cx} y={cy + 10} dy={8} textAnchor="middle" fill="hsl(var(--muted-foreground))">
-        {value} unit
-      </text>
-      <Sector
-        cx={cx}
-        cy={cy}
-        innerRadius={innerRadius}
-        outerRadius={outerRadius + 10}
-        startAngle={startAngle}
-        endAngle={endAngle}
-        fill={fill}
-      />
-    </g>
-  );
+  return BRAND_COLORS[brandName] || CHART_COLORS[index % CHART_COLORS.length];
 };
 
 interface StockAnalyticsProps {
   selectedDate?: Date;
 }
 
-// Main Analytics Component
 export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProps) {
-  const [selectedBrand, setSelectedBrand] = useState<string | null>(null);
-  const [activeIndex, setActiveIndex] = useState<number | undefined>(undefined);
+  const today = selectedDate.toISOString().split('T')[0];
   
-  // --- DATA QUERIES ---
-
-  // 1. Query for KPI cards
-  const { data: kpiStats, isLoading: kpiLoading } = useQuery({
-    queryKey: ['kpi-stats', selectedDate.toISOString()],
-    staleTime: 1000 * 60 * 5, // 5 minutes
+  // Main stats query
+  const { data: stats, isLoading } = useQuery({
+    queryKey: ['analytics-stats', today],
     queryFn: async () => {
-      // Calculate start and end of the current month based on selectedDate
       const startOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
       const endOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
-      const today = selectedDate.toISOString().split('T')[0];
       const startOfMonthStr = startOfMonth.toISOString().split('T')[0];
       const endOfMonthStr = endOfMonth.toISOString().split('T')[0];
+      const yesterday = subDays(selectedDate, 1).toISOString().split('T')[0];
 
-      // Fetch all relevant data in parallel
       const [
-        { data: monthlySalesData, error: salesError },
-        { data: availableStockData, error: stockError },
-        { data: todaySalesData, error: todayError }
+        { data: todayStock },
+        { data: yesterdayStock },
+        { data: monthlyData },
+        { data: todaySales },
+        { data: locationStock }
       ] = await Promise.all([
-        supabase.from('stock_entries').select('sold, phone_models(brand)').gte('date', startOfMonthStr).lte('date', endOfMonthStr),
-        supabase.from('stock_entries').select('night_stock').eq('date', today).gt('night_stock', 0),
-        supabase.from('stock_entries').select('selling_price, profit_loss, sold').eq('date', today).gt('sold', 0)
+        supabase.from('stock_entries').select('night_stock, imei').eq('date', today).gt('night_stock', 0),
+        supabase.from('stock_entries').select('night_stock').eq('date', yesterday).gt('night_stock', 0),
+        supabase.from('stock_entries').select('sold, selling_price, profit_loss, cost_price, phone_models(brand)').gte('date', startOfMonthStr).lte('date', endOfMonthStr),
+        supabase.from('stock_entries').select('sold, selling_price, profit_loss').eq('date', today).gt('sold', 0),
+        supabase.from('stock_entries').select('night_stock, stock_locations(name)').eq('date', today).gt('night_stock', 0)
       ]);
 
-      if (salesError || stockError || todayError) {
-        throw new Error(salesError?.message || stockError?.message || todayError?.message);
-      }
+      // Calculate stock
+      const currentStock = todayStock?.reduce((sum, e) => sum + (e.night_stock || 0), 0) || 0;
+      const prevStock = yesterdayStock?.reduce((sum, e) => sum + (e.night_stock || 0), 0) || 0;
+      const stockChange = prevStock > 0 ? ((currentStock - prevStock) / prevStock * 100) : 0;
 
-      // Process sales data
-      const totalSoldMonthly = monthlySalesData?.filter(e => e.sold > 0).length || 0;
-      const brandSales = monthlySalesData?.filter(e => e.sold > 0).reduce((acc, entry) => {
-        const brand = entry.phone_models?.brand || 'Unknown';
+      // Calculate monthly sales
+      const monthlySold = monthlyData?.filter(e => e.sold > 0).length || 0;
+      const monthlyRevenue = monthlyData?.filter(e => e.sold > 0).reduce((sum, e) => sum + (e.selling_price || 0), 0) || 0;
+      const monthlyProfit = monthlyData?.filter(e => e.sold > 0).reduce((sum, e) => sum + (e.profit_loss || 0), 0) || 0;
+      const monthlyCost = monthlyData?.filter(e => e.sold > 0).reduce((sum, e) => sum + (e.cost_price || 0), 0) || 0;
+
+      // Today's sales
+      const todaySold = todaySales?.length || 0;
+      const todayRevenue = todaySales?.reduce((sum, e) => sum + (e.selling_price || 0), 0) || 0;
+      const todayProfit = todaySales?.reduce((sum, e) => sum + (e.profit_loss || 0), 0) || 0;
+
+      // Brand performance
+      const brandSales = monthlyData?.filter(e => e.sold > 0).reduce((acc, e) => {
+        const brand = e.phone_models?.brand || 'Lainnya';
         acc[brand] = (acc[brand] || 0) + 1;
         return acc;
-      }, {} as Record<string, number>);
-      const bestSellingBrand = brandSales && Object.keys(brandSales).length > 0
-        ? Object.entries(brandSales).sort((a, b) => b[1] - a[1])[0]
-        : null;
+      }, {} as Record<string, number>) || {};
 
-      // Process available stock - sum night_stock values for today
-      const availableStock = availableStockData?.reduce((sum, entry) => sum + (entry.night_stock || 0), 0) || 0;
+      // Stock by location
+      const stockByLocation = locationStock?.reduce((acc, e) => {
+        const loc = e.stock_locations?.name || 'Unknown';
+        acc[loc] = (acc[loc] || 0) + (e.night_stock || 0);
+        return acc;
+      }, {} as Record<string, number>) || {};
 
-      // Process oldest stock - find items currently in stock and their age
-      let oldestStock = null;
-      if (availableStockData && availableStockData.length > 0) {
-        // Get stock entries with night_stock > 0 on selected date
-        const { data: oldestQuery, error: oldestQueryError } = await supabase
-          .from('stock_entries')
-          .select('imei, phone_models(model)')
-          .eq('date', today)
-          .gt('night_stock', 0);
-        
-        if (!oldestQueryError && oldestQuery && oldestQuery.length > 0) {
-          // For each IMEI, find the earliest date it appeared
-          let oldestItem = null;
-          let maxDays = 0;
-          
-          for (const item of oldestQuery) {
-            if (item.imei) {
-              const { data: firstAppearance } = await supabase
-                .from('stock_events')
-                .select('date')
-                .eq('imei', item.imei)
-                .eq('event_type', 'masuk')
-                .order('date', { ascending: true })
-                .limit(1);
-              
-              if (firstAppearance && firstAppearance.length > 0) {
-                const firstDate = new Date(firstAppearance[0].date);
-                const days = differenceInDays(selectedDate, firstDate);
-                
-                if (days > maxDays) {
-                  maxDays = days;
-                  oldestItem = {
-                    model: item.phone_models?.model || 'N/A',
-                    days: days
-                  };
-                }
-              }
+      // Find slow-moving stock (items in stock > 14 days)
+      let slowMovingCount = 0;
+      if (todayStock && todayStock.length > 0) {
+        for (const item of todayStock.slice(0, 50)) { // Check first 50 for performance
+          if (item.imei) {
+            const { data: firstEvent } = await supabase
+              .from('stock_events')
+              .select('date')
+              .eq('imei', item.imei)
+              .eq('event_type', 'masuk')
+              .order('date', { ascending: true })
+              .limit(1);
+            
+            if (firstEvent?.[0]) {
+              const days = differenceInDays(selectedDate, new Date(firstEvent[0].date));
+              if (days > 14) slowMovingCount++;
             }
           }
-          
-          oldestStock = oldestItem;
         }
       }
 
-      // Calculate today's profit/loss and revenue
-      const soldItems = todaySalesData?.filter(e => e.sold > 0) || [];
-      const todayProfitLoss = soldItems.reduce((sum, item) => sum + (item.profit_loss || 0), 0);
-      const todayRevenue = soldItems.reduce((sum, item) => sum + (item.selling_price || 0), 0);
-
       return {
-        totalSoldMonthly,
-        availableStock,
-        bestSellingBrand: bestSellingBrand ? `${bestSellingBrand[0]} (${bestSellingBrand[1]})` : null,
-        oldestStock: oldestStock ? `${oldestStock.model} (${oldestStock.days} hari)` : null,
-        todayProfitLoss,
+        currentStock,
+        stockChange,
+        monthlySold,
+        monthlyRevenue,
+        monthlyProfit,
+        monthlyCost,
+        todaySold,
         todayRevenue,
+        todayProfit,
+        brandSales: Object.entries(brandSales)
+          .map(([name, value]) => ({ name, value }))
+          .sort((a, b) => b.value - a.value)
+          .slice(0, 6),
+        stockByLocation: Object.entries(stockByLocation)
+          .map(([name, value]) => ({ name, value }))
+          .sort((a, b) => b.value - a.value),
+        slowMovingCount,
+        profitMargin: monthlyRevenue > 0 ? (monthlyProfit / monthlyRevenue * 100) : 0,
       };
     }
   });
 
-  // 2. Query for Daily Sales Chart
-  const { data: dailySalesData, isLoading: dailySalesLoading } = useQuery({
-    queryKey: ['daily-sales-chart', selectedDate.toISOString()],
-    staleTime: 1000 * 60 * 5, // 5 minutes
+  // Weekly trend
+  const { data: weeklyTrend } = useQuery({
+    queryKey: ['weekly-trend', today],
     queryFn: async () => {
-      // Use actual calendar month
-      const startOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
-      const endOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
-      const startOfMonthStr = startOfMonth.toISOString().split('T')[0];
-      const endOfMonthStr = endOfMonth.toISOString().split('T')[0];
-      const { data, error } = await supabase.from('stock_entries').select('date, sold').gte('date', startOfMonthStr).lte('date', endOfMonthStr).order('date');
-      if (error) throw error;
+      const days = [];
+      for (let i = 6; i >= 0; i--) {
+        const date = subDays(selectedDate, i);
+        days.push(date.toISOString().split('T')[0]);
+      }
 
-      const grouped = data.filter(e => e.sold > 0).reduce((acc, entry) => {
-        const date = new Date(entry.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' });
-        acc[date] = (acc[date] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
-
-      return Object.entries(grouped).map(([date, sales]) => ({ date, Penjualan: sales }));
-    }
-  });
-
-  // 3. Query for Stock Composition Pie Chart
-  const { data: stockCompositionData, isLoading: compositionLoading } = useQuery({
-    queryKey: ['stock-composition', selectedDate.toISOString()],
-    staleTime: 1000 * 60 * 5, // 5 minutes
-    queryFn: async () => {
-        const today = selectedDate.toISOString().split('T')[0];
-        const { data, error } = await supabase.from('stock_entries').select('night_stock, phone_models(brand)').eq('date', today).gt('night_stock', 0);
-        if (error) throw error;
-
-        const grouped = data.reduce((acc, entry) => {
-            const brand = entry.phone_models?.brand || 'Unknown';
-            acc[brand] = (acc[brand] || 0) + (entry.night_stock || 0);
-            return acc;
-        }, {} as Record<string, number>);
-
-        const total = Object.values(grouped).reduce((sum, val) => sum + val, 0);
-        
-        return Object.entries(grouped).map(([name, value]) => ({ 
-          name, 
-          value,
-          percentage: total > 0 ? (value / total * 100) : 0
-        }));
-    }
-  });
-
-  // 3b. Query for Selected Brand Details
-  const { data: brandDetails, isLoading: brandDetailsLoading } = useQuery({
-    queryKey: ['brand-details', selectedBrand, selectedDate.toISOString()],
-    enabled: !!selectedBrand,
-    queryFn: async () => {
-      if (!selectedBrand) return [];
-      
-      const today = selectedDate.toISOString().split('T')[0];
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('stock_entries')
-        .select('night_stock, phone_models(brand, model, color, storage_capacity), stock_locations(name)')
-        .eq('date', today)
-        .gt('night_stock', 0);
-      
-      if (error) throw error;
-      
-      // Filter by brand after fetching (Supabase doesn't support filtering nested relations directly)
-      const filtered = data.filter(entry => entry.phone_models?.brand === selectedBrand);
-      
-      return filtered.map(entry => ({
-        model: entry.phone_models?.model || '-',
-        color: entry.phone_models?.color || '-',
-        storage: entry.phone_models?.storage_capacity || '-',
-        location: entry.stock_locations?.name || '-',
-        stock: entry.night_stock
-      }));
+        .select('date, sold')
+        .in('date', days)
+        .gt('sold', 0);
+
+      const grouped = days.map(date => {
+        const dayData = data?.filter(e => e.date === date) || [];
+        return {
+          day: format(new Date(date), 'EEE', { locale: id }),
+          penjualan: dayData.length
+        };
+      });
+
+      return grouped;
     }
   });
 
-  // 4. Query for Best Selling Models Table
-  const { data: bestSellingModels, isLoading: modelsLoading } = useQuery({
-    queryKey: ['best-selling-models', selectedDate.toISOString()],
-    staleTime: 1000 * 60 * 5, // 5 minutes
-    queryFn: async () => {
-        // Use actual calendar month
-        const startOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
-        const endOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
-        const startOfMonthStr = startOfMonth.toISOString().split('T')[0];
-        const endOfMonthStr = endOfMonth.toISOString().split('T')[0];
-        const { data, error } = await supabase.from('stock_entries').select('sold, phone_models(brand, model, color)').gte('date', startOfMonthStr).lte('date', endOfMonthStr);
-        if (error) throw error;
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
+      </div>
+    );
+  }
 
-        const grouped = data.filter(e => e.sold > 0).reduce((acc, entry) => {
-            const modelName = `${entry.phone_models?.brand} ${entry.phone_models?.model} ${entry.phone_models?.color || ''}`.trim();
-            acc[modelName] = (acc[modelName] || 0) + 1;
-            return acc;
-        }, {} as Record<string, number>);
-
-        return Object.entries(grouped).map(([name, sales]) => ({ name, sales })).sort((a, b) => b.sales - a.sales);
-    }
-  });
-
-  // 5. Query for Sales by Brand (This Month)
-  const { data: salesByBrand, isLoading: salesByBrandLoading } = useQuery({
-    queryKey: ['sales-by-brand', selectedDate.toISOString()],
-    staleTime: 1000 * 60 * 5, // 5 minutes
-    queryFn: async () => {
-        // Use actual calendar month
-        const startOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
-        const endOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
-        const startOfMonthStr = startOfMonth.toISOString().split('T')[0];
-        const endOfMonthStr = endOfMonth.toISOString().split('T')[0];
-        
-        const { data, error } = await supabase
-          .from('stock_entries')
-          .select('sold, phone_models(brand)')
-          .gte('date', startOfMonthStr)
-          .lte('date', endOfMonthStr)
-          .gt('sold', 0);
-        
-        if (error) throw error;
-
-        const grouped = data.reduce((acc, entry) => {
-            const brand = entry.phone_models?.brand || 'Unknown';
-            acc[brand] = (acc[brand] || 0) + entry.sold;
-            return acc;
-        }, {} as Record<string, number>);
-
-        return Object.entries(grouped)
-          .map(([name, value]) => ({ name, value }))
-          .sort((a, b) => b.value - a.value);
-    }
-  });
-
-  // --- RENDER ---
-
-  const AnalyticsLoader = () => (
-    <div className="h-24 flex items-center justify-center">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-    </div>
-  );
-
-  // Add custom CSS animations
-  const chartStyles = `
-    @keyframes chartFadeIn {
-      from { opacity: 0; transform: translateY(20px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    
-    @keyframes chartScaleIn {
-      from { opacity: 0; transform: scale(0.8); }
-      to { opacity: 1; transform: scale(1); }
-    }
-    
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.7; }
-    }
-    
-    .chart-container {
-      animation: chartFadeIn 0.6s ease-out;
-    }
-    
-    .chart-area {
-      animation: chartScaleIn 0.8s ease-out;
-    }
-    
-    .chart-pie {
-      animation: chartScaleIn 1s ease-out;
-    }
-    
-    .hover-glow:hover {
-      filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.5));
-      transition: all 0.3s ease;
-    }
-  `;
+  const formatCurrency = (value: number) => {
+    if (value >= 1000000) return `Rp ${(value / 1000000).toFixed(1)}jt`;
+    if (value >= 1000) return `Rp ${(value / 1000).toFixed(0)}rb`;
+    return `Rp ${value.toLocaleString('id-ID')}`;
+  };
 
   return (
-    <>
-      <style>{chartStyles}</style>
-      <div className="space-y-6">
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <Card className="animate-fade-in hover-scale transition-all duration-300">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Terjual (Bulan Ini)</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            {kpiLoading ? <AnalyticsLoader /> : <div className="text-2xl font-bold animate-scale-in">{kpiStats?.totalSoldMonthly ?? 0}</div>}
-          </CardContent>
-        </Card>
-        <Card className="animate-fade-in hover-scale transition-all duration-300" style={{ animationDelay: '0.1s' }}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Stok Tersedia</CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            {kpiLoading ? <AnalyticsLoader /> : <div className="text-2xl font-bold animate-scale-in">{kpiStats?.availableStock ?? 0}</div>}
-          </CardContent>
-        </Card>
-        <Card className="animate-fade-in hover-scale transition-all duration-300" style={{ animationDelay: '0.2s' }}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Brand Terlaris</CardTitle>
-            <BarChart className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            {kpiLoading ? <AnalyticsLoader /> : (
-              <div className="text-2xl font-bold animate-scale-in">
-                {kpiStats?.bestSellingBrand ?? <span className="text-sm text-muted-foreground">Belum ada penjualan</span>}
+    <div className="space-y-4 pb-20">
+      {/* Summary Stats */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* Stok Saat Ini */}
+        <Card className="bg-card/50 border-0 shadow-sm">
+          <CardContent className="p-4">
+            <div className="flex items-start justify-between">
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground font-medium">Stok Tersedia</p>
+                <p className="text-2xl font-bold">{stats?.currentStock || 0}</p>
+                <div className={cn(
+                  "flex items-center gap-1 text-xs",
+                  (stats?.stockChange || 0) >= 0 ? "text-success" : "text-destructive"
+                )}>
+                  {(stats?.stockChange || 0) >= 0 ? (
+                    <ArrowUpRight className="h-3 w-3" />
+                  ) : (
+                    <ArrowDownRight className="h-3 w-3" />
+                  )}
+                  <span>{Math.abs(stats?.stockChange || 0).toFixed(1)}%</span>
+                </div>
               </div>
-            )}
-          </CardContent>
-        </Card>
-        
-        {/* Revenue Card */}
-        <Card className="animate-fade-in hover-scale transition-all duration-300" style={{ animationDelay: '0.3s' }}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pendapatan Hari Ini</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            {kpiLoading ? <AnalyticsLoader /> : (
-              <div className="text-2xl font-bold animate-scale-in text-success">
-                Rp {(kpiStats?.todayRevenue || 0).toLocaleString('id-ID')}
+              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Package className="h-5 w-5 text-primary" />
               </div>
-            )}
+            </div>
           </CardContent>
         </Card>
-        
-        {/* Oldest Stock Card */}
-        <Card className="animate-fade-in hover-scale transition-all duration-300" style={{ animationDelay: '0.4s' }}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Stok Paling Lama</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            {kpiLoading ? <AnalyticsLoader /> : (
-              <div className="text-2xl font-bold animate-scale-in">
-                {kpiStats?.oldestStock ?? <span className="text-sm text-muted-foreground">Tidak ada stok</span>}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-        <Card className="animate-fade-in hover-scale transition-all duration-300" style={{ animationDelay: '0.4s' }}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Laba/Rugi Hari Ini</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            {kpiLoading ? <AnalyticsLoader /> : (
-              <div className={cn(
-                "text-2xl font-bold animate-scale-in",
-                (kpiStats?.todayProfitLoss ?? 0) >= 0 ? 'text-success' : 'text-destructive'
-              )}>
-                Rp {(kpiStats?.todayProfitLoss ?? 0).toLocaleString('id-ID')}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
 
-      {/* Charts and Tables */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-          <Card className="animate-fade-in overflow-hidden bg-gradient-to-br from-card to-card/50 border-0 shadow-xl">
-            <CardHeader className="bg-gradient-to-r from-primary/5 to-primary/10 border-b">
-                <CardTitle className="flex items-center gap-2 text-xl">
-                  <TrendingUp className="h-5 w-5 text-primary" />
-                  Grafik Penjualan Harian
-                  <span className="text-sm font-normal text-muted-foreground">(Bulan Ini)</span>
-                </CardTitle>
-            </CardHeader>
-            <CardContent className="h-[350px] p-6">
-              {dailySalesLoading ? <AnalyticsLoader /> : (
-                dailySalesData && dailySalesData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%" className="chart-container">
-                    <AreaChart data={dailySalesData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }} className="chart-area">
-                      <defs>
-                        <linearGradient id="colorPenjualan" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="hsl(142, 76%, 36%)" stopOpacity={0.8}/>
-                          <stop offset="50%" stopColor="hsl(142, 76%, 36%)" stopOpacity={0.4}/>
-                          <stop offset="95%" stopColor="hsl(142, 76%, 36%)" stopOpacity={0.1}/>
-                        </linearGradient>
-                        <linearGradient id="colorPenjualanStroke" x1="0" y1="0" x2="1" y2="0">
-                          <stop offset="0%" stopColor="hsl(142, 76%, 36%)"/>
-                          <stop offset="100%" stopColor="hsl(200, 100%, 50%)"/>
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid 
-                        strokeDasharray="3 3" 
-                        opacity={0.2} 
-                        stroke="hsl(var(--muted-foreground))"
-                        vertical={false}
-                      />
-                      <XAxis 
-                        dataKey="date" 
-                        tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
-                        axisLine={{ stroke: 'hsl(var(--border))' }}
-                        tickLine={{ stroke: 'hsl(var(--border))' }}
-                        interval="preserveStartEnd"
-                      />
-                      <YAxis 
-                        allowDecimals={false}
-                        tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
-                        axisLine={{ stroke: 'hsl(var(--border))' }}
-                        tickLine={{ stroke: 'hsl(var(--border))' }}
-                      />
-                      <RechartsTooltip 
-                        content={({ active, payload, label }) => {
-                          if (active && payload && payload.length) {
-                            return (
-                              <div className="bg-card/95 backdrop-blur-sm border border-border rounded-lg shadow-xl p-3">
-                                <p className="text-sm font-medium text-foreground mb-1">{label}</p>
-                                <div className="flex items-center gap-2">
-                                  <div className="w-3 h-3 rounded-full bg-gradient-to-r from-green-500 to-blue-500"></div>
-                                  <p className="text-sm text-muted-foreground">
-                                    Penjualan: <span className="font-semibold text-foreground">{payload[0].value} unit</span>
-                                  </p>
-                                </div>
-                              </div>
-                            );
-                          }
-                          return null;
-                        }}
-                        cursor={{ stroke: 'hsl(var(--primary))', strokeWidth: 1, strokeDasharray: '5 5' }}
-                      />
-                      <Area 
-                        type="monotone" 
-                        dataKey="Penjualan" 
-                        stroke="url(#colorPenjualanStroke)" 
-                        strokeWidth={3}
-                        fill="url(#colorPenjualan)"
-                        animationDuration={1500}
-                        animationBegin={0}
-                        dot={{ fill: 'hsl(142, 76%, 36%)', strokeWidth: 2, r: 4 }}
-                        activeDot={{ r: 6, stroke: 'hsl(142, 76%, 36%)', strokeWidth: 2, fill: 'white' }}
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
+        {/* Penjualan Bulan Ini */}
+        <Card className="bg-card/50 border-0 shadow-sm">
+          <CardContent className="p-4">
+            <div className="flex items-start justify-between">
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground font-medium">Terjual (Bulan Ini)</p>
+                <p className="text-2xl font-bold">{stats?.monthlySold || 0}</p>
+                <p className="text-xs text-muted-foreground">
+                  Hari ini: {stats?.todaySold || 0} unit
+                </p>
+              </div>
+              <div className="h-10 w-10 rounded-lg bg-success/10 flex items-center justify-center">
+                <ShoppingCart className="h-5 w-5 text-success" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Omzet Bulan Ini */}
+        <Card className="bg-card/50 border-0 shadow-sm">
+          <CardContent className="p-4">
+            <div className="flex items-start justify-between">
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground font-medium">Omzet (Bulan Ini)</p>
+                <p className="text-2xl font-bold">{formatCurrency(stats?.monthlyRevenue || 0)}</p>
+                <p className="text-xs text-muted-foreground">
+                  Hari ini: {formatCurrency(stats?.todayRevenue || 0)}
+                </p>
+              </div>
+              <div className="h-10 w-10 rounded-lg bg-info/10 flex items-center justify-center">
+                <Wallet className="h-5 w-5 text-info" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Profit */}
+        <Card className="bg-card/50 border-0 shadow-sm">
+          <CardContent className="p-4">
+            <div className="flex items-start justify-between">
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground font-medium">Profit (Bulan Ini)</p>
+                <p className={cn(
+                  "text-2xl font-bold",
+                  (stats?.monthlyProfit || 0) >= 0 ? "text-success" : "text-destructive"
+                )}>
+                  {formatCurrency(stats?.monthlyProfit || 0)}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Margin: {(stats?.profitMargin || 0).toFixed(1)}%
+                </p>
+              </div>
+              <div className={cn(
+                "h-10 w-10 rounded-lg flex items-center justify-center",
+                (stats?.monthlyProfit || 0) >= 0 ? "bg-success/10" : "bg-destructive/10"
+              )}>
+                {(stats?.monthlyProfit || 0) >= 0 ? (
+                  <TrendingUp className="h-5 w-5 text-success" />
                 ) : (
-                  <div className="flex flex-col items-center justify-center h-full text-center">
-                    <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
-                      <TrendingUp className="h-8 w-8 text-muted-foreground" />
-                    </div>
-                    <p className="text-muted-foreground text-lg">Belum ada data penjualan</p>
-                    <p className="text-sm text-muted-foreground mt-1">Mulai jual HP untuk melihat grafik</p>
-                  </div>
-                )
-              )}
-            </CardContent>
-          </Card>
-        </div>
-        <div>
-          <Card className="animate-fade-in overflow-hidden bg-gradient-to-br from-card to-card/50 border-0 shadow-xl" style={{ animationDelay: '0.1s' }}>
-            <CardHeader className="bg-gradient-to-r from-primary/5 to-primary/10 border-b">
-              <div className="flex flex-row items-center justify-between">
-                <CardTitle className="flex items-center gap-2 text-xl">
-                  <Package className="h-5 w-5 text-primary" />
-                  Komposisi Stok
-                </CardTitle>
-                {selectedBrand && (
-                  <Button 
-                    variant="ghost" 
-                    size="sm"
-                    onClick={() => {
-                      setSelectedBrand(null);
-                      setActiveIndex(undefined);
-                    }}
-                    className="h-8 hover:bg-primary/10 transition-colors"
-                  >
-                    <X className="h-4 w-4 mr-1" />
-                    Reset
-                  </Button>
+                  <TrendingDown className="h-5 w-5 text-destructive" />
                 )}
               </div>
-            </CardHeader>
-            <CardContent className="h-[400px] p-6">
-              {compositionLoading ? <AnalyticsLoader /> : (
-                stockCompositionData && stockCompositionData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%" className="chart-container">
-                    <PieChart className="chart-pie">
-                      <defs>
-                        <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-                          <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
-                          <feMerge>
-                            <feMergeNode in="coloredBlur"/>
-                            <feMergeNode in="SourceGraphic"/>
-                          </feMerge>
-                        </filter>
-                      </defs>
-                      <Pie 
-                        data={stockCompositionData} 
-                        dataKey="value" 
-                        nameKey="name" 
-                        cx="50%" 
-                        cy="50%" 
-                        innerRadius={75}
-                        outerRadius={120}
-                        label={({ name, percentage }) => 
-                          percentage > 0 ? `${name}: ${percentage.toFixed(1)}%` : ''
-                        }
-                        labelLine={{
-                          stroke: 'hsl(var(--foreground))',
-                          strokeWidth: 1
-                        }}
-                        animationBegin={0}
-                        animationDuration={1200}
-                        activeIndex={activeIndex}
-                        activeShape={renderActiveShape}
-                        onClick={(data, index) => {
-                          setSelectedBrand(data.name);
-                          setActiveIndex(index);
-                        }}
-                        style={{ cursor: 'pointer' }}
-                      >
-                        {stockCompositionData?.map((entry, index) => (
-                          <Cell 
-                            key={`cell-${index}`} 
-                            fill={getBrandColor(entry.name, index)}
-                            className="transition-all duration-300 hover:opacity-80 hover-glow"
-                            filter={activeIndex === index ? "url(#glow)" : "none"}
-                          />
-                        ))}
-                      </Pie>
-                      <RechartsTooltip 
-                        content={({ active, payload }) => {
-                          if (active && payload && payload.length) {
-                            const data = payload[0];
-                            return (
-                              <div className="bg-card/95 backdrop-blur-sm border border-border rounded-lg shadow-xl p-3">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <div 
-                                    className="w-3 h-3 rounded-full" 
-                                    style={{ backgroundColor: data.payload.fill }}
-                                  ></div>
-                                  <p className="text-sm font-medium text-foreground">{data.name}</p>
-                                </div>
-                                <p className="text-sm text-muted-foreground">
-                                  Stok: <span className="font-semibold text-foreground">{data.value} unit</span>
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  Persentase: <span className="font-semibold text-foreground">
-                                    {data.payload.percentage?.toFixed(1)}%
-                                  </span>
-                                </p>
-                              </div>
-                            );
-                          }
-                          return null;
-                        }}
-                      />
-                      <RechartsLegend 
-                        wrapperStyle={{ 
-                          fontSize: '12px', 
-                          paddingTop: '15px',
-                          display: 'flex',
-                          flexWrap: 'wrap',
-                          justifyContent: 'center',
-                          gap: '10px',
-                          maxHeight: '100px',
-                          overflow: 'auto'
-                        }}
-                        iconType="circle"
-                        formatter={(value, entry) => {
-                          const data = stockCompositionData?.find(d => d.name === value);
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Charts Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Weekly Trend */}
+        <Card className="bg-card/50 border-0 shadow-sm">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-sm">Penjualan 7 Hari Terakhir</h3>
+            </div>
+            <div className="h-[180px]">
+              {weeklyTrend && weeklyTrend.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={weeklyTrend} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                    <XAxis 
+                      dataKey="day" 
+                      axisLine={false} 
+                      tickLine={false}
+                      tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                    />
+                    <YAxis 
+                      axisLine={false} 
+                      tickLine={false}
+                      tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                      allowDecimals={false}
+                    />
+                    <RechartsTooltip 
+                      content={({ active, payload, label }) => {
+                        if (active && payload?.[0]) {
                           return (
-                            <span style={{ 
-                              color: 'hsl(var(--foreground))', 
-                              fontWeight: '500',
-                              whiteSpace: 'nowrap'
-                            }}>
-                              {value} ({data?.percentage?.toFixed(1)}%)
-                            </span>
+                            <div className="bg-popover border border-border rounded-lg px-3 py-2 shadow-lg">
+                              <p className="text-xs text-muted-foreground">{label}</p>
+                              <p className="text-sm font-semibold">{payload[0].value} unit</p>
+                            </div>
                           );
-                        }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="flex flex-col items-center justify-center h-full text-center">
-                    <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
-                      <Package className="h-8 w-8 text-muted-foreground" />
-                    </div>
-                    <p className="text-muted-foreground text-lg">Tidak ada stok tersedia</p>
-                    <p className="text-sm text-muted-foreground mt-1">Tambah stok untuk melihat komposisi</p>
-                  </div>
-                )
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      {selectedBrand && (
-        <div>
-          <Card className="animate-fade-in overflow-hidden">
-            <CardHeader>
-              <CardTitle>Detail Stok - {selectedBrand}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {brandDetailsLoading ? <AnalyticsLoader /> : (
-                brandDetails && brandDetails.length > 0 ? (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Model</TableHead>
-                        <TableHead>Warna</TableHead>
-                        <TableHead>Kapasitas</TableHead>
-                        <TableHead>Lokasi</TableHead>
-                        <TableHead className="text-right">Stok</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {brandDetails.map((item, index) => (
-                        <TableRow 
-                          key={index}
-                          className="transition-all duration-200 hover:bg-accent/50 animate-fade-in"
-                          style={{ animationDelay: `${index * 0.05}s` }}
-                        >
-                          <TableCell className="font-medium">{item.model}</TableCell>
-                          <TableCell>{item.color}</TableCell>
-                          <TableCell>{item.storage}</TableCell>
-                          <TableCell>{item.location}</TableCell>
-                          <TableCell className="text-right font-bold text-primary">{item.stock}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                ) : (
-                  <div className="flex items-center justify-center h-24">
-                    <p className="text-muted-foreground">Tidak ada detail stok</p>
-                  </div>
-                )
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Sales by Brand (This Month) */}
-      <div>
-        <Card className="animate-fade-in overflow-hidden bg-gradient-to-br from-card to-card/50 border-0 shadow-xl" style={{ animationDelay: '0.15s' }}>
-          <CardHeader className="bg-gradient-to-r from-primary/5 to-primary/10 border-b">
-            <CardTitle className="flex items-center gap-2 text-xl">
-              <BarChart className="h-5 w-5 text-primary" />
-              Penjualan Per Merek (Bulan Ini)
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-6">
-            {salesByBrandLoading ? <AnalyticsLoader /> : (
-              salesByBrand && salesByBrand.length > 0 ? (
-                <Table>
-                  <TableHeader>
-                    <TableRow className="border-b border-border/50">
-                      <TableHead className="font-bold">No.</TableHead>
-                      <TableHead className="font-bold">Merek</TableHead>
-                      <TableHead className="text-right font-bold">Unit Terjual</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {salesByBrand.map((brand, index) => (
-                      <TableRow 
-                        key={brand.name}
-                        className="transition-all duration-200 hover:bg-accent/50 animate-fade-in border-b border-border/30"
-                        style={{ animationDelay: `${index * 0.05}s` }}
-                      >
-                        <TableCell className="font-medium">{index + 1}</TableCell>
-                        <TableCell className="font-semibold">
-                          <div className="flex items-center gap-2">
-                            <div 
-                              className="w-3 h-3 rounded-full" 
-                              style={{ backgroundColor: getBrandColor(brand.name, index) }}
-                            />
-                            {brand.name}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <span className="font-bold text-lg" style={{ color: getBrandColor(brand.name, index) }}>
-                            {brand.value}
-                          </span>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                        }
+                        return null;
+                      }}
+                    />
+                    <Bar 
+                      dataKey="penjualan" 
+                      fill="hsl(var(--primary))" 
+                      radius={[4, 4, 0, 0]}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
               ) : (
-                <div className="flex items-center justify-center h-24">
-                  <p className="text-muted-foreground">Belum ada penjualan bulan ini</p>
+                <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                  Belum ada data penjualan
                 </div>
-              )
-            )}
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Brand Performance */}
+        <Card className="bg-card/50 border-0 shadow-sm">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-sm">Penjualan per Merek</h3>
+              <span className="text-xs text-muted-foreground">Bulan ini</span>
+            </div>
+            <div className="h-[180px]">
+              {stats?.brandSales && stats.brandSales.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart 
+                    data={stats.brandSales} 
+                    layout="vertical"
+                    margin={{ top: 0, right: 0, left: 0, bottom: 0 }}
+                  >
+                    <XAxis type="number" hide />
+                    <YAxis 
+                      type="category" 
+                      dataKey="name" 
+                      axisLine={false} 
+                      tickLine={false}
+                      tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                      width={70}
+                    />
+                    <RechartsTooltip 
+                      content={({ active, payload }) => {
+                        if (active && payload?.[0]) {
+                          return (
+                            <div className="bg-popover border border-border rounded-lg px-3 py-2 shadow-lg">
+                              <p className="text-sm font-semibold">{payload[0].payload.name}</p>
+                              <p className="text-xs text-muted-foreground">{payload[0].value} unit terjual</p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                    <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                      {stats.brandSales.map((entry, index) => (
+                        <Cell key={index} fill={getBrandColor(entry.name, index)} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                  Belum ada data penjualan
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>
 
-      <div>
-        <Card className="animate-fade-in overflow-hidden" style={{ animationDelay: '0.2s' }}>
-          <CardHeader>
-            <CardTitle>Tipe HP Terlaris (Bulan Ini)</CardTitle>
-          </CardHeader>
-          <CardContent>
-             {modelsLoading ? <AnalyticsLoader /> : (
-               bestSellingModels && bestSellingModels.length > 0 ? (
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>No.</TableHead>
-                            <TableHead>Tipe HP</TableHead>
-                            <TableHead className="text-right">Unit Terjual</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {bestSellingModels?.map((model, index) => (
-                            <TableRow 
-                              key={model.name}
-                              className="transition-all duration-200 hover:bg-accent/50 animate-fade-in"
-                              style={{ animationDelay: `${index * 0.05}s` }}
-                            >
-                                <TableCell className="font-medium">{index + 1}</TableCell>
-                                <TableCell>{model.name}</TableCell>
-                                <TableCell className="text-right font-bold text-primary">{model.sales}</TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
-               ) : (
-                <div className="flex items-center justify-center h-24">
-                  <p className="text-muted-foreground">Belum ada HP terjual bulan ini</p>
+      {/* Stock by Location & Alerts */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Stock Distribution */}
+        <Card className="bg-card/50 border-0 shadow-sm lg:col-span-2">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-4">
+              <Store className="h-4 w-4 text-muted-foreground" />
+              <h3 className="font-semibold text-sm">Stok per Lokasi</h3>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {stats?.stockByLocation && stats.stockByLocation.length > 0 ? (
+                stats.stockByLocation.map((loc, index) => (
+                  <div 
+                    key={loc.name}
+                    className="flex items-center justify-between p-3 rounded-lg bg-muted/30"
+                  >
+                    <div className="flex items-center gap-2">
+                      <div 
+                        className="w-2 h-2 rounded-full"
+                        style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }}
+                      />
+                      <span className="text-sm font-medium truncate max-w-[80px]">{loc.name}</span>
+                    </div>
+                    <span className="text-sm font-bold">{loc.value}</span>
+                  </div>
+                ))
+              ) : (
+                <div className="col-span-full text-center py-4 text-muted-foreground text-sm">
+                  Tidak ada data lokasi
                 </div>
-               )
-             )}
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Alerts */}
+        <Card className="bg-card/50 border-0 shadow-sm">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-4">
+              <AlertTriangle className="h-4 w-4 text-warning" />
+              <h3 className="font-semibold text-sm">Perhatian</h3>
+            </div>
+            <div className="space-y-3">
+              {/* Slow Moving */}
+              <div className="flex items-start gap-3 p-3 rounded-lg bg-warning/5 border border-warning/20">
+                <Smartphone className="h-4 w-4 text-warning mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium">Stok Lama (&gt;14 hari)</p>
+                  <p className="text-2xl font-bold text-warning">{stats?.slowMovingCount || 0}</p>
+                  <p className="text-xs text-muted-foreground">unit perlu promo</p>
+                </div>
+              </div>
+
+              {/* Today's Stats */}
+              <div className="p-3 rounded-lg bg-muted/30">
+                <p className="text-xs text-muted-foreground mb-1">Profit Hari Ini</p>
+                <p className={cn(
+                  "text-lg font-bold",
+                  (stats?.todayProfit || 0) >= 0 ? "text-success" : "text-destructive"
+                )}>
+                  {formatCurrency(stats?.todayProfit || 0)}
+                </p>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
-      </div>
-    </>
+
+      {/* Quick Stats Footer */}
+      <Card className="bg-gradient-to-r from-primary/5 to-primary/10 border-0 shadow-sm">
+        <CardContent className="p-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+            <div>
+              <p className="text-xs text-muted-foreground">Total Modal</p>
+              <p className="text-sm font-semibold">{formatCurrency(stats?.monthlyCost || 0)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Total Omzet</p>
+              <p className="text-sm font-semibold">{formatCurrency(stats?.monthlyRevenue || 0)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Total Profit</p>
+              <p className={cn(
+                "text-sm font-semibold",
+                (stats?.monthlyProfit || 0) >= 0 ? "text-success" : "text-destructive"
+              )}>
+                {formatCurrency(stats?.monthlyProfit || 0)}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Margin Rata-rata</p>
+              <p className="text-sm font-semibold">{(stats?.profitMargin || 0).toFixed(1)}%</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
