@@ -1,11 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
+import { id } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Package, MapPin } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Package, MapPin, Smartphone, Calendar, Store } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface StockDetailViewProps {
   selectedDate: Date;
@@ -27,7 +27,6 @@ export function StockDetailView({ selectedDate }: StockDetailViewProps) {
     queryFn: async (): Promise<StockDetailEntry[]> => {
       const dateStr = format(selectedDate, 'yyyy-MM-dd');
       
-      // Fetch all stock entries with positive stock
       const { data, error } = await supabase
         .from('stock_entries')
         .select(`
@@ -42,7 +41,6 @@ export function StockDetailView({ selectedDate }: StockDetailViewProps) {
       
       if (error) throw error;
 
-      // Group by model, color, storage, and location
       const grouped = new Map<string, StockDetailEntry>();
       
       for (const entry of data || []) {
@@ -74,7 +72,6 @@ export function StockDetailView({ selectedDate }: StockDetailViewProps) {
       }
       
       return Array.from(grouped.values()).sort((a, b) => {
-        // Sort by brand, then model, then location
         if (a.brand !== b.brand) return a.brand.localeCompare(b.brand);
         if (a.model !== b.model) return a.model.localeCompare(b.model);
         return a.location.localeCompare(b.location);
@@ -84,131 +81,136 @@ export function StockDetailView({ selectedDate }: StockDetailViewProps) {
 
   const totalStock = stockDetails?.reduce((sum, item) => sum + item.count, 0) || 0;
   const uniqueModels = new Set(stockDetails?.map(item => `${item.brand} ${item.model}`)).size;
+  const uniqueLocations = new Set(stockDetails?.map(item => item.location)).size;
+
+  // Group by brand
+  const groupedByBrand = stockDetails?.reduce((acc, item) => {
+    if (!acc[item.brand]) acc[item.brand] = [];
+    acc[item.brand].push(item);
+    return acc;
+  }, {} as Record<string, StockDetailEntry[]>) || {};
 
   if (isLoading) {
     return (
-      <Card>
-        <CardHeader>
-          <Skeleton className="h-8 w-48" />
-          <Skeleton className="h-4 w-64" />
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            {[1, 2, 3, 4, 5].map(i => (
-              <Skeleton key={i} className="h-16 w-full" />
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
+      </div>
     );
   }
 
   return (
-    <div className="space-y-4">
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Unit</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{totalStock}</div>
+    <div className="space-y-4 pb-24">
+      {/* Header Stats */}
+      <div className="grid grid-cols-3 gap-3">
+        <Card className="bg-card/50 border-0 shadow-sm">
+          <CardContent className="p-3 text-center">
+            <Package className="h-5 w-5 text-primary mx-auto mb-1" />
+            <p className="text-2xl font-bold">{totalStock}</p>
+            <p className="text-xs text-muted-foreground">Total Unit</p>
           </CardContent>
         </Card>
         
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Jumlah Model</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{uniqueModels}</div>
+        <Card className="bg-card/50 border-0 shadow-sm">
+          <CardContent className="p-3 text-center">
+            <Smartphone className="h-5 w-5 text-info mx-auto mb-1" />
+            <p className="text-2xl font-bold">{uniqueModels}</p>
+            <p className="text-xs text-muted-foreground">Model</p>
           </CardContent>
         </Card>
         
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Tanggal</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-xl font-semibold">{format(selectedDate, 'dd MMM yyyy')}</div>
+        <Card className="bg-card/50 border-0 shadow-sm">
+          <CardContent className="p-3 text-center">
+            <Store className="h-5 w-5 text-success mx-auto mb-1" />
+            <p className="text-2xl font-bold">{uniqueLocations}</p>
+            <p className="text-xs text-muted-foreground">Lokasi</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Detailed Stock Table */}
-      <Card>
-        <CardHeader className="bg-gradient-to-r from-primary/10 to-primary/5">
-          <div className="flex items-center gap-2">
-            <Package className="w-5 h-5" />
-            <CardTitle>Detail Stok per Tipe</CardTitle>
-          </div>
-          <CardDescription>
-            Rincian stok tersedia berdasarkan model, warna, kapasitas, dan lokasi
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="p-0">
-          {stockDetails && stockDetails.length > 0 ? (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/50">
-                    <TableHead className="font-semibold">Brand</TableHead>
-                    <TableHead className="font-semibold">Model</TableHead>
-                    <TableHead className="font-semibold">Warna</TableHead>
-                    <TableHead className="font-semibold">Kapasitas</TableHead>
-                    <TableHead className="font-semibold">Lokasi</TableHead>
-                    <TableHead className="font-semibold text-right">Jumlah</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {stockDetails.map((item, index) => (
-                    <TableRow key={index} className="hover:bg-muted/50 transition-colors">
-                      <TableCell>
-                        <Badge variant="outline" className="font-semibold">
-                          {item.brand}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="font-medium">{item.model}</TableCell>
-                      <TableCell>
-                        <Badge 
-                          className="bg-gradient-to-r from-purple-500/20 to-pink-500/20 text-foreground border-purple-500/30"
-                        >
-                          {item.color}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">{item.storage_capacity}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <MapPin className="w-4 h-4 text-muted-foreground" />
-                          <span className="font-medium">{item.location}</span>
+      {/* Date Header */}
+      <div className="flex items-center gap-2 px-1">
+        <Calendar className="h-4 w-4 text-muted-foreground" />
+        <span className="text-sm font-medium">
+          {format(selectedDate, 'EEEE, d MMMM yyyy', { locale: id })}
+        </span>
+      </div>
+
+      {/* Stock List by Brand */}
+      {stockDetails && stockDetails.length > 0 ? (
+        <div className="space-y-4">
+          {Object.entries(groupedByBrand).map(([brand, items]) => (
+            <Card key={brand} className="bg-card/50 border-0 shadow-sm overflow-hidden">
+              <CardHeader className="pb-2 pt-3 px-4">
+                <div className="flex items-center justify-between">
+                  <Badge variant="secondary" className="text-xs font-semibold">
+                    {brand}
+                  </Badge>
+                  <span className="text-xs text-muted-foreground">
+                    {items.reduce((sum, i) => sum + i.count, 0)} unit
+                  </span>
+                </div>
+              </CardHeader>
+              <CardContent className="p-2 pt-0">
+                <div className="space-y-1.5">
+                  {items.map((item, index) => (
+                    <div 
+                      key={index}
+                      className="flex items-center justify-between p-2.5 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">
+                          {item.model}
+                        </p>
+                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                          <span className="text-xs text-muted-foreground">
+                            {item.storage_capacity}
+                          </span>
+                          {item.color !== '-' && (
+                            <>
+                              <span className="text-muted-foreground text-xs">•</span>
+                              <span className="text-xs text-muted-foreground">
+                                {item.color}
+                              </span>
+                            </>
+                          )}
+                          <span className="text-muted-foreground text-xs">•</span>
+                          <div className="flex items-center gap-0.5">
+                            <MapPin className="h-3 w-3 text-muted-foreground" />
+                            <span className="text-xs text-muted-foreground">
+                              {item.location}
+                            </span>
+                          </div>
                         </div>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Badge 
-                          variant="default" 
-                          className="text-base font-bold px-3 py-1"
-                        >
-                          {item.count}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
+                      </div>
+                      <Badge 
+                        variant="default" 
+                        className={cn(
+                          "text-sm font-bold min-w-[36px] justify-center",
+                          item.count >= 5 ? "bg-success hover:bg-success" : 
+                          item.count >= 2 ? "bg-warning hover:bg-warning text-warning-foreground" : 
+                          "bg-destructive hover:bg-destructive"
+                        )}
+                      >
+                        {item.count}
+                      </Badge>
+                    </div>
                   ))}
-                </TableBody>
-              </Table>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <Package className="w-16 h-16 text-muted-foreground/40 mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Tidak Ada Stok</h3>
-              <p className="text-sm text-muted-foreground max-w-md">
-                Tidak ada stok tersedia untuk tanggal yang dipilih.
-              </p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <Card className="bg-card/50 border-0 shadow-sm">
+          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+            <Package className="h-12 w-12 text-muted-foreground/30 mb-3" />
+            <h3 className="text-base font-semibold mb-1">Tidak Ada Stok</h3>
+            <p className="text-sm text-muted-foreground max-w-xs">
+              Tidak ada stok tersedia untuk tanggal yang dipilih.
+            </p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

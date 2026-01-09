@@ -1,18 +1,39 @@
 // @ts-nocheck
 import React, { useState } from "react";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import Papa from "papaparse";
-import { Upload, Pencil, LogOut, Trash2 } from "lucide-react";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { 
+  Upload, 
+  Pencil, 
+  LogOut, 
+  Trash2, 
+  Download, 
+  FileUp,
+  AlertTriangle,
+  User,
+  Smartphone,
+  Database
+} from "lucide-react";
+import { 
+  AlertDialog, 
+  AlertDialogAction, 
+  AlertDialogCancel, 
+  AlertDialogContent, 
+  AlertDialogDescription, 
+  AlertDialogFooter, 
+  AlertDialogHeader, 
+  AlertDialogTitle 
+} from "@/components/ui/alert-dialog";
 import { EditPhoneModelDialog } from "@/components/EditPhoneModelDialog";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useNavigate } from "react-router-dom";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 interface CsvRow {
   [key: string]: string;
@@ -31,6 +52,7 @@ const Settings = () => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [deletingModel, setDeletingModel] = useState<any>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
 
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
@@ -61,7 +83,6 @@ const Settings = () => {
       return data;
     },
   });
-
 
   const downloadCSV = (csv: string, filename: string) => {
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -165,7 +186,6 @@ const Settings = () => {
     const errors: string[] = [];
 
     for (const [index, row] of parsedData.entries()) {
-      // Get column values with case-insensitive matching
       const getColumnValue = (possibleNames: string[]) => {
         for (const name of possibleNames) {
           const value = row[name] || row[name.toLowerCase()] || row[name.toUpperCase()];
@@ -182,10 +202,8 @@ const Settings = () => {
       const Model = getColumnValue(['Model', 'model', 'MODEL']);
       const Penyimpanan = getColumnValue(['Penyimpanan', 'penyimpanan', 'PENYIMPANAN', 'Storage', 'storage', 'Kapasitas', 'kapasitas']);
       
-      // Normalize storage format (handle RAM/Storage format like "6/128")
       let normalizedStorage = Penyimpanan;
       if (Penyimpanan && Penyimpanan.includes('/')) {
-        // Extract storage part from "6/128" format
         normalizedStorage = Penyimpanan.split('/')[1];
       }
       const IMEI = getColumnValue(['IMEI', 'imei', 'Imei']);
@@ -197,11 +215,8 @@ const Settings = () => {
       const Terjual = getColumnValue(['Terjual', 'terjual', 'TERJUAL', 'Sold', 'sold']);
       const Penyesuaian = getColumnValue(['Penyesuaian', 'penyesuaian', 'PENYESUAIAN', 'Adjustment', 'adjustment']);
       const StokMalam = getColumnValue(['Stok Malam', 'stok malam', 'STOK MALAM', 'Night Stock', 'night_stock']);
-      
-      // Handle simplified format with only "Stok F" column
       const StokF = getColumnValue(['Stok F', 'stok f', 'STOK F', 'Stok', 'stok', 'STOK']);
       
-      // If using simplified format, set default values
       let morningStock = parseInt(StokPagi, 10) || 0;
       let incoming = parseInt(Masuk, 10) || 0;
       let addStock = parseInt(TambahStok, 10) || 0;
@@ -210,10 +225,9 @@ const Settings = () => {
       let adjustment = parseInt(Penyesuaian, 10) || 0;
       let nightStock = parseInt(StokMalam, 10) || 0;
       
-      // If simplified format is used, treat Stok F as initial stock
       if (StokF && !StokPagi && !Masuk && !TambahStok && !Return && !Terjual && !Penyesuaian && !StokMalam) {
         morningStock = parseInt(StokF, 10) || 1;
-        nightStock = morningStock; // Assume no movement for simplified data
+        nightStock = morningStock;
       }
 
       if (!Tanggal || !Lokasi || !Merk || !Model || !IMEI) {
@@ -227,10 +241,8 @@ const Settings = () => {
         continue;
       }
 
-      // Try to find model with normalized storage capacity
       let modelId = modelMap.get(`${Merk.toUpperCase()}-${Model.toUpperCase()}-${(normalizedStorage || '').toUpperCase()}`);
       if (!modelId && normalizedStorage) {
-        // Try without storage capacity
         modelId = modelMap.get(`${Merk.toUpperCase()}-${Model.toUpperCase()}-`);
       }
       if (!modelId) {
@@ -265,7 +277,6 @@ const Settings = () => {
       header: true, skipEmptyLines: true,
       complete: async (results) => {
         try {
-          // Debug: Show available columns
           if (results.data && results.data.length > 0) {
             const availableColumns = Object.keys(results.data[0] as CsvRow);
             toast({ 
@@ -308,6 +319,7 @@ const Settings = () => {
       toast({ title: "Reset Berhasil", description: "Semua data telah berhasil dihapus." });
       queryClient.invalidateQueries();
       setResetConfirmation("");
+      setIsResetDialogOpen(false);
     },
     onError: (error: any) => {
       toast({ title: "Reset Gagal", description: error.message, variant: "destructive" });
@@ -356,142 +368,248 @@ const Settings = () => {
     setImportErrors([]);
   };
 
+  // Group phone models by brand
+  const groupedModels = phoneModels?.reduce((acc, model) => {
+    const brand = model.brand;
+    if (!acc[brand]) acc[brand] = [];
+    acc[brand].push(model);
+    return acc;
+  }, {} as Record<string, typeof phoneModels>) || {};
+
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Akun</CardTitle>
-          <CardDescription>Kelola akun Anda</CardDescription>
+    <div className="space-y-4 pb-24">
+      {/* Account Section */}
+      <Card className="bg-card/50 border-0 shadow-sm overflow-hidden">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+              <User className="h-5 w-5 text-primary" />
+            </div>
+            <CardTitle className="text-base">Akun</CardTitle>
+          </div>
         </CardHeader>
-        <CardContent>
-          <Button variant="destructive" onClick={handleLogout}>
-            <LogOut className="mr-2 h-4 w-4" />
-            Logout
+        <CardContent className="pt-0">
+          <Button 
+            variant="outline" 
+            onClick={handleLogout}
+            className="w-full justify-start gap-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+          >
+            <LogOut className="h-4 w-4" />
+            Keluar dari Akun
           </Button>
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Kelola SRP</CardTitle>
-          <CardDescription>Edit harga SRP untuk setiap model HP</CardDescription>
+      {/* Phone Models Section */}
+      <Card className="bg-card/50 border-0 shadow-sm overflow-hidden">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-info/10 flex items-center justify-center">
+              <Smartphone className="h-5 w-5 text-info" />
+            </div>
+            <div>
+              <CardTitle className="text-base">Model HP & SRP</CardTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {phoneModels?.length || 0} model terdaftar
+              </p>
+            </div>
+          </div>
         </CardHeader>
-        <CardContent>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Merk</TableHead>
-                  <TableHead>Model</TableHead>
-                  <TableHead>Kapasitas</TableHead>
-                  <TableHead>Warna</TableHead>
-                  <TableHead>SRP</TableHead>
-                  <TableHead className="w-[100px]">Aksi</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {phoneModels?.map((model: any) => (
-                  <TableRow key={model.id}>
-                    <TableCell>{model.brand}</TableCell>
-                    <TableCell>{model.model}</TableCell>
-                    <TableCell>{model.storage_capacity || '-'}</TableCell>
-                    <TableCell>{model.color || '-'}</TableCell>
-                    <TableCell>
-                      {model.srp > 0 
-                        ? `Rp ${model.srp.toLocaleString('id-ID')}`
-                        : '-'
-                      }
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
+        <CardContent className="pt-0">
+          <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+            {Object.entries(groupedModels).map(([brand, models]) => (
+              <div key={brand} className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary" className="text-xs font-semibold">
+                    {brand}
+                  </Badge>
+                  <span className="text-xs text-muted-foreground">
+                    {(models as any[]).length} model
+                  </span>
+                </div>
+                <div className="grid gap-2">
+                  {(models as any[]).map((model: any) => (
+                    <div 
+                      key={model.id}
+                      className="flex items-center justify-between p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">
+                          {model.model}
+                        </p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-xs text-muted-foreground">
+                            {model.storage_capacity || '-'}
+                          </span>
+                          {model.color && (
+                            <>
+                              <span className="text-muted-foreground">•</span>
+                              <span className="text-xs text-muted-foreground">
+                                {model.color}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={cn(
+                          "text-sm font-semibold",
+                          model.srp > 0 ? "text-success" : "text-muted-foreground"
+                        )}>
+                          {model.srp > 0 
+                            ? `Rp ${(model.srp / 1000).toFixed(0)}rb`
+                            : '-'
+                          }
+                        </span>
                         <Button
                           variant="ghost"
-                          size="sm"
+                          size="icon"
+                          className="h-8 w-8"
                           onClick={() => {
                             setEditingModel(model);
                             setIsEditDialogOpen(true);
                           }}
                         >
-                          <Pencil className="h-4 w-4" />
+                          <Pencil className="h-3.5 w-3.5" />
                         </Button>
                         <Button
                           variant="ghost"
-                          size="sm"
+                          size="icon"
+                          className="h-8 w-8 text-destructive hover:text-destructive"
                           onClick={() => {
                             setDeletingModel(model);
                             setIsDeleteDialogOpen(true);
                           }}
                         >
-                          <Trash2 className="h-4 w-4 text-destructive" />
+                          <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+            {(!phoneModels || phoneModels.length === 0) && (
+              <div className="text-center py-8 text-muted-foreground text-sm">
+                Belum ada model HP terdaftar
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Export Data</CardTitle>
-          <CardDescription>Download all of your stock data in a single, human-readable CSV file.</CardDescription>
+      {/* Data Management Section */}
+      <Card className="bg-card/50 border-0 shadow-sm overflow-hidden">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-success/10 flex items-center justify-center">
+              <Database className="h-5 w-5 text-success" />
+            </div>
+            <CardTitle className="text-base">Kelola Data</CardTitle>
+          </div>
         </CardHeader>
-        <CardContent>
-          <Button onClick={handleExportAllStock} disabled={isExporting}>
-            {isExporting ? "Mengekspor..." : "Export All Stock Data"}
-          </Button>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Import Data</CardTitle>
-          <CardDescription>Import stock data from a CSV file. Please use the same format as the exported file.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-            <Label htmlFor="csv-import">Upload CSV File</Label>
-            <Input id="csv-import" type="file" accept=".csv" onChange={handleFileChange} />
-            <Button onClick={handleImport} disabled={!selectedFile || isImporting}>
-                <Upload className="mr-2 h-4 w-4" />
-                {isImporting ? "Mengimpor..." : "Upload and Import"}
-            </Button>
-            {importErrors.length > 0 && (
-                <div className="space-y-2 pt-4">
-                    <h4 className="font-medium text-destructive">Error Impor:</h4>
-                    <ul className="list-disc list-inside bg-destructive/10 p-4 rounded-md text-sm text-destructive">
-                        {importErrors.slice(0, 5).map((error, index) => (
-                            <li key={index}>{error}</li>
-                        ))}
-                        {importErrors.length > 5 && <li>Dan {importErrors.length - 5} error lainnya...</li>}
-                    </ul>
+        <CardContent className="pt-0 space-y-3">
+          {/* Export */}
+          <div className="p-3 rounded-lg bg-muted/30">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Download className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <p className="text-sm font-medium">Export Data</p>
+                  <p className="text-xs text-muted-foreground">Download semua data stok (CSV)</p>
                 </div>
+              </div>
+              <Button 
+                size="sm" 
+                variant="secondary"
+                onClick={handleExportAllStock} 
+                disabled={isExporting}
+              >
+                {isExporting ? "..." : "Export"}
+              </Button>
+            </div>
+          </div>
+
+          {/* Import */}
+          <div className="p-3 rounded-lg bg-muted/30 space-y-3">
+            <div className="flex items-center gap-3">
+              <FileUp className="h-4 w-4 text-muted-foreground" />
+              <div>
+                <p className="text-sm font-medium">Import Data</p>
+                <p className="text-xs text-muted-foreground">Upload file CSV untuk import stok</p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Input 
+                id="csv-import" 
+                type="file" 
+                accept=".csv" 
+                onChange={handleFileChange}
+                className="text-xs"
+              />
+              <Button 
+                size="sm"
+                onClick={handleImport} 
+                disabled={!selectedFile || isImporting}
+              >
+                <Upload className="h-3.5 w-3.5 mr-1" />
+                {isImporting ? "..." : "Import"}
+              </Button>
+            </div>
+            {importErrors.length > 0 && (
+              <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 space-y-1">
+                <p className="text-xs font-medium text-destructive">Error Import:</p>
+                <ul className="text-xs text-destructive space-y-0.5">
+                  {importErrors.slice(0, 3).map((error, index) => (
+                    <li key={index}>• {error}</li>
+                  ))}
+                  {importErrors.length > 3 && (
+                    <li className="text-muted-foreground">
+                      +{importErrors.length - 3} error lainnya
+                    </li>
+                  )}
+                </ul>
+              </div>
             )}
+          </div>
         </CardContent>
       </Card>
 
-      <Card className="border-destructive">
-        <CardHeader>
-          <CardTitle>Reset Data</CardTitle>
-          <CardDescription>Permanently delete all stock and model data. This action cannot be undone.</CardDescription>
+      {/* Danger Zone */}
+      <Card className="bg-destructive/5 border-destructive/20 shadow-sm overflow-hidden">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-destructive/10 flex items-center justify-center">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+            </div>
+            <div>
+              <CardTitle className="text-base text-destructive">Zona Bahaya</CardTitle>
+              <p className="text-xs text-destructive/70 mt-0.5">
+                Tindakan tidak dapat dibatalkan
+              </p>
+            </div>
+          </div>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <Label htmlFor="reset-confirmation">To confirm, type "RESET DATA" in the box below.</Label>
-          <Input id="reset-confirmation" value={resetConfirmation} onChange={(e) => setResetConfirmation(e.target.value)} placeholder="RESET DATA" />
-          <Button variant="destructive" onClick={handleReset} disabled={resetConfirmation !== "RESET DATA" || resetMutation.isPending}>
-            {resetMutation.isPending ? "Mereset..." : "Reset Semua Data"}
+        <CardContent className="pt-0">
+          <Button 
+            variant="destructive" 
+            className="w-full"
+            onClick={() => setIsResetDialogOpen(true)}
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            Reset Semua Data
           </Button>
         </CardContent>
       </Card>
 
+      {/* Edit Phone Model Dialog */}
       <EditPhoneModelDialog
         open={isEditDialogOpen}
         onOpenChange={setIsEditDialogOpen}
         phoneModel={editingModel}
       />
 
+      {/* Delete Model Dialog */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -508,6 +626,45 @@ const Settings = () => {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Hapus
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Reset Data Dialog */}
+      <AlertDialog open={isResetDialogOpen} onOpenChange={setIsResetDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-destructive">Reset Semua Data?</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <p>
+                Tindakan ini akan menghapus <strong>semua data stok dan model HP</strong>. 
+                Data yang dihapus tidak dapat dikembalikan.
+              </p>
+              <div className="space-y-2">
+                <Label htmlFor="reset-confirmation" className="text-foreground">
+                  Ketik <strong>RESET DATA</strong> untuk konfirmasi:
+                </Label>
+                <Input 
+                  id="reset-confirmation" 
+                  value={resetConfirmation} 
+                  onChange={(e) => setResetConfirmation(e.target.value)} 
+                  placeholder="RESET DATA"
+                  className="font-mono"
+                />
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setResetConfirmation("")}>
+              Batal
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleReset}
+              disabled={resetConfirmation !== "RESET DATA" || resetMutation.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {resetMutation.isPending ? "Mereset..." : "Reset Data"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

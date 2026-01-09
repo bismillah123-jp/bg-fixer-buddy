@@ -244,7 +244,9 @@ export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProp
           <CardContent className="p-4">
             <div className="flex items-start justify-between">
               <div className="space-y-1">
-                <p className="text-xs text-muted-foreground font-medium">Terjual (Bulan Ini)</p>
+                <p className="text-xs text-muted-foreground font-medium">
+                  Terjual ({format(selectedDate, 'MMMM', { locale: id })})
+                </p>
                 <p className="text-2xl font-bold">{stats?.monthlySold || 0}</p>
                 <p className="text-xs text-muted-foreground">
                   Hari ini: {stats?.todaySold || 0} unit
@@ -262,7 +264,9 @@ export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProp
           <CardContent className="p-4">
             <div className="flex items-start justify-between">
               <div className="space-y-1">
-                <p className="text-xs text-muted-foreground font-medium">Omzet (Bulan Ini)</p>
+                <p className="text-xs text-muted-foreground font-medium">
+                  Omzet ({format(selectedDate, 'MMMM', { locale: id })})
+                </p>
                 <p className="text-2xl font-bold">{formatCurrency(stats?.monthlyRevenue || 0)}</p>
                 <p className="text-xs text-muted-foreground">
                   Hari ini: {formatCurrency(stats?.todayRevenue || 0)}
@@ -280,7 +284,9 @@ export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProp
           <CardContent className="p-4">
             <div className="flex items-start justify-between">
               <div className="space-y-1">
-                <p className="text-xs text-muted-foreground font-medium">Profit (Bulan Ini)</p>
+                <p className="text-xs text-muted-foreground font-medium">
+                  Profit ({format(selectedDate, 'MMMM', { locale: id })})
+                </p>
                 <p className={cn(
                   "text-2xl font-bold",
                   (stats?.monthlyProfit || 0) >= 0 ? "text-success" : "text-destructive"
@@ -364,7 +370,9 @@ export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProp
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-sm">Penjualan per Merek</h3>
-              <span className="text-xs text-muted-foreground">Bulan ini</span>
+              <span className="text-xs text-muted-foreground">
+                {format(selectedDate, 'MMMM yyyy', { locale: id })}
+              </span>
             </div>
             <div className="h-[180px]">
               {stats?.brandSales && stats.brandSales.length > 0 ? (
@@ -484,6 +492,9 @@ export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProp
       {/* Quick Stats Footer */}
       <Card className="bg-gradient-to-r from-primary/5 to-primary/10 border-0 shadow-sm">
         <CardContent className="p-4">
+          <p className="text-xs text-muted-foreground text-center mb-3">
+            Ringkasan {format(selectedDate, 'MMMM yyyy', { locale: id })}
+          </p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
             <div>
               <p className="text-xs text-muted-foreground">Total Modal</p>
