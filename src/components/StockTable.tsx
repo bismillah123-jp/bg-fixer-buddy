@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -15,22 +15,20 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from "@/components/ui/table";
-import { Search, Filter, Edit, Eye, ArrowRightLeft, Trash2, CheckCircle, Package } from "lucide-react";
+import { Search, RotateCcw, Edit2, ArrowRightLeft, Trash2, CheckCircle, Package, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { EditStockDialog } from "./EditStockDialog";
-import { EditStockInline } from "./EditStockInline";
 import { TransferStockDialog } from "./TransferStockDialog";
 import { SaleConfirmationDialog } from "./SaleConfirmationDialog";
 import { cn } from "@/lib/utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface StockTableProps {
   selectedDate: Date;
@@ -102,7 +100,6 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isTransferDialogOpen, setIsTransferDialogOpen] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<StockEntry | null>(null);
-  const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -400,268 +397,274 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
     setIsTransferDialogOpen(true);
   };
 
+  const hasActiveFilters = searchTerm || brandFilter !== 'all' || locationFilter !== 'all' || statusFilter !== 'all';
+
   return (
     <>
-      <Card className="border-0 shadow-lg">
-        <CardHeader className="space-y-4 bg-gradient-to-r from-primary/5 to-primary/10">
-          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-            <div className="space-y-1">
-              <CardTitle className="text-2xl font-bold flex items-center gap-2">
-                <Eye className="w-6 h-6" />
-                Data Stok
-              </CardTitle>
-              {quickFilter && (
-                <div className="flex items-center gap-2 mt-2">
-                  <Badge variant="default" className="capitalize">
-                    Filter: {quickFilter === 'incoming' ? 'HP Datang' : quickFilter === 'sold' ? 'Laku' : 'Transfer'}
-                  </Badge>
-                  <Button variant="ghost" size="sm" onClick={onFilterChange}>
-                    ✕ Hapus
+      <div className="space-y-4">
+        {/* Compact Filter Bar */}
+        <Card className="border-0 shadow-sm bg-card/50 backdrop-blur">
+          <CardContent className="p-4">
+            <div className="flex flex-col gap-3">
+              {/* Search + Quick Filter Badge */}
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Cari model, IMEI, warna..."
+                    value={searchTerm}
+                    onChange={(e) => handleSearchChange(e.target.value)}
+                    className="pl-9 h-10 bg-background/80"
+                  />
+                </div>
+                {hasActiveFilters && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setSearchTerm("");
+                      setBrandFilter("all");
+                      setLocationFilter("all");
+                      setStatusFilter("all");
+                      localStorage.removeItem('stockTableSearchTerm');
+                      localStorage.removeItem('stockTableBrandFilter');
+                      localStorage.removeItem('stockTableLocationFilter');
+                      localStorage.removeItem('stockTableStatusFilter');
+                    }}
+                    className="h-10 px-3 text-muted-foreground hover:text-foreground"
+                  >
+                    <RotateCcw className="h-4 w-4" />
                   </Button>
-                </div>
-              )}
-            </div>
-          </div>
+                )}
+              </div>
 
-          {/* Filters */}
-          <div className="flex flex-col sm:flex-row gap-4 pt-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="🔍 Cari model, IMEI, warna..."
-                value={searchTerm}
-                onChange={(e) => handleSearchChange(e.target.value)}
-                className="pl-10 border-2 focus:border-primary"
-              />
-            </div>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setSearchTerm("");
-                setBrandFilter("all");
-                setLocationFilter("all");
-                setStatusFilter("all");
-                localStorage.removeItem('stockTableSearchTerm');
-                localStorage.removeItem('stockTableBrandFilter');
-                localStorage.removeItem('stockTableLocationFilter');
-                localStorage.removeItem('stockTableStatusFilter');
-              }}
-              className="whitespace-nowrap"
-            >
-              <Filter className="w-4 h-4 mr-2" />
-              Reset Filter
-            </Button>
-            <select
-              value={brandFilter}
-              onChange={(e) => handleBrandFilterChange(e.target.value)}
-              className="bg-background border border-border rounded-lg px-3 py-2 text-sm min-w-32"
-            >
-              <option value="all">Semua Merk</option>
-              {brands?.map(brand => (
-                <option key={brand} value={brand}>
-                  {brand}
-                </option>
-              ))}
-            </select>
-            <select
-              value={locationFilter}
-              onChange={(e) => handleLocationFilterChange(e.target.value)}
-              className="bg-background border border-border rounded-lg px-3 py-2 text-sm min-w-32"
-            >
-              <option value="all">Semua Lokasi</option>
-              {locations?.map(location => (
-                <option key={location} value={location}>
-                  {location}
-                </option>
-              ))}
-            </select>
-            <select
-              value={statusFilter}
-              onChange={(e) => handleStatusFilterChange(e.target.value)}
-              className="bg-background border border-border rounded-lg px-3 py-2 text-sm min-w-32"
-            >
-              <option value="all">Semua Status</option>
-              <option value="tersedia">Tersedia</option>
-              <option value="terjual">Terjual</option>
-            </select>
-          </div>
-        </CardHeader>
+              {/* Filter Dropdowns */}
+              <div className="flex flex-wrap gap-2">
+                <Select value={brandFilter} onValueChange={handleBrandFilterChange}>
+                  <SelectTrigger className="w-[140px] h-9 text-sm">
+                    <SelectValue placeholder="Semua Merk" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Semua Merk</SelectItem>
+                    {brands?.map(brand => (
+                      <SelectItem key={brand} value={brand}>{brand}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
 
-        <CardContent>
-          {isLoading ? (
-            <div className="space-y-3">
-              {[...Array(5)].map((_, i) => (
-                <div key={i} className="animate-pulse">
-                  <div className="h-12 bg-muted rounded" />
-                </div>
-              ))}
+                <Select value={locationFilter} onValueChange={handleLocationFilterChange}>
+                  <SelectTrigger className="w-[140px] h-9 text-sm">
+                    <SelectValue placeholder="Semua Lokasi" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Semua Lokasi</SelectItem>
+                    {locations?.map(location => (
+                      <SelectItem key={location} value={location}>{location}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
+                  <SelectTrigger className="w-[130px] h-9 text-sm">
+                    <SelectValue placeholder="Semua Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Semua Status</SelectItem>
+                    <SelectItem value="tersedia">Tersedia</SelectItem>
+                    <SelectItem value="terjual">Terjual</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {quickFilter && (
+                  <Badge variant="secondary" className="h-9 px-3 flex items-center gap-2">
+                    {quickFilter === 'incoming' ? 'HP Datang' : quickFilter === 'sold' ? 'Laku' : 'Transfer'}
+                    <button onClick={onFilterChange} className="hover:text-destructive">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                )}
+              </div>
             </div>
-          ) : (
-            <div className="rounded-lg border-2 border-border overflow-x-auto">
-              <Table>
-                 <TableHeader>
-                  <TableRow className="bg-muted/50">
-                     <TableHead className="min-w-[80px] font-semibold">Lokasi</TableHead>
-                     <TableHead className="min-w-[200px] font-semibold">Tipe</TableHead>
-                     <TableHead className="min-w-[100px] font-semibold">Warna</TableHead>
-                     <TableHead className="min-w-[80px] font-semibold">Label</TableHead>
-                     <TableHead className="min-w-[120px] font-semibold">IMEI</TableHead>
-                     <TableHead className="min-w-[80px] text-center font-semibold">Stok Awal</TableHead>
-                     <TableHead className="min-w-[80px] text-center font-semibold">Stok Akhir</TableHead>
-                     <TableHead className="min-w-[80px] font-semibold">Status</TableHead>
-                     <TableHead className="min-w-[140px] font-semibold">Aksi</TableHead>
-                  </TableRow>
-                 </TableHeader>
-                <TableBody>
-                  {stockEntries?.map((entry) => {
-                    const status = getStockStatus(entry);
-                    const isEditing = editingEntryId === entry.id;
-                    
-                    if (isEditing) {
-                       return (
-                        <TableRow key={entry.id} className="hover:bg-muted/20 transition-colors">
-                <TableCell colSpan={9} className="p-0">
-                  <EditStockInline
-                              stockEntry={entry}
-                              onCancel={() => setEditingEntryId(null)}
-                            />
-                          </TableCell>
-                        </TableRow>
-                      );
-                    }
-                    
-                    return (
-                      <TableRow key={entry.id} className="hover:bg-primary/5 transition-all border-b">
-                        <TableCell>
-                          <Badge variant="outline" className="font-semibold text-sm">
-                            {entry.stock_locations?.name}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2">
-                              <Badge variant="secondary" className="font-semibold">
+          </CardContent>
+        </Card>
+
+        {/* Stock Items */}
+        {isLoading ? (
+          <div className="grid gap-3">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="h-24 bg-muted/50 rounded-xl animate-pulse" />
+            ))}
+          </div>
+        ) : stockEntries?.length === 0 ? (
+          <Card className="border-0 shadow-sm">
+            <CardContent className="py-16 text-center">
+              <Package className="w-12 h-12 mx-auto mb-3 text-muted-foreground/30" />
+              <p className="text-muted-foreground font-medium">Tidak ada data stok</p>
+              <p className="text-sm text-muted-foreground/70 mt-1">Coba ubah filter atau tanggal</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-2">
+            {stockEntries?.map((entry) => {
+              const status = getStockStatus(entry);
+              const isSold = entry.sold > 0 || entry.sale_date;
+              
+              return (
+                <Card 
+                  key={entry.id} 
+                  className={cn(
+                    "border-0 shadow-sm hover:shadow-md transition-all overflow-hidden",
+                    isSold && "opacity-70"
+                  )}
+                >
+                  <CardContent className="p-0">
+                    <div className="flex items-stretch">
+                      {/* Main Content */}
+                      <div className="flex-1 p-4">
+                        <div className="flex items-start justify-between gap-4">
+                          {/* Left: Product Info */}
+                          <div className="space-y-2 min-w-0 flex-1">
+                            {/* Brand & Model */}
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Badge variant="secondary" className="font-semibold text-xs">
                                 {entry.phone_models?.brand}
                               </Badge>
-                              <span className="font-medium text-sm">
+                              <span className="font-medium text-sm truncate">
                                 {entry.phone_models?.model}
                               </span>
+                              {entry.phone_models?.storage_capacity && (
+                                <Badge variant="outline" className="text-xs font-normal">
+                                  {entry.phone_models?.storage_capacity}
+                                </Badge>
+                              )}
                             </div>
-                            {entry.phone_models?.storage_capacity && (
-                              <Badge variant="outline" className="text-xs">
-                                {entry.phone_models?.storage_capacity}
-                              </Badge>
-                            )}
+
+                            {/* Details Row */}
+                            <div className="flex items-center gap-3 text-sm text-muted-foreground flex-wrap">
+                              {/* Location */}
+                              <span className="font-medium text-foreground">
+                                📍 {entry.stock_locations?.name}
+                              </span>
+                              
+                              {/* Color */}
+                              {(entry.metadata?.color || entry.phone_models?.color) && (
+                                <span>🎨 {entry.metadata?.color || entry.phone_models?.color}</span>
+                              )}
+                              
+                              {/* Label */}
+                              {entry.label && (
+                                <Badge variant="outline" className="text-xs border-warning text-warning">
+                                  {entry.label}
+                                </Badge>
+                              )}
+                            </div>
+
+                            {/* IMEI */}
+                            <div className="font-mono text-xs text-muted-foreground">
+                              IMEI: {entry.imei || "—"}
+                            </div>
                           </div>
-                        </TableCell>
-                        <TableCell>
-                          {(entry.metadata?.color || entry.phone_models?.color) ? (
-                            <Badge className="text-sm font-semibold bg-gradient-to-r from-purple-500 to-pink-500 shadow-lg">
-                              {entry.metadata?.color || entry.phone_models?.color}
-                            </Badge>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">—</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {entry.label ? (
-                            <Badge variant="outline" className="text-sm font-semibold border-orange-500 text-orange-600">
-                              {entry.label}
-                            </Badge>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">—</span>
-                          )}
-                        </TableCell>
-                         <TableCell className="font-mono text-xs text-muted-foreground">
-                           {entry.imei || "—"}
-                         </TableCell>
-                         <TableCell className="text-center">
-                           <Badge variant="outline" className="font-bold text-base">
-                             {entry.morning_stock}
-                           </Badge>
-                         </TableCell>
-                         <TableCell className="text-center">
-                           <Badge className="bg-primary hover:bg-primary/90 font-bold text-base">
-                             {entry.night_stock}
-                           </Badge>
-                         </TableCell>
-                          <TableCell>
+
+                          {/* Right: Stock & Status */}
+                          <div className="flex flex-col items-end gap-2 shrink-0">
                             <Badge 
-                              variant={status.variant} 
-                              className="text-xs font-semibold px-3 py-1"
+                              variant={status.variant}
+                              className="text-xs"
                             >
                               {status.label}
                             </Badge>
-                          </TableCell>
-                         <TableCell className="flex items-center gap-1">
-                           <Button 
-                             variant="ghost" 
-                             size="icon" 
-                             className="h-9 w-9 hover:bg-green-500/20" 
-                             onClick={() => handleMarkAsSoldClick(entry)} 
-                             disabled={entry.night_stock === 0}
-                             title="Tandai Terjual"
-                           >
-                             <CheckCircle className="h-5 w-5 text-green-600" />
-                           </Button>
-                           <Button 
-                             variant="ghost" 
-                             size="icon" 
-                             className="h-9 w-9 hover:bg-blue-500/20" 
-                             onClick={() => handleTransferClick(entry)} 
-                             disabled={entry.night_stock === 0}
-                             title="Transfer"
-                           >
-                             <ArrowRightLeft className="h-5 w-5 text-blue-600" />
-                           </Button>
-                           <Button 
-                             variant="ghost" 
-                             size="icon" 
-                             className="h-9 w-9 hover:bg-yellow-500/20" 
-                             onClick={() => setEditingEntryId(entry.id)}
-                             title="Edit"
-                           >
-                             <Edit className="h-5 w-5 text-yellow-600" />
-                           </Button>
-                           <Button 
-                             variant="ghost" 
-                             size="icon" 
-                             className="h-9 w-9 hover:bg-red-500/20" 
-                             onClick={() => handleDeleteClick(entry)}
-                             title="Hapus"
-                           >
-                             <Trash2 className="h-5 w-5 text-red-600" />
-                           </Button>
-                         </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+                            <div className="flex items-center gap-2 text-sm">
+                              <span className="text-muted-foreground">{entry.morning_stock}</span>
+                              <span className="text-muted-foreground">→</span>
+                              <span className={cn(
+                                "font-bold text-base",
+                                entry.night_stock > 0 ? "text-primary" : "text-muted-foreground"
+                              )}>
+                                {entry.night_stock}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
 
-              {stockEntries?.length === 0 && (
-                <div className="text-center py-12 text-muted-foreground">
-                  <Package className="w-16 h-16 mx-auto mb-4 opacity-20" />
-                  <p className="text-lg font-medium">Tidak ada data stok ditemukan</p>
-                  <p className="text-sm mt-2">Coba ubah filter atau tanggal yang dipilih</p>
-                </div>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                      {/* Action Buttons - Side Strip */}
+                      <div className="flex flex-col border-l bg-muted/30">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className={cn(
+                            "h-10 w-10 rounded-none",
+                            entry.night_stock > 0 && "hover:bg-success/10 hover:text-success"
+                          )}
+                          onClick={() => handleMarkAsSoldClick(entry)}
+                          disabled={entry.night_stock === 0}
+                          title="Tandai Terjual"
+                        >
+                          <CheckCircle className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className={cn(
+                            "h-10 w-10 rounded-none",
+                            entry.night_stock > 0 && "hover:bg-primary/10 hover:text-primary"
+                          )}
+                          onClick={() => handleTransferClick(entry)}
+                          disabled={entry.night_stock === 0}
+                          title="Transfer"
+                        >
+                          <ArrowRightLeft className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-10 w-10 rounded-none hover:bg-warning/10 hover:text-warning"
+                          onClick={() => handleEditClick(entry)}
+                          title="Edit"
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-10 w-10 rounded-none hover:bg-destructive/10 hover:text-destructive"
+                          onClick={() => handleDeleteClick(entry)}
+                          title="Hapus"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
 
+        {/* Results Count */}
+        {stockEntries && stockEntries.length > 0 && (
+          <p className="text-center text-sm text-muted-foreground">
+            Menampilkan {stockEntries.length} item
+          </p>
+        )}
+      </div>
+
+      {/* Dialogs */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Anda yakin?</AlertDialogTitle>
+            <AlertDialogTitle>Hapus Stok?</AlertDialogTitle>
             <AlertDialogDescription>
-              Tindakan ini tidak bisa dibatalkan. Ini akan menghapus entri stok secara permanen dari server.
+              Data stok ini akan dihapus permanen dan tidak bisa dikembalikan.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Batal</AlertDialogCancel>
-            <AlertDialogAction onClick={() => selectedEntry && deleteMutation.mutate(selectedEntry.id)}>
+            <AlertDialogAction 
+              onClick={() => selectedEntry && deleteMutation.mutate(selectedEntry.id)}
+              className="bg-destructive hover:bg-destructive/90"
+            >
               Hapus
             </AlertDialogAction>
           </AlertDialogFooter>
