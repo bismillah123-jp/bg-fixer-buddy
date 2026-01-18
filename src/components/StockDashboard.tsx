@@ -316,161 +316,178 @@ export function StockDashboard() {
         <div className="container mx-auto px-4 lg:px-6 py-6">
           {/* Dashboard View */}
           {activeTab === 'dashboard' && (
-            <div className="space-y-4 pb-20">
-              {/* Quick Summary Row */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                {/* Stok Pagi */}
-                <Card className="bg-card/50 border-0 shadow-sm">
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-lg bg-muted/50 flex items-center justify-center">
-                        <Sun className="h-5 w-5 text-warning" />
+            <div className="space-y-6 pb-20">
+              {/* Location Cards - MBUTOH first (Main Branch) */}
+              {(() => {
+                const sortedLocations = Object.entries(stats?.breakdown || {}).sort(([a], [b]) => {
+                  if (a.toUpperCase() === 'MBUTOH') return -1;
+                  if (b.toUpperCase() === 'MBUTOH') return 1;
+                  return a.localeCompare(b);
+                });
+                
+                return sortedLocations.map(([location, data]) => {
+                  const isMbutoh = location.toUpperCase() === 'MBUTOH';
+                  
+                  return (
+                    <Card 
+                      key={location} 
+                      className={`overflow-hidden shadow-lg ${
+                        isMbutoh 
+                          ? 'bg-gradient-to-br from-primary/10 via-primary/5 to-background border-primary/30' 
+                          : 'bg-gradient-to-br from-secondary/50 via-secondary/30 to-background border-border'
+                      }`}
+                    >
+                      {/* Location Header */}
+                      <div className={`px-4 py-3 border-b ${
+                        isMbutoh ? 'bg-primary/10 border-primary/20' : 'bg-muted/50 border-border'
+                      }`}>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${
+                              isMbutoh ? 'bg-primary text-primary-foreground' : 'bg-muted-foreground/20 text-muted-foreground'
+                            }`}>
+                              <Package className="h-5 w-5" />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <h2 className={`text-lg font-bold ${isMbutoh ? 'text-primary' : 'text-foreground'}`}>
+                                  {location}
+                                </h2>
+                                {isMbutoh && (
+                                  <span className="px-2 py-0.5 text-[10px] font-semibold bg-primary text-primary-foreground rounded-full">
+                                    UTAMA
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                {isMbutoh ? 'Cabang Utama' : 'Cabang'}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Stok Pagi</p>
-                        <p className="text-xl font-bold">{stats?.totalMorningStock ?? 0}</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
+                      
+                      {/* Stock Stats Grid */}
+                      <CardContent className="p-4">
+                        <div className="grid grid-cols-3 gap-3">
+                          {/* Stok Pagi */}
+                          <div className="relative p-4 rounded-xl bg-background/60 border border-border/50">
+                            <div className="absolute top-2 right-2">
+                              <Sun className="h-4 w-4 text-warning/70" />
+                            </div>
+                            <p className="text-[11px] text-muted-foreground uppercase tracking-wide mb-1">Pagi</p>
+                            <p className="text-2xl font-bold">{data.morning_stock}</p>
+                          </div>
+                          
+                          {/* Laku */}
+                          <div className="relative p-4 rounded-xl bg-destructive/10 border border-destructive/20">
+                            <div className="absolute top-2 right-2">
+                              <Tag className="h-4 w-4 text-destructive/70" />
+                            </div>
+                            <p className="text-[11px] text-destructive/80 uppercase tracking-wide mb-1">Laku</p>
+                            <p className="text-2xl font-bold text-destructive">{data.sold}</p>
+                          </div>
+                          
+                          {/* Stok Malam */}
+                          <div className="relative p-4 rounded-xl bg-background/60 border border-border/50">
+                            <div className="absolute top-2 right-2">
+                              <Moon className="h-4 w-4 text-info/70" />
+                            </div>
+                            <p className="text-[11px] text-muted-foreground uppercase tracking-wide mb-1">Malam</p>
+                            <p className="text-2xl font-bold">{data.night_stock}</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                });
+              })()}
+              
+              {/* Summary Row - Quick Stats */}
+              <div className="grid grid-cols-2 gap-3">
                 {/* HP Datang */}
                 <Card 
-                  className="bg-success/5 border-success/20 shadow-sm cursor-pointer hover:bg-success/10 transition-colors"
+                  className="bg-success/10 border-success/30 shadow-md cursor-pointer hover:bg-success/15 hover:scale-[1.02] transition-all duration-200"
                   onClick={() => handleCardClick('incoming')}
                 >
                   <CardContent className="p-4">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-lg bg-success/10 flex items-center justify-center">
-                        <Plus className="h-5 w-5 text-success" />
+                    <div className="flex items-center gap-4">
+                      <div className="h-12 w-12 rounded-xl bg-success/20 flex items-center justify-center">
+                        <Plus className="h-6 w-6 text-success" />
                       </div>
                       <div>
-                        <p className="text-xs text-muted-foreground">HP Datang</p>
-                        <p className="text-xl font-bold text-success">{stats?.totalIncoming ?? 0}</p>
+                        <p className="text-xs text-success/80 uppercase tracking-wide">HP Datang</p>
+                        <p className="text-2xl font-bold text-success">{stats?.totalIncoming ?? 0}</p>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
 
-                {/* Laku Hari Ini */}
+                {/* Total Laku Hari Ini */}
                 <Card 
-                  className="bg-destructive/5 border-destructive/20 shadow-sm cursor-pointer hover:bg-destructive/10 transition-colors"
+                  className="bg-destructive/10 border-destructive/30 shadow-md cursor-pointer hover:bg-destructive/15 hover:scale-[1.02] transition-all duration-200"
                   onClick={() => handleCardClick('sold')}
                 >
                   <CardContent className="p-4">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-lg bg-destructive/10 flex items-center justify-center">
-                        <Tag className="h-5 w-5 text-destructive" />
+                    <div className="flex items-center gap-4">
+                      <div className="h-12 w-12 rounded-xl bg-destructive/20 flex items-center justify-center">
+                        <Tag className="h-6 w-6 text-destructive" />
                       </div>
                       <div>
-                        <p className="text-xs text-muted-foreground">Laku Hari Ini</p>
-                        <p className="text-xl font-bold text-destructive">{stats?.totalSold ?? 0}</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Stok Malam */}
-                <Card className="bg-card/50 border-0 shadow-sm">
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-lg bg-muted/50 flex items-center justify-center">
-                        <Moon className="h-5 w-5 text-info" />
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Stok Malam</p>
-                        <p className="text-xl font-bold">{stats?.totalNightStock ?? 0}</p>
+                        <p className="text-xs text-destructive/80 uppercase tracking-wide">Laku Hari Ini</p>
+                        <p className="text-2xl font-bold text-destructive">{stats?.totalSold ?? 0}</p>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
               </div>
 
-              {/* Location Breakdown */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                {Object.entries(stats?.breakdown || {}).map(([location, data]) => (
-                  <Card key={location} className="bg-card/50 border-0 shadow-sm">
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          <div className="h-2 w-2 rounded-full bg-primary" />
-                          <h3 className="font-semibold text-sm">{location}</h3>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-3 gap-4 text-center">
-                        <div className="p-2 rounded-lg bg-muted/30">
-                          <p className="text-lg font-bold">{data.morning_stock}</p>
-                          <p className="text-[10px] text-muted-foreground">Pagi</p>
-                        </div>
-                        <div className="p-2 rounded-lg bg-destructive/10">
-                          <p className="text-lg font-bold text-destructive">{data.sold}</p>
-                          <p className="text-[10px] text-muted-foreground">Laku</p>
-                        </div>
-                        <div className="p-2 rounded-lg bg-muted/30">
-                          <p className="text-lg font-bold">{data.night_stock}</p>
-                          <p className="text-[10px] text-muted-foreground">Malam</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-
-              {/* Secondary Stats */}
-              <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+              {/* Transfer & Monthly Stats */}
+              <div className="grid grid-cols-3 gap-3">
                 {/* Transfer */}
                 <Card 
-                  className="bg-info/5 border-info/20 shadow-sm cursor-pointer hover:bg-info/10 transition-colors"
+                  className="bg-info/10 border-info/30 shadow-sm cursor-pointer hover:bg-info/15 transition-colors"
                   onClick={() => handleCardClick('transfer')}
                 >
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <p className="text-xs text-muted-foreground mb-1">Transfer</p>
-                        <p className="text-2xl font-bold text-info">{stats?.totalTransfers ?? 0}</p>
-                        <div className="flex gap-2 mt-2 text-[10px] text-muted-foreground">
-                          <span>→ Soko: {stats?.transferBreakdown.toSoko ?? 0}</span>
-                          <span>→ Mbutoh: {stats?.transferBreakdown.toMbutoh ?? 0}</span>
-                        </div>
+                  <CardContent className="p-3">
+                    <div className="flex flex-col items-center text-center">
+                      <div className="h-10 w-10 rounded-lg bg-info/20 flex items-center justify-center mb-2">
+                        <ArrowLeftRight className="h-5 w-5 text-info" />
                       </div>
-                      <ArrowLeftRight className="h-4 w-4 text-info" />
+                      <p className="text-xl font-bold text-info">{stats?.totalTransfers ?? 0}</p>
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Transfer</p>
                     </div>
                   </CardContent>
                 </Card>
 
                 {/* Terjual Bulan Ini */}
-                <Card className="bg-warning/5 border-warning/20 shadow-sm">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <p className="text-xs text-muted-foreground mb-1">Bulan Ini</p>
-                        <p className="text-2xl font-bold text-warning">{stats?.totalSoldThisMonth ?? 0}</p>
-                        <p className="text-[10px] text-muted-foreground mt-2">
-                          {format(date, 'MMMM yyyy', { locale: id })}
-                        </p>
+                <Card className="bg-card border-border shadow-sm">
+                  <CardContent className="p-3">
+                    <div className="flex flex-col items-center text-center">
+                      <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center mb-2">
+                        <BarChart3 className="h-5 w-5 text-muted-foreground" />
                       </div>
-                      <TrendingUp className="h-4 w-4 text-warning" />
+                      <p className="text-xl font-bold">{stats?.totalSoldThisMonth ?? 0}</p>
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wide">
+                        {format(date, 'MMM', { locale: id })}
+                      </p>
                     </div>
                   </CardContent>
                 </Card>
 
-                {/* Total Stok Akhir */}
-                <Card className="bg-primary text-primary-foreground shadow-sm col-span-2 lg:col-span-1">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <p className="text-xs opacity-80 mb-1">Total Stok Akhir</p>
-                        <p className="text-2xl font-bold">{stats?.totalFinalStock ?? 0}</p>
-                        <p className="text-[10px] opacity-70 mt-2">
-                          Semua lokasi
-                        </p>
+                {/* Total Stok Malam */}
+                <Card className="bg-card border-border shadow-sm">
+                  <CardContent className="p-3">
+                    <div className="flex flex-col items-center text-center">
+                      <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center mb-2">
+                        <PackageOpen className="h-5 w-5 text-muted-foreground" />
                       </div>
-                      <Package className="h-4 w-4 opacity-80" />
+                      <p className="text-xl font-bold">{stats?.totalNightStock ?? 0}</p>
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Total</p>
                     </div>
                   </CardContent>
                 </Card>
               </div>
-
             </div>
           )}
 
