@@ -100,6 +100,27 @@ export type Database = {
         }
         Relationships: []
       }
+      imei_deletion_audit: {
+        Row: {
+          deleted_at: string | null
+          id: string
+          row_data: Json
+          table_name: string
+        }
+        Insert: {
+          deleted_at?: string | null
+          id?: string
+          row_data: Json
+          table_name: string
+        }
+        Update: {
+          deleted_at?: string | null
+          id?: string
+          row_data?: Json
+          table_name?: string
+        }
+        Relationships: []
+      }
       locations: {
         Row: {
           created_at: string
