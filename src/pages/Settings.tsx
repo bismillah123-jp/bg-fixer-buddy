@@ -457,7 +457,7 @@ const Settings = () => {
                           model.srp > 0 ? "text-success" : "text-muted-foreground"
                         )}>
                           {model.srp > 0 
-                            ? `Rp ${(model.srp / 1000).toFixed(0)}rb`
+                            ? `Rp ${model.srp.toLocaleString('id-ID')}`
                             : '-'
                           }
                         </span>
