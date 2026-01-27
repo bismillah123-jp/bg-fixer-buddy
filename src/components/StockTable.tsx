@@ -195,10 +195,23 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
       }
 
       // Apply status filter
+      // IMPORTANT: Items with sale_date should NEVER appear as "tersedia"
+      // This ensures sold phones from previous days don't show up in today's available stock
       if (statusFilter === 'tersedia') {
-        filtered = filtered.filter(entry => entry.night_stock > 0);
+        filtered = filtered.filter(entry => entry.night_stock > 0 && !entry.sale_date);
       } else if (statusFilter === 'terjual') {
-        filtered = filtered.filter(entry => entry.sold > 0);
+        filtered = filtered.filter(entry => entry.sold > 0 || entry.sale_date);
+      } else if (statusFilter === 'all') {
+        // For "all" status, still exclude items that have been sold (have sale_date) 
+        // unless they were sold today (sold > 0)
+        filtered = filtered.filter(entry => {
+          // Keep if it has stock
+          if (entry.night_stock > 0 && !entry.sale_date) return true;
+          // Keep if it was sold today
+          if (entry.sold > 0) return true;
+          // Exclude everything else (ghost entries from rollover that were sold previously)
+          return false;
+        });
       }
 
       return filtered;
