@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { Calendar as CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -42,6 +42,13 @@ export function SaleConfirmationDialog({
   const [showManualEntry, setShowManualEntry] = useState(false);
   const [manualPrice, setManualPrice] = useState(suggestedPrice.toLocaleString('id-ID'));
   const [saleDate, setSaleDate] = useState<Date>(new Date());
+
+  // Sync manualPrice with suggestedPrice (SRP) when dialog opens or SRP changes
+  useEffect(() => {
+    if (open) {
+      setManualPrice(suggestedPrice.toLocaleString('id-ID'));
+    }
+  }, [open, suggestedPrice]);
 
   const formatPrice = (value: string) => {
     const numOnly = value.replace(/\D/g, '');
