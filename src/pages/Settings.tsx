@@ -116,12 +116,28 @@ const Settings = () => {
         return;
       }
 
+      // Helper to normalize storage format
+      const normalizeStorage = (storage: string | null | undefined): string => {
+        if (!storage || storage === '-' || storage.trim() === '') return '';
+        // Already in correct format like "128GB" or "256GB"
+        if (/^\d+GB$/i.test(storage.trim())) return storage.trim();
+        // Format like "6/128" - extract ROM part and add GB
+        if (storage.includes('/')) {
+          const parts = storage.split('/');
+          const rom = parts[1]?.replace(/[^0-9]/g, '');
+          return rom ? `${rom}GB` : '';
+        }
+        // Just a number, add GB
+        const numOnly = storage.replace(/[^0-9]/g, '');
+        return numOnly ? `${numOnly}GB` : '';
+      };
+
       const flattenedData = data.map(entry => ({
         'Tanggal': entry.date,
         'Lokasi': entry.stock_locations?.name || 'N/A',
         'Merk': entry.phone_models?.brand || 'N/A',
         'Model': entry.phone_models?.model || 'N/A',
-        'Penyimpanan': entry.phone_models?.storage_capacity || 'N/A',
+        'Penyimpanan': normalizeStorage(entry.phone_models?.storage_capacity),
         'IMEI': entry.imei,
         'Catatan': entry.notes || '',
         'Stok Pagi': entry.morning_stock,
@@ -202,9 +218,21 @@ const Settings = () => {
       const Model = getColumnValue(['Model', 'model', 'MODEL']);
       const Penyimpanan = getColumnValue(['Penyimpanan', 'penyimpanan', 'PENYIMPANAN', 'Storage', 'storage', 'Kapasitas', 'kapasitas']);
       
-      let normalizedStorage = Penyimpanan;
-      if (Penyimpanan && Penyimpanan.includes('/')) {
-        normalizedStorage = Penyimpanan.split('/')[1];
+      // Normalize storage: handle "6/128", "128GB", "128", "-", blank
+      let normalizedStorage = '';
+      if (Penyimpanan && Penyimpanan !== '-' && Penyimpanan.trim() !== '') {
+        if (Penyimpanan.includes('/')) {
+          // Format "6/128" - extract ROM
+          const rom = Penyimpanan.split('/')[1]?.replace(/[^0-9]/g, '');
+          normalizedStorage = rom ? `${rom}GB` : '';
+        } else if (/^\d+GB$/i.test(Penyimpanan.trim())) {
+          // Already "128GB"
+          normalizedStorage = Penyimpanan.trim();
+        } else {
+          // Just number "128"
+          const numOnly = Penyimpanan.replace(/[^0-9]/g, '');
+          normalizedStorage = numOnly ? `${numOnly}GB` : '';
+        }
       }
       const IMEI = getColumnValue(['IMEI', 'imei', 'Imei']);
       const Catatan = getColumnValue(['Catatan', 'catatan', 'CATATAN', 'Notes', 'notes']);

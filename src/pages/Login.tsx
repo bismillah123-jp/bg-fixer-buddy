@@ -150,8 +150,15 @@ const Login = () => {
 
           {/* Helper Text */}
           <p className="mt-6 text-center text-sm text-muted-foreground">
-            Butuh bantuan? Hubungi{" "}
-            <span className="font-medium text-primary">Sir Ihsan</span>
+            Butuh bantuan?{" "}
+            <a 
+              href="https://wa.me/6283146993017" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="font-medium text-primary hover:underline transition-colors"
+            >
+              Hubungi Sir Ihsan
+            </a>
           </p>
         </div>
       </div>
