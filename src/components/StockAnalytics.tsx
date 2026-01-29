@@ -66,6 +66,13 @@ interface StockAnalyticsProps {
   selectedDate?: Date;
 }
 
+interface SlowMovingItem {
+  brand: string;
+  model: string;
+  imei: string;
+  daysInStock: number;
+}
+
 export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProps) {
   const today = selectedDate.toISOString().split('T')[0];
   
@@ -86,11 +93,11 @@ export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProp
         { data: todaySales },
         { data: locationStock }
       ] = await Promise.all([
-        supabase.from('stock_entries').select('night_stock, imei').eq('date', today).gt('night_stock', 0),
+        supabase.from('stock_entries').select('night_stock, imei, phone_models(brand, model)').eq('date', today).gt('night_stock', 0).is('sale_date', null),
         supabase.from('stock_entries').select('night_stock').eq('date', yesterday).gt('night_stock', 0),
-        supabase.from('stock_entries').select('sold, selling_price, profit_loss, cost_price, phone_models(brand)').gte('date', startOfMonthStr).lte('date', endOfMonthStr),
+        supabase.from('stock_entries').select('sold, selling_price, profit_loss, cost_price, sale_date, phone_models(brand)').gte('date', startOfMonthStr).lte('date', endOfMonthStr),
         supabase.from('stock_entries').select('sold, selling_price, profit_loss').eq('date', today).gt('sold', 0),
-        supabase.from('stock_entries').select('night_stock, stock_locations(name)').eq('date', today).gt('night_stock', 0)
+        supabase.from('stock_entries').select('night_stock, stock_locations(name)').eq('date', today).gt('night_stock', 0).is('sale_date', null)
       ]);
 
       // Calculate stock
@@ -98,23 +105,24 @@ export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProp
       const prevStock = yesterdayStock?.reduce((sum, e) => sum + (e.night_stock || 0), 0) || 0;
       const stockChange = prevStock > 0 ? ((currentStock - prevStock) / prevStock * 100) : 0;
 
-      // Calculate monthly sales
-      const monthlySold = monthlyData?.filter(e => e.sold > 0).length || 0;
-      const monthlyRevenue = monthlyData?.filter(e => e.sold > 0).reduce((sum, e) => sum + (e.selling_price || 0), 0) || 0;
-      const monthlyProfit = monthlyData?.filter(e => e.sold > 0).reduce((sum, e) => sum + (e.profit_loss || 0), 0) || 0;
-      const monthlyCost = monthlyData?.filter(e => e.sold > 0).reduce((sum, e) => sum + (e.cost_price || 0), 0) || 0;
+      // Calculate monthly sales - count items with sale_date OR sold > 0
+      const soldItems = monthlyData?.filter(e => e.sold > 0 || e.sale_date) || [];
+      const monthlySold = soldItems.length;
+      const monthlyRevenue = soldItems.reduce((sum, e) => sum + (e.selling_price || 0), 0);
+      const monthlyProfit = soldItems.reduce((sum, e) => sum + (e.profit_loss || 0), 0);
+      const monthlyCost = soldItems.reduce((sum, e) => sum + (e.cost_price || 0), 0);
 
       // Today's sales
       const todaySold = todaySales?.length || 0;
       const todayRevenue = todaySales?.reduce((sum, e) => sum + (e.selling_price || 0), 0) || 0;
       const todayProfit = todaySales?.reduce((sum, e) => sum + (e.profit_loss || 0), 0) || 0;
 
-      // Brand performance
-      const brandSales = monthlyData?.filter(e => e.sold > 0).reduce((acc, e) => {
+      // Brand performance - use sale_date for accuracy
+      const brandSales = soldItems.reduce((acc, e) => {
         const brand = e.phone_models?.brand || 'Lainnya';
         acc[brand] = (acc[brand] || 0) + 1;
         return acc;
-      }, {} as Record<string, number>) || {};
+      }, {} as Record<string, number>);
 
       // Stock by location
       const stockByLocation = locationStock?.reduce((acc, e) => {
@@ -123,10 +131,10 @@ export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProp
         return acc;
       }, {} as Record<string, number>) || {};
 
-      // Find slow-moving stock (items in stock > 14 days)
-      let slowMovingCount = 0;
+      // Find slow-moving stock (items in stock > 14 days) with details
+      const slowMovingItems: SlowMovingItem[] = [];
       if (todayStock && todayStock.length > 0) {
-        for (const item of todayStock.slice(0, 50)) { // Check first 50 for performance
+        for (const item of todayStock) {
           if (item.imei) {
             const { data: firstEvent } = await supabase
               .from('stock_events')
@@ -138,11 +146,21 @@ export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProp
             
             if (firstEvent?.[0]) {
               const days = differenceInDays(selectedDate, new Date(firstEvent[0].date));
-              if (days > 14) slowMovingCount++;
+              if (days > 14) {
+                slowMovingItems.push({
+                  brand: item.phone_models?.brand || 'Unknown',
+                  model: item.phone_models?.model || 'Unknown',
+                  imei: item.imei,
+                  daysInStock: days
+                });
+              }
             }
           }
         }
       }
+      
+      // Sort by days in stock descending
+      slowMovingItems.sort((a, b) => b.daysInStock - a.daysInStock);
 
       return {
         currentStock,
@@ -161,7 +179,8 @@ export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProp
         stockByLocation: Object.entries(stockByLocation)
           .map(([name, value]) => ({ name, value }))
           .sort((a, b) => b.value - a.value),
-        slowMovingCount,
+        slowMovingItems,
+        slowMovingCount: slowMovingItems.length,
         profitMargin: monthlyRevenue > 0 ? (monthlyProfit / monthlyRevenue * 100) : 0,
       };
     }
@@ -456,34 +475,55 @@ export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProp
           </CardContent>
         </Card>
 
-        {/* Alerts */}
+        {/* Slow Moving Stock Details */}
         <Card className="bg-card/50 border-0 shadow-sm">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-4">
               <AlertTriangle className="h-4 w-4 text-warning" />
-              <h3 className="font-semibold text-sm">Perhatian</h3>
+              <h3 className="font-semibold text-sm">Stok Lama (&gt;14 hari)</h3>
+              <span className="ml-auto text-lg font-bold text-warning">
+                {stats?.slowMovingCount || 0} unit
+              </span>
             </div>
-            <div className="space-y-3">
-              {/* Slow Moving */}
-              <div className="flex items-start gap-3 p-3 rounded-lg bg-warning/5 border border-warning/20">
-                <Smartphone className="h-4 w-4 text-warning mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium">Stok Lama (&gt;14 hari)</p>
-                  <p className="text-2xl font-bold text-warning">{stats?.slowMovingCount || 0}</p>
-                  <p className="text-xs text-muted-foreground">unit perlu promo</p>
-                </div>
+            
+            {stats?.slowMovingItems && stats.slowMovingItems.length > 0 ? (
+              <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                {stats.slowMovingItems.slice(0, 10).map((item, index) => (
+                  <div 
+                    key={`${item.imei}-${index}`}
+                    className="flex items-center justify-between p-2 rounded-lg bg-warning/5 border border-warning/10"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-medium truncate">{item.brand} {item.model}</p>
+                      <p className="text-[10px] text-muted-foreground font-mono">{item.imei}</p>
+                    </div>
+                    <span className="text-xs font-bold text-warning ml-2 whitespace-nowrap">
+                      {item.daysInStock} hari
+                    </span>
+                  </div>
+                ))}
+                {stats.slowMovingItems.length > 10 && (
+                  <p className="text-xs text-center text-muted-foreground pt-1">
+                    +{stats.slowMovingItems.length - 10} lainnya
+                  </p>
+                )}
               </div>
+            ) : (
+              <div className="text-center py-4 text-muted-foreground text-sm">
+                <Smartphone className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                <p>Tidak ada stok lama</p>
+              </div>
+            )}
 
-              {/* Today's Stats */}
-              <div className="p-3 rounded-lg bg-muted/30">
-                <p className="text-xs text-muted-foreground mb-1">Profit Hari Ini</p>
-                <p className={cn(
-                  "text-lg font-bold",
-                  (stats?.todayProfit || 0) >= 0 ? "text-success" : "text-destructive"
-                )}>
-                  {formatCurrency(stats?.todayProfit || 0)}
-                </p>
-              </div>
+            {/* Today's Profit */}
+            <div className="mt-3 p-3 rounded-lg bg-muted/30">
+              <p className="text-xs text-muted-foreground mb-1">Profit Hari Ini</p>
+              <p className={cn(
+                "text-lg font-bold",
+                (stats?.todayProfit || 0) >= 0 ? "text-success" : "text-destructive"
+              )}>
+                {formatCurrency(stats?.todayProfit || 0)}
+              </p>
             </div>
           </CardContent>
         </Card>
