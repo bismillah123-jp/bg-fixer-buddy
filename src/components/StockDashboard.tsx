@@ -370,8 +370,18 @@ export function StockDashboard() {
                       {/* Stock Stats Grid */}
                       <CardContent className="p-4">
                         <div className="grid grid-cols-3 gap-3">
-                          {/* Stok Pagi */}
-                          <div className="relative p-4 rounded-xl bg-background/60 border border-border/50">
+                          {/* Stok Pagi - Clickable */}
+                          <div 
+                            className="relative p-4 rounded-xl bg-background/60 border border-border/50 cursor-pointer hover:bg-background/80 hover:scale-[1.02] transition-all duration-200"
+                            onClick={() => {
+                              const locId = locations?.find(l => l.name === location)?.id;
+                              if (locId) {
+                                setQuickFilter(null);
+                                setActiveTab('table');
+                                // Add location filter state if needed
+                              }
+                            }}
+                          >
                             <div className="absolute top-2 right-2">
                               <Sun className="h-4 w-4 text-warning/70" />
                             </div>
@@ -379,8 +389,14 @@ export function StockDashboard() {
                             <p className="text-2xl font-bold">{data.morning_stock}</p>
                           </div>
                           
-                          {/* Laku */}
-                          <div className="relative p-4 rounded-xl bg-destructive/10 border border-destructive/20">
+                          {/* Laku - Clickable */}
+                          <div 
+                            className="relative p-4 rounded-xl bg-destructive/10 border border-destructive/20 cursor-pointer hover:bg-destructive/15 hover:scale-[1.02] transition-all duration-200"
+                            onClick={() => {
+                              setQuickFilter('sold');
+                              setActiveTab('table');
+                            }}
+                          >
                             <div className="absolute top-2 right-2">
                               <Tag className="h-4 w-4 text-destructive/70" />
                             </div>
@@ -388,8 +404,14 @@ export function StockDashboard() {
                             <p className="text-2xl font-bold text-destructive">{data.sold}</p>
                           </div>
                           
-                          {/* Stok Malam */}
-                          <div className="relative p-4 rounded-xl bg-background/60 border border-border/50">
+                          {/* Stok Malam - Clickable */}
+                          <div 
+                            className="relative p-4 rounded-xl bg-background/60 border border-border/50 cursor-pointer hover:bg-background/80 hover:scale-[1.02] transition-all duration-200"
+                            onClick={() => {
+                              setQuickFilter(null);
+                              setActiveTab('table');
+                            }}
+                          >
                             <div className="absolute top-2 right-2">
                               <Moon className="h-4 w-4 text-info/70" />
                             </div>
