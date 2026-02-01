@@ -101,10 +101,10 @@ export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProp
         supabase.from('stock_entries').select('night_stock').eq('date', yesterday).gt('night_stock', 0),
         // Stock by location
         supabase.from('stock_entries').select('night_stock, stock_locations(name)').eq('date', today).gt('night_stock', 0).is('sale_date', null),
-        // FIXED: Get sales from stock_events (event_type = 'jual') for accuracy
+        // FIXED: Get sales from stock_events (event_type = 'laku') for accuracy
         supabase.from('stock_events')
           .select('imei, date, phone_models(brand)')
-          .eq('event_type', 'jual')
+          .eq('event_type', 'laku')
           .gte('date', startOfMonthStr)
           .lte('date', endOfMonthStr)
       ]);
@@ -192,12 +192,12 @@ export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProp
         days.push(format(date, 'yyyy-MM-dd'));
       }
 
-      // FIXED: Use stock_events for accurate sales count
+      // FIXED: Use stock_events for accurate sales count (event_type = 'laku')
       const { data } = await supabase
         .from('stock_events')
         .select('date')
         .in('date', days)
-        .eq('event_type', 'jual');
+        .eq('event_type', 'laku');
 
       const grouped = days.map(date => {
         const dayData = data?.filter(e => e.date === date) || [];
@@ -225,11 +225,11 @@ export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProp
         end: selectedDate < monthEnd ? selectedDate : monthEnd
       });
 
-      // Get all sales events for the month
+      // Get all sales events for the month (event_type = 'laku')
       const { data: salesData } = await supabase
         .from('stock_events')
         .select('date')
-        .eq('event_type', 'jual')
+        .eq('event_type', 'laku')
         .gte('date', format(monthStart, 'yyyy-MM-dd'))
         .lte('date', format(monthEnd, 'yyyy-MM-dd'));
 
