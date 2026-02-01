@@ -32,7 +32,6 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
   const [selectedLocation, setSelectedLocation] = useState<string>("");
   const [selectedBrand, setSelectedBrand] = useState<string>("");
   const [selectedModel, setSelectedModel] = useState<string>("");
-  const [notes, setNotes] = useState<string>("");
   const [imeiList, setImeiList] = useState<ImeiEntry[]>([{ imei: "", color: "", label: "" }]);
   const [scanningIndex, setScanningIndex] = useState<number | null>(null);
   const { toast } = useToast();
@@ -158,7 +157,7 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
         phone_model_id: baseModel.id, // Same model for all colors
         event_type: 'masuk',
         qty: 1,
-        notes: notes || null,
+        notes: null,
         metadata: { color: entry.color.trim() },
         label: entry.label.trim() || null
       }));
@@ -184,7 +183,6 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
       setSelectedLocation("");
       setSelectedBrand("");
       setSelectedModel("");
-      setNotes("");
       setImeiList([{ imei: "", color: "", label: "" }]);
     },
     onError: (error: any) => {
@@ -360,15 +358,6 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
             <p className="text-sm text-muted-foreground">Scan atau input manual untuk setiap unit</p>
           </div>
 
-          <div className="space-y-2">
-            <Label>Catatan (Opsional)</Label>
-            <Textarea
-              placeholder="Tambahkan catatan..."
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={3}
-            />
-          </div>
 
           <div className="flex gap-2 pt-4">
             <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1">
