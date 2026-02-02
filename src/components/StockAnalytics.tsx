@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { 
@@ -8,7 +9,8 @@ import {
   ArrowDownRight,
   Store,
   Smartphone,
-  Calendar
+  Calendar,
+  MapPin
 } from "lucide-react";
 import { 
   BarChart, 
@@ -23,6 +25,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { differenceInDays, format, subDays, startOfMonth, endOfMonth, eachDayOfInterval, getDaysInMonth } from "date-fns";
 import { id } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 // Brand colors
 const BRAND_COLORS: Record<string, string> = {
@@ -78,6 +87,56 @@ interface SlowMovingItem {
 
 export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProps) {
   const today = selectedDate.toISOString().split('T')[0];
+  const [selectedLocation, setSelectedLocation] = useState<string>("all");
+
+  // Fetch locations for filter
+  const { data: locations } = useQuery({
+    queryKey: ['stock-locations'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('stock_locations')
+        .select('id, name')
+        .order('name');
+      return data || [];
+    }
+  });
+
+  // Brand sales by location query
+  const { data: brandSalesByLocation } = useQuery({
+    queryKey: ['brand-sales-by-location', today, selectedLocation],
+    queryFn: async () => {
+      const monthStart = startOfMonth(selectedDate);
+      const monthEnd = endOfMonth(selectedDate);
+      const startOfMonthStr = format(monthStart, 'yyyy-MM-dd');
+      const endOfMonthStr = format(monthEnd, 'yyyy-MM-dd');
+
+      let query = supabase
+        .from('stock_events')
+        .select('imei, date, location_id, phone_models(brand), stock_locations(name)')
+        .eq('event_type', 'laku')
+        .gte('date', startOfMonthStr)
+        .lte('date', endOfMonthStr);
+
+      // Filter by location if selected
+      if (selectedLocation !== 'all') {
+        query = query.eq('location_id', selectedLocation);
+      }
+
+      const { data: salesEvents } = await query;
+
+      // Group by brand
+      const brandSales = (salesEvents || []).reduce((acc, e) => {
+        const brand = e.phone_models?.brand || 'Lainnya';
+        acc[brand] = (acc[brand] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
+      return Object.entries(brandSales)
+        .map(([name, value]) => ({ name, value }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 8);
+    }
+  });
   
   // Main stats query - FIX: Use stock_events for accurate brand sales
   const { data: stats, isLoading } = useQuery({
@@ -453,20 +512,35 @@ export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProp
           </CardContent>
         </Card>
 
-        {/* Brand Performance - FIXED */}
+        {/* Brand Performance - FIXED with Location Filter */}
         <Card className="bg-card/50 border-0 shadow-sm">
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-sm">Penjualan per Merek</h3>
-              <span className="text-xs text-muted-foreground">
-                {format(selectedDate, 'MMMM yyyy', { locale: id })}
-              </span>
+              <div className="flex items-center gap-2">
+                <h3 className="font-semibold text-sm">Penjualan per Merek</h3>
+              </div>
+              <div className="flex items-center gap-2">
+                <Select value={selectedLocation} onValueChange={setSelectedLocation}>
+                  <SelectTrigger className="h-7 w-[130px] text-xs">
+                    <MapPin className="h-3 w-3 mr-1" />
+                    <SelectValue placeholder="Semua Lokasi" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Semua Lokasi</SelectItem>
+                    {locations?.map((loc) => (
+                      <SelectItem key={loc.id} value={loc.id}>
+                        {loc.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div className="h-[180px]">
-              {stats?.brandSales && stats.brandSales.length > 0 ? (
+              {brandSalesByLocation && brandSalesByLocation.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart 
-                    data={stats.brandSales} 
+                <BarChart 
+                    data={brandSalesByLocation} 
                     layout="vertical"
                     margin={{ top: 0, right: 0, left: 0, bottom: 0 }}
                   >
@@ -482,10 +556,16 @@ export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProp
                     <RechartsTooltip 
                       content={({ active, payload }) => {
                         if (active && payload?.[0]) {
+                          const locationLabel = selectedLocation === 'all' 
+                            ? 'Semua Lokasi' 
+                            : locations?.find(l => l.id === selectedLocation)?.name || '';
                           return (
                             <div className="bg-popover border border-border rounded-lg px-3 py-2 shadow-lg">
                               <p className="text-sm font-semibold">{payload[0].payload.name}</p>
                               <p className="text-xs text-muted-foreground">{payload[0].value} unit terjual</p>
+                              {selectedLocation !== 'all' && (
+                                <p className="text-[10px] text-muted-foreground mt-1">📍 {locationLabel}</p>
+                              )}
                             </div>
                           );
                         }
@@ -493,7 +573,7 @@ export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProp
                       }}
                     />
                     <Bar dataKey="value" radius={[0, 4, 4, 0]}>
-                      {stats.brandSales.map((entry, index) => (
+                      {brandSalesByLocation.map((entry, index) => (
                         <Cell key={index} fill={getBrandColor(entry.name, index)} />
                       ))}
                     </Bar>
