@@ -625,6 +625,32 @@ async function handleMonthlyRecap(supabase: SupabaseClientType, month: string, l
     items: Object.values(day.models).sort((a, b) => b.qty - a.qty)
   }))
 
+  // Build brand summary
+  const brandMap: Record<string, { brand: string; total_sold: number; models: Record<string, { model: string; storage: string; qty: number }> }> = {}
+  filtered.forEach(item => {
+    const b = item.phone_models?.brand || 'Unknown'
+    const model = item.phone_models?.model || 'Unknown'
+    const storage = item.phone_models?.storage_capacity || ''
+    const modelKey = `${model} ${storage}`.trim()
+
+    if (!brandMap[b]) {
+      brandMap[b] = { brand: b, total_sold: 0, models: {} }
+    }
+    if (!brandMap[b].models[modelKey]) {
+      brandMap[b].models[modelKey] = { model, storage, qty: 0 }
+    }
+    brandMap[b].models[modelKey].qty += item.sold || 0
+    brandMap[b].total_sold += item.sold || 0
+  })
+
+  const brand_summary = Object.values(brandMap)
+    .map(b => ({
+      brand: b.brand,
+      total_sold: b.total_sold,
+      models: Object.values(b.models).sort((a, c) => c.qty - a.qty)
+    }))
+    .sort((a, c) => c.total_sold - a.total_sold)
+
   const grandTotal = {
     total_sold: recap.reduce((s, d) => s + d.total_sold, 0),
     total_revenue: recap.reduce((s, d) => s + d.total_revenue, 0),
@@ -638,6 +664,7 @@ async function handleMonthlyRecap(supabase: SupabaseClientType, month: string, l
       month,
       filters: { location: location || null, brand: brand || null },
       grand_total: grandTotal,
+      brand_summary,
       data: recap
     }),
     { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
