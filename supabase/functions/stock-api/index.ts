@@ -67,7 +67,8 @@ Deno.serve(async (req) => {
     const location = url.searchParams.get('location')
     const brand = url.searchParams.get('brand')
     const availableOnly = url.searchParams.get('available') === 'true'
-    const type = url.searchParams.get('type') || 'stock' // stock, sold, transfer, incoming, morning, night, sales-summary
+    const type = url.searchParams.get('type') || 'stock' // stock, sold, transfer, incoming, morning, night, sales-summary, monthly-recap
+    const month = url.searchParams.get('month') // format: YYYY-MM (for monthly-recap)
 
     console.log(`API request - type: ${type}, date: ${date}, location: ${location}, brand: ${brand}`)
 
@@ -90,6 +91,8 @@ Deno.serve(async (req) => {
         return await handleNightStock(supabase, date, location, brand)
       case 'sales-summary':
         return await handleSalesSummary(supabase, date, location)
+      case 'monthly-recap':
+        return await handleMonthlyRecap(supabase, month || date.substring(0, 7), location, brand)
       default:
         return await handleDefaultStock(supabase, date, location, brand, availableOnly)
     }
@@ -548,6 +551,94 @@ async function handleSalesSummary(supabase: SupabaseClientType, date: string, lo
         revenue_change: todayTotal.revenue - yesterdayTotal.revenue,
         profit_change: todayTotal.profit - yesterdayTotal.profit
       }
+    }),
+    { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  )
+}
+
+// Handle monthly recap - sales grouped by date and model
+async function handleMonthlyRecap(supabase: SupabaseClientType, month: string, location?: string | null, brand?: string | null) {
+  console.log(`Fetching monthly recap for month: ${month}, location: ${location}, brand: ${brand}`)
+
+  // Calculate date range for the month
+  const startDate = `${month}-01`
+  const endDate = new Date(parseInt(month.split('-')[0]), parseInt(month.split('-')[1]), 0)
+    .toISOString().split('T')[0]
+
+  const { data, error } = await supabase
+    .from('stock_entries')
+    .select(`
+      date, sold, selling_price, cost_price, imei,
+      phone_models (brand, model, storage_capacity, color, srp),
+      stock_locations (name)
+    `)
+    .gte('date', startDate)
+    .lte('date', endDate)
+    .gt('sold', 0)
+    .order('date', { ascending: true })
+
+  if (error) {
+    console.error('Database error:', error)
+    return new Response(
+      JSON.stringify({ error: 'Failed to fetch monthly recap', details: error.message }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
+  }
+
+  const typedData = (data || []) as unknown as StockEntry[]
+  const filtered = applyFilters(typedData, location, brand)
+
+  // Group by date, then by model
+  const byDate: Record<string, {
+    date: string
+    total_sold: number
+    total_revenue: number
+    models: Record<string, { brand: string; model: string; storage: string; qty: number; revenue: number }>
+  }> = {}
+
+  filtered.forEach(item => {
+    const d = item.date
+    if (!byDate[d]) {
+      byDate[d] = { date: d, total_sold: 0, total_revenue: 0, models: {} }
+    }
+
+    const brand = item.phone_models?.brand || 'Unknown'
+    const model = item.phone_models?.model || 'Unknown'
+    const storage = item.phone_models?.storage_capacity || ''
+    const key = `${brand} ${model} ${storage}`.trim()
+
+    if (!byDate[d].models[key]) {
+      byDate[d].models[key] = { brand, model, storage, qty: 0, revenue: 0 }
+    }
+
+    byDate[d].models[key].qty += item.sold || 0
+    byDate[d].models[key].revenue += item.selling_price || 0
+    byDate[d].total_sold += item.sold || 0
+    byDate[d].total_revenue += item.selling_price || 0
+  })
+
+  // Transform to array format
+  const recap = Object.values(byDate).map(day => ({
+    date: day.date,
+    total_sold: day.total_sold,
+    total_revenue: day.total_revenue,
+    items: Object.values(day.models).sort((a, b) => b.qty - a.qty)
+  }))
+
+  const grandTotal = {
+    total_sold: recap.reduce((s, d) => s + d.total_sold, 0),
+    total_revenue: recap.reduce((s, d) => s + d.total_revenue, 0),
+    days_with_sales: recap.length
+  }
+
+  return new Response(
+    JSON.stringify({
+      success: true,
+      type: 'monthly-recap',
+      month,
+      filters: { location: location || null, brand: brand || null },
+      grand_total: grandTotal,
+      data: recap
     }),
     { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
   )
