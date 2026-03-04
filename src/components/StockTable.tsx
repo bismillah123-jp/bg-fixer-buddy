@@ -85,6 +85,9 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
   const [statusFilter, setStatusFilter] = useState(() => {
     return localStorage.getItem('stockTableStatusFilter') || "all";
   });
+  const [labelFilter, setLabelFilter] = useState(() => {
+    return localStorage.getItem('stockTableLabelFilter') || "all";
+  });
 
   // Apply quick filter from dashboard
   useEffect(() => {
@@ -130,6 +133,12 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
     localStorage.setItem('stockTableStatusFilter', value);
   };
 
+  // Save label filter to localStorage when it changes
+  const handleLabelFilterChange = (value: string) => {
+    setLabelFilter(value);
+    localStorage.setItem('stockTableLabelFilter', value);
+  };
+
   // Reset filters on component unmount or page refresh
   useEffect(() => {
     return () => {
@@ -138,11 +147,12 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
       localStorage.removeItem('stockTableBrandFilter');
       localStorage.removeItem('stockTableLocationFilter');
       localStorage.removeItem('stockTableStatusFilter');
+      localStorage.removeItem('stockTableLabelFilter');
     };
   }, []);
 
   const { data: stockEntries, isLoading } = useQuery({
-    queryKey: ['stock-entries', searchTerm, brandFilter, locationFilter, statusFilter, selectedDate],
+    queryKey: ['stock-entries', searchTerm, brandFilter, locationFilter, statusFilter, labelFilter, selectedDate],
     queryFn: async (): Promise<StockEntry[]> => {
       const date = format(selectedDate, "yyyy-MM-dd");
 
@@ -195,6 +205,15 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
         filtered = filtered.filter(entry => 
           entry.stock_locations?.name === locationFilter
         );
+      }
+
+      // Apply label filter
+      if (labelFilter !== 'all') {
+        if (labelFilter === '__none__') {
+          filtered = filtered.filter(entry => !entry.label);
+        } else {
+          filtered = filtered.filter(entry => entry.label === labelFilter);
+        }
       }
 
       // Apply status filter
@@ -413,7 +432,7 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
     setIsTransferDialogOpen(true);
   };
 
-  const hasActiveFilters = searchTerm || brandFilter !== 'all' || locationFilter !== 'all' || statusFilter !== 'all';
+  const hasActiveFilters = searchTerm || brandFilter !== 'all' || locationFilter !== 'all' || statusFilter !== 'all' || labelFilter !== 'all';
 
   return (
     <>
@@ -442,10 +461,12 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
                       setBrandFilter("all");
                       setLocationFilter("all");
                       setStatusFilter("all");
+                      setLabelFilter("all");
                       localStorage.removeItem('stockTableSearchTerm');
                       localStorage.removeItem('stockTableBrandFilter');
                       localStorage.removeItem('stockTableLocationFilter');
                       localStorage.removeItem('stockTableStatusFilter');
+                      localStorage.removeItem('stockTableLabelFilter');
                     }}
                     className="h-10 px-3 text-muted-foreground hover:text-foreground"
                   >
@@ -488,6 +509,37 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
                     <SelectItem value="all">Semua Status</SelectItem>
                     <SelectItem value="tersedia">Tersedia</SelectItem>
                     <SelectItem value="terjual">Terjual</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={labelFilter} onValueChange={handleLabelFilterChange}>
+                  <SelectTrigger className="w-[140px] h-9 text-sm">
+                    <SelectValue placeholder="Semua Label">
+                      {labelFilter === 'all' ? 'Semua Label' : labelFilter === '__none__' ? 'Tanpa Label' : (
+                        <span className="flex items-center gap-1.5">
+                          <span
+                            className="h-2.5 w-2.5 rounded-full shrink-0"
+                            style={{ backgroundColor: labelColorMap.get(labelFilter) || '#6B7280' }}
+                          />
+                          {labelFilter}
+                        </span>
+                      )}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Semua Label</SelectItem>
+                    <SelectItem value="__none__">Tanpa Label</SelectItem>
+                    {labelsData?.map((label) => (
+                      <SelectItem key={label.id} value={label.name}>
+                        <span className="flex items-center gap-1.5">
+                          <span
+                            className="h-2.5 w-2.5 rounded-full shrink-0"
+                            style={{ backgroundColor: label.color }}
+                          />
+                          {label.name}
+                        </span>
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
 
