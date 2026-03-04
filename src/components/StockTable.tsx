@@ -237,7 +237,7 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
   });
 
   const { data: locations } = useQuery({
-    queryKey: ['stock-locations'],
+    queryKey: ['stock-locations-names'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('stock_locations')
