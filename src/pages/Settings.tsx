@@ -31,9 +31,11 @@ import {
   AlertDialogTitle 
 } from "@/components/ui/alert-dialog";
 import { EditPhoneModelDialog } from "@/components/EditPhoneModelDialog";
+import { ManageLabelsDialog } from "@/components/ManageLabelsDialog";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { Tag } from "lucide-react";
 
 interface CsvRow {
   [key: string]: string;
@@ -53,6 +55,17 @@ const Settings = () => {
   const [deletingModel, setDeletingModel] = useState<any>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
+  const [isLabelsDialogOpen, setIsLabelsDialogOpen] = useState(false);
+
+  // Fetch labels for display
+  const { data: labelsData } = useQuery({
+    queryKey: ['labels'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('labels').select('*').order('name');
+      if (error) throw error;
+      return data;
+    }
+  });
 
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
@@ -526,6 +539,49 @@ const Settings = () => {
         </CardContent>
       </Card>
 
+      {/* Labels Section */}
+      <Card className="bg-card/50 border-0 shadow-sm overflow-hidden">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-accent/50 flex items-center justify-center">
+                <Tag className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <CardTitle className="text-base">Label Stok</CardTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {labelsData?.length || 0} label terdaftar
+                </p>
+              </div>
+            </div>
+            <Button size="sm" variant="outline" onClick={() => setIsLabelsDialogOpen(true)}>
+              Kelola
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <div className="flex flex-wrap gap-2">
+            {labelsData?.map((label) => (
+              <span
+                key={label.id}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
+                style={{
+                  backgroundColor: `${label.color}20`,
+                  color: label.color,
+                  border: `1px solid ${label.color}40`,
+                }}
+              >
+                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: label.color }} />
+                {label.name}
+              </span>
+            ))}
+            {(!labelsData || labelsData.length === 0) && (
+              <p className="text-sm text-muted-foreground">Belum ada label. Klik "Kelola" untuk menambahkan.</p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Data Management Section */}
       <Card className="bg-card/50 border-0 shadow-sm overflow-hidden">
         <CardHeader className="pb-3">
@@ -637,6 +693,11 @@ const Settings = () => {
         phoneModel={editingModel}
       />
 
+      {/* Manage Labels Dialog */}
+      <ManageLabelsDialog
+        open={isLabelsDialogOpen}
+        onOpenChange={setIsLabelsDialogOpen}
+      />
       {/* Delete Model Dialog */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
