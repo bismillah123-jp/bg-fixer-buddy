@@ -15,6 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { BarcodeScanner } from "@/components/BarcodeScanner";
+import { LabelSelect } from "@/components/LabelSelect";
 
 interface IncomingStockDialogProps {
   open: boolean;
@@ -343,15 +344,17 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
                       setImeiList(newList);
                     }}
                   />
-                  <Input
-                    placeholder="Label (contoh: Repack, Second)"
-                    value={entry.label}
-                    onChange={(e) => {
-                      const newList = [...imeiList];
-                      newList[index].label = e.target.value;
-                      setImeiList(newList);
-                    }}
-                  />
+                  <div className="space-y-1">
+                    <span className="text-xs text-muted-foreground">Label</span>
+                    <LabelSelect
+                      value={entry.label}
+                      onValueChange={(val) => {
+                        const newList = [...imeiList];
+                        newList[index].label = val;
+                        setImeiList(newList);
+                      }}
+                    />
+                  </div>
                 </div>
               ))}
             </div>

@@ -22,6 +22,7 @@ import { EditStockDialog } from "./EditStockDialog";
 import { TransferStockDialog } from "./TransferStockDialog";
 import { SaleConfirmationDialog } from "./SaleConfirmationDialog";
 import { cn } from "@/lib/utils";
+import { useLabels } from "@/hooks/useLabels";
 import {
   Select,
   SelectContent,
@@ -69,6 +70,8 @@ export interface StockEntry {
 }
 
 export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockTableProps) {
+  const { data: labelsData } = useLabels();
+  const labelColorMap = new Map(labelsData?.map(l => [l.name, l.color]) || []);
   // Load filters from localStorage
   const [searchTerm, setSearchTerm] = useState(() => {
     return localStorage.getItem('stockTableSearchTerm') || "";
@@ -566,9 +569,17 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
                               
                               {/* Label */}
                               {entry.label && (
-                                <Badge variant="outline" className="text-xs border-warning text-warning">
+                                <span
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
+                                  style={{
+                                    backgroundColor: `${labelColorMap.get(entry.label) || '#6B7280'}20`,
+                                    color: labelColorMap.get(entry.label) || '#6B7280',
+                                    border: `1px solid ${labelColorMap.get(entry.label) || '#6B7280'}40`,
+                                  }}
+                                >
+                                  <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: labelColorMap.get(entry.label) || '#6B7280' }} />
                                   {entry.label}
-                                </Badge>
+                                </span>
                               )}
                             </div>
 

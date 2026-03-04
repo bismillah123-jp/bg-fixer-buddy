@@ -7,6 +7,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Check, X, Edit3 } from 'lucide-react';
+import { LabelSelect } from '@/components/LabelSelect';
 import { StockEntry } from './StockTable';
 
 interface EditStockInlineProps {
@@ -273,10 +274,9 @@ export function EditStockInline({ stockEntry, onCancel }: EditStockInlineProps) 
 
         <div>
           <label className="text-sm font-medium">Label</label>
-          <Input
+          <LabelSelect
             value={formData.label}
-            onChange={(e) => setFormData(prev => ({ ...prev, label: e.target.value }))}
-            placeholder="Contoh: Repack, Second"
+            onValueChange={(val) => setFormData(prev => ({ ...prev, label: val }))}
             className="mt-1"
           />
         </div>

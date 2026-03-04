@@ -7,7 +7,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { StockEntry } from "./StockTable"; // Assuming StockEntry is exported from StockTable
+import { LabelSelect } from "@/components/LabelSelect";
+import { StockEntry } from "./StockTable";
 
 interface EditStockDialogProps {
   open: boolean;
@@ -134,12 +135,7 @@ export function EditStockDialog({ open, onOpenChange, stockEntry }: EditStockDia
           </div>
           <div className="space-y-2">
             <Label>Label (Opsional)</Label>
-            <Input
-              placeholder="Contoh: Repack, Second, Baru"
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">Label akan terollover otomatis ke hari berikutnya</p>
+            <LabelSelect value={label} onValueChange={setLabel} />
           </div>
           <div className="space-y-2">
             <Label>Catatan</Label>
