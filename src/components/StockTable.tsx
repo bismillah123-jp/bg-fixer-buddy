@@ -671,6 +671,7 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
             {stockEntries?.map((entry) => {
               const status = getStockStatus(entry);
               const isSold = entry.sold > 0 || entry.sale_date;
+              const undoInfo = isSold ? getSaleUndoInfo(entry) : null;
               
               return (
                 <Card 
