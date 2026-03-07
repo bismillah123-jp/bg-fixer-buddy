@@ -414,6 +414,88 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
     }
   });
 
+  // Query to get sale event timestamps for undo eligibility
+  const { data: saleEvents } = useQuery({
+    queryKey: ['sale-events-timestamps', format(selectedDate, 'yyyy-MM-dd')],
+    queryFn: async () => {
+      const date = format(selectedDate, 'yyyy-MM-dd');
+      const { data, error } = await supabase
+        .from('stock_events')
+        .select('id, imei, created_at, location_id, phone_model_id')
+        .eq('event_type', 'laku')
+        .eq('date', date);
+      if (error) throw error;
+      return data || [];
+    }
+  });
+
+  const getSaleUndoInfo = useCallback((entry: StockEntry) => {
+    if (!entry.sale_date || !saleEvents) return null;
+    const event = saleEvents.find(e => 
+      e.imei === (entry.imei || '') && 
+      e.location_id === entry.stock_locations?.id &&
+      e.phone_model_id === entry.phone_models?.id
+    );
+    if (!event) return null;
+    const createdAt = new Date(event.created_at).getTime();
+    const now = Date.now();
+    const elapsed = now - createdAt;
+    const oneHour = 60 * 60 * 1000;
+    if (elapsed >= oneHour) return null;
+    const remaining = oneHour - elapsed;
+    const mins = Math.ceil(remaining / 60000);
+    return { eventId: event.id, remainingMinutes: mins };
+  }, [saleEvents]);
+
+  const undoSaleMutation = useMutation({
+    mutationFn: async (entry: StockEntry) => {
+      const undoInfo = getSaleUndoInfo(entry);
+      if (!undoInfo) throw new Error('Waktu undo sudah habis (maks 1 jam)');
+
+      // 1. Delete the laku event
+      const { error: deleteError } = await supabase
+        .from('stock_events')
+        .delete()
+        .eq('id', undoInfo.eventId);
+      if (deleteError) throw new Error(`Gagal menghapus event laku: ${deleteError.message}`);
+
+      // 2. Reset sale fields on stock_entries
+      const { error: updateError } = await supabase
+        .from('stock_entries')
+        .update({
+          sold: 0,
+          selling_price: 0,
+          sale_date: null,
+          profit_loss: 0,
+        })
+        .eq('id', entry.id);
+      if (updateError) throw new Error(`Gagal mereset data penjualan: ${updateError.message}`);
+
+      // 3. Cascade recalc
+      await supabase.rpc('cascade_recalc_stock_with_imei', {
+        p_from_date: entry.date,
+        p_to_date: format(new Date(), 'yyyy-MM-dd'),
+        p_location_id: entry.stock_locations.id,
+        p_phone_model_id: entry.phone_models.id,
+        p_imei: entry.imei
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "Sukses", description: "Penjualan berhasil dibatalkan." });
+      queryClient.invalidateQueries({ queryKey: ['stock-entries'] });
+      queryClient.invalidateQueries({ queryKey: ['stock-events'] });
+      queryClient.invalidateQueries({ queryKey: ['sale-events-timestamps'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+    },
+    onError: (error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+    onSettled: () => {
+      setIsUndoDialogOpen(false);
+      setSelectedEntry(null);
+    }
+  });
+
   const handleDeleteClick = (entry: StockEntry) => {
     setSelectedEntry(entry);
     setIsDeleteDialogOpen(true);
@@ -438,6 +520,11 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
   const handleTransferClick = (entry: StockEntry) => {
     setSelectedEntry(entry);
     setIsTransferDialogOpen(true);
+  };
+
+  const handleUndoSaleClick = (entry: StockEntry) => {
+    setSelectedEntry(entry);
+    setIsUndoDialogOpen(true);
   };
 
   const hasActiveFilters = searchTerm || brandFilter !== 'all' || locationFilter !== 'all' || statusFilter !== 'all' || labelFilter !== 'all';
