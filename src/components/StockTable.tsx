@@ -854,8 +854,32 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <AlertDialog open={isUndoDialogOpen} onOpenChange={setIsUndoDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Batalkan Penjualan?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {selectedEntry && (() => {
+                const info = getSaleUndoInfo(selectedEntry);
+                return info 
+                  ? `Penjualan ${selectedEntry.phone_models?.brand} ${selectedEntry.phone_models?.model} akan dibatalkan. Sisa waktu undo: ${info.remainingMinutes} menit.`
+                  : 'Waktu undo sudah habis.';
+              })()}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Tidak</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => selectedEntry && undoSaleMutation.mutate(selectedEntry)}
+              className="bg-orange-500 hover:bg-orange-600"
+            >
+              Ya, Batalkan Laku
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
-      <SaleConfirmationDialog
+
         open={isSaleConfirmDialogOpen}
         onOpenChange={setIsSaleConfirmDialogOpen}
         onConfirm={handleSaleConfirm}
