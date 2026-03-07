@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { Card, CardContent } from "@/components/ui/card";
@@ -15,7 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Search, RotateCcw, Edit2, ArrowRightLeft, Trash2, CheckCircle, Package, X } from "lucide-react";
+import { Search, RotateCcw, Edit2, ArrowRightLeft, Trash2, CheckCircle, Package, X, Undo2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { EditStockDialog } from "./EditStockDialog";
@@ -105,9 +105,17 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
   const [isSaleConfirmDialogOpen, setIsSaleConfirmDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isTransferDialogOpen, setIsTransferDialogOpen] = useState(false);
+  const [isUndoDialogOpen, setIsUndoDialogOpen] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<StockEntry | null>(null);
+  const [, setTick] = useState(0); // for re-rendering countdown
   const queryClient = useQueryClient();
   const { toast } = useToast();
+
+  // Re-render every 30s to update undo countdown timers
+  useEffect(() => {
+    const interval = setInterval(() => setTick(t => t + 1), 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Save search term to localStorage when it changes
   const handleSearchChange = (value: string) => {
@@ -406,6 +414,88 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
     }
   });
 
+  // Query to get sale event timestamps for undo eligibility
+  const { data: saleEvents } = useQuery({
+    queryKey: ['sale-events-timestamps', format(selectedDate, 'yyyy-MM-dd')],
+    queryFn: async () => {
+      const date = format(selectedDate, 'yyyy-MM-dd');
+      const { data, error } = await supabase
+        .from('stock_events')
+        .select('id, imei, created_at, location_id, phone_model_id')
+        .eq('event_type', 'laku')
+        .eq('date', date);
+      if (error) throw error;
+      return data || [];
+    }
+  });
+
+  const getSaleUndoInfo = useCallback((entry: StockEntry) => {
+    if (!entry.sale_date || !saleEvents) return null;
+    const event = saleEvents.find(e => 
+      e.imei === (entry.imei || '') && 
+      e.location_id === entry.stock_locations?.id &&
+      e.phone_model_id === entry.phone_models?.id
+    );
+    if (!event) return null;
+    const createdAt = new Date(event.created_at).getTime();
+    const now = Date.now();
+    const elapsed = now - createdAt;
+    const oneHour = 60 * 60 * 1000;
+    if (elapsed >= oneHour) return null;
+    const remaining = oneHour - elapsed;
+    const mins = Math.ceil(remaining / 60000);
+    return { eventId: event.id, remainingMinutes: mins };
+  }, [saleEvents]);
+
+  const undoSaleMutation = useMutation({
+    mutationFn: async (entry: StockEntry) => {
+      const undoInfo = getSaleUndoInfo(entry);
+      if (!undoInfo) throw new Error('Waktu undo sudah habis (maks 1 jam)');
+
+      // 1. Delete the laku event
+      const { error: deleteError } = await supabase
+        .from('stock_events')
+        .delete()
+        .eq('id', undoInfo.eventId);
+      if (deleteError) throw new Error(`Gagal menghapus event laku: ${deleteError.message}`);
+
+      // 2. Reset sale fields on stock_entries
+      const { error: updateError } = await supabase
+        .from('stock_entries')
+        .update({
+          sold: 0,
+          selling_price: 0,
+          sale_date: null,
+          profit_loss: 0,
+        })
+        .eq('id', entry.id);
+      if (updateError) throw new Error(`Gagal mereset data penjualan: ${updateError.message}`);
+
+      // 3. Cascade recalc
+      await supabase.rpc('cascade_recalc_stock_with_imei', {
+        p_from_date: entry.date,
+        p_to_date: format(new Date(), 'yyyy-MM-dd'),
+        p_location_id: entry.stock_locations.id,
+        p_phone_model_id: entry.phone_models.id,
+        p_imei: entry.imei
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "Sukses", description: "Penjualan berhasil dibatalkan." });
+      queryClient.invalidateQueries({ queryKey: ['stock-entries'] });
+      queryClient.invalidateQueries({ queryKey: ['stock-events'] });
+      queryClient.invalidateQueries({ queryKey: ['sale-events-timestamps'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+    },
+    onError: (error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+    onSettled: () => {
+      setIsUndoDialogOpen(false);
+      setSelectedEntry(null);
+    }
+  });
+
   const handleDeleteClick = (entry: StockEntry) => {
     setSelectedEntry(entry);
     setIsDeleteDialogOpen(true);
@@ -430,6 +520,11 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
   const handleTransferClick = (entry: StockEntry) => {
     setSelectedEntry(entry);
     setIsTransferDialogOpen(true);
+  };
+
+  const handleUndoSaleClick = (entry: StockEntry) => {
+    setSelectedEntry(entry);
+    setIsUndoDialogOpen(true);
   };
 
   const hasActiveFilters = searchTerm || brandFilter !== 'all' || locationFilter !== 'all' || statusFilter !== 'all' || labelFilter !== 'all';
@@ -576,6 +671,7 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
             {stockEntries?.map((entry) => {
               const status = getStockStatus(entry);
               const isSold = entry.sold > 0 || entry.sale_date;
+              const undoInfo = isSold ? getSaleUndoInfo(entry) : null;
               
               return (
                 <Card 
@@ -649,6 +745,11 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
                             >
                               {status.label}
                             </Badge>
+                            {undoInfo && (
+                              <span className="text-[10px] text-orange-500 font-medium">
+                                ↩ {undoInfo.remainingMinutes}m
+                              </span>
+                            )}
                             <div className="flex items-center gap-2 text-sm">
                               <span className="text-muted-foreground">{entry.morning_stock}</span>
                               <span className="text-muted-foreground">→</span>
@@ -665,19 +766,31 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
 
                       {/* Action Buttons - Side Strip */}
                       <div className="flex flex-col border-l bg-muted/30">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className={cn(
-                            "h-10 w-10 rounded-none",
-                            entry.night_stock > 0 && "hover:bg-success/10 hover:text-success"
-                          )}
-                          onClick={() => handleMarkAsSoldClick(entry)}
-                          disabled={entry.night_stock === 0}
-                          title="Tandai Terjual"
-                        >
-                          <CheckCircle className="h-4 w-4" />
-                        </Button>
+                        {isSold && undoInfo ? (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-10 w-10 rounded-none hover:bg-orange-500/10 hover:text-orange-500"
+                            onClick={() => handleUndoSaleClick(entry)}
+                            title={`Batalkan Laku (${undoInfo.remainingMinutes} menit lagi)`}
+                          >
+                            <Undo2 className="h-4 w-4" />
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className={cn(
+                              "h-10 w-10 rounded-none",
+                              entry.night_stock > 0 && "hover:bg-success/10 hover:text-success"
+                            )}
+                            onClick={() => handleMarkAsSoldClick(entry)}
+                            disabled={entry.night_stock === 0}
+                            title="Tandai Terjual"
+                          >
+                            <CheckCircle className="h-4 w-4" />
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="icon"
@@ -742,6 +855,30 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
               className="bg-destructive hover:bg-destructive/90"
             >
               Hapus
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog open={isUndoDialogOpen} onOpenChange={setIsUndoDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Batalkan Penjualan?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {selectedEntry && (() => {
+                const info = getSaleUndoInfo(selectedEntry);
+                return info 
+                  ? `Penjualan ${selectedEntry.phone_models?.brand} ${selectedEntry.phone_models?.model} akan dibatalkan. Sisa waktu undo: ${info.remainingMinutes} menit.`
+                  : 'Waktu undo sudah habis.';
+              })()}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Tidak</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => selectedEntry && undoSaleMutation.mutate(selectedEntry)}
+              className="bg-orange-500 hover:bg-orange-600"
+            >
+              Ya, Batalkan Laku
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
