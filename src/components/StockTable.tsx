@@ -15,7 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Search, RotateCcw, Edit2, ArrowRightLeft, Trash2, CheckCircle, Package, X } from "lucide-react";
+import { Search, RotateCcw, Edit2, ArrowRightLeft, Trash2, CheckCircle, Package, X, Undo2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { EditStockDialog } from "./EditStockDialog";
