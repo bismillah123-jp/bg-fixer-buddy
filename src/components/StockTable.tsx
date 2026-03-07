@@ -879,7 +879,7 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
         </AlertDialogContent>
       </AlertDialog>
 
-
+      <SaleConfirmationDialog
         open={isSaleConfirmDialogOpen}
         onOpenChange={setIsSaleConfirmDialogOpen}
         onConfirm={handleSaleConfirm}
