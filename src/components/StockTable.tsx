@@ -745,6 +745,11 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
                             >
                               {status.label}
                             </Badge>
+                            {undoInfo && (
+                              <span className="text-[10px] text-orange-500 font-medium">
+                                ↩ {undoInfo.remainingMinutes}m
+                              </span>
+                            )}
                             <div className="flex items-center gap-2 text-sm">
                               <span className="text-muted-foreground">{entry.morning_stock}</span>
                               <span className="text-muted-foreground">→</span>
