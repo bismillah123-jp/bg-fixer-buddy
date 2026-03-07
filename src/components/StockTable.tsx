@@ -761,19 +761,31 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
 
                       {/* Action Buttons - Side Strip */}
                       <div className="flex flex-col border-l bg-muted/30">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className={cn(
-                            "h-10 w-10 rounded-none",
-                            entry.night_stock > 0 && "hover:bg-success/10 hover:text-success"
-                          )}
-                          onClick={() => handleMarkAsSoldClick(entry)}
-                          disabled={entry.night_stock === 0}
-                          title="Tandai Terjual"
-                        >
-                          <CheckCircle className="h-4 w-4" />
-                        </Button>
+                        {isSold && undoInfo ? (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-10 w-10 rounded-none hover:bg-orange-500/10 hover:text-orange-500"
+                            onClick={() => handleUndoSaleClick(entry)}
+                            title={`Batalkan Laku (${undoInfo.remainingMinutes} menit lagi)`}
+                          >
+                            <Undo2 className="h-4 w-4" />
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className={cn(
+                              "h-10 w-10 rounded-none",
+                              entry.night_stock > 0 && "hover:bg-success/10 hover:text-success"
+                            )}
+                            onClick={() => handleMarkAsSoldClick(entry)}
+                            disabled={entry.night_stock === 0}
+                            title="Tandai Terjual"
+                          >
+                            <CheckCircle className="h-4 w-4" />
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="icon"
