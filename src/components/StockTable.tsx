@@ -105,9 +105,17 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
   const [isSaleConfirmDialogOpen, setIsSaleConfirmDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isTransferDialogOpen, setIsTransferDialogOpen] = useState(false);
+  const [isUndoDialogOpen, setIsUndoDialogOpen] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<StockEntry | null>(null);
+  const [, setTick] = useState(0); // for re-rendering countdown
   const queryClient = useQueryClient();
   const { toast } = useToast();
+
+  // Re-render every 30s to update undo countdown timers
+  useEffect(() => {
+    const interval = setInterval(() => setTick(t => t + 1), 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Save search term to localStorage when it changes
   const handleSearchChange = (value: string) => {
