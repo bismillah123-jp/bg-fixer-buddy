@@ -24,6 +24,11 @@ export function FabMenu() {
       icon: Truck,
       dialog: 'incomingStock',
     },
+    {
+      label: 'HP Datang Massal',
+      icon: PackagePlus,
+      dialog: 'bulkIncoming',
+    },
     // Hidden: Koreksi Stok Pagi
     // {
     //   label: 'Koreksi Stok Pagi',
