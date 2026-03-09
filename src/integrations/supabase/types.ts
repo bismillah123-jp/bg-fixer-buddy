@@ -163,6 +163,27 @@ export type Database = {
         }
         Relationships: []
       }
+      phone_colors: {
+        Row: {
+          created_at: string
+          hex_color: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          hex_color?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          hex_color?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       phone_models: {
         Row: {
           brand: string
