@@ -1,9 +1,10 @@
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Plus, Truck, Smartphone, MapPin, Tags } from 'lucide-react';
+import { Plus, Truck, Smartphone, MapPin, Tags, PackagePlus } from 'lucide-react';
 import { useState } from 'react';
 import { AddStockDialog } from './AddStockDialog';
 import { IncomingStockDialog } from './IncomingStockDialog';
+import { BulkIncomingStockDialog } from './BulkIncomingStockDialog';
 import { AddPhoneModelDialog } from './AddPhoneModelDialog';
 import { ManageBrandsDialog } from './ManageBrandsDialog';
 import { AddLocationDialog } from './AddLocationDialog';
