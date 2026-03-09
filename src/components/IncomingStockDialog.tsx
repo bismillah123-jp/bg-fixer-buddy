@@ -16,6 +16,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { BarcodeScanner } from "@/components/BarcodeScanner";
 import { LabelSelect } from "@/components/LabelSelect";
+import { ColorSelect } from "@/components/ColorSelect";
 
 interface IncomingStockDialogProps {
   open: boolean;
