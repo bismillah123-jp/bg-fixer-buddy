@@ -57,6 +57,7 @@ const Settings = () => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
   const [isLabelsDialogOpen, setIsLabelsDialogOpen] = useState(false);
+  const [isColorsDialogOpen, setIsColorsDialogOpen] = useState(false);
 
   // Fetch labels for display
   const { data: labelsData } = useQuery({
