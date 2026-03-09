@@ -32,10 +32,11 @@ import {
 } from "@/components/ui/alert-dialog";
 import { EditPhoneModelDialog } from "@/components/EditPhoneModelDialog";
 import { ManageLabelsDialog } from "@/components/ManageLabelsDialog";
+import { ManageColorsDialog } from "@/components/ManageColorsDialog";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { Tag } from "lucide-react";
+import { Tag, Palette } from "lucide-react";
 
 interface CsvRow {
   [key: string]: string;
@@ -56,6 +57,7 @@ const Settings = () => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
   const [isLabelsDialogOpen, setIsLabelsDialogOpen] = useState(false);
+  const [isColorsDialogOpen, setIsColorsDialogOpen] = useState(false);
 
   // Fetch labels for display
   const { data: labelsData } = useQuery({
@@ -64,6 +66,16 @@ const Settings = () => {
       const { data, error } = await supabase.from('labels').select('*').order('name');
       if (error) throw error;
       return data;
+    }
+  });
+
+  // Fetch phone colors for display
+  const { data: colorsData } = useQuery({
+    queryKey: ['phone-colors'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('phone_colors' as any).select('*').order('name');
+      if (error) throw error;
+      return data as any[];
     }
   });
 
@@ -582,7 +594,44 @@ const Settings = () => {
         </CardContent>
       </Card>
 
-      {/* Data Management Section */}
+      {/* Phone Colors Section */}
+      <Card className="bg-card/50 border-0 shadow-sm overflow-hidden">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-accent/50 flex items-center justify-center">
+                <Palette className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <CardTitle className="text-base">Warna HP</CardTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {colorsData?.length || 0} warna terdaftar
+                </p>
+              </div>
+            </div>
+            <Button size="sm" variant="outline" onClick={() => setIsColorsDialogOpen(true)}>
+              Kelola
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <div className="flex flex-wrap gap-2">
+            {colorsData?.map((color: any) => (
+              <span
+                key={color.id}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-muted/50 text-foreground border"
+              >
+                <span className="h-3 w-3 rounded-full border border-border" style={{ backgroundColor: color.hex_color }} />
+                {color.name}
+              </span>
+            ))}
+            {(!colorsData || colorsData.length === 0) && (
+              <p className="text-sm text-muted-foreground">Belum ada warna. Klik "Kelola" untuk menambahkan.</p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       <Card className="bg-card/50 border-0 shadow-sm overflow-hidden">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-3">
@@ -697,6 +746,11 @@ const Settings = () => {
       <ManageLabelsDialog
         open={isLabelsDialogOpen}
         onOpenChange={setIsLabelsDialogOpen}
+      />
+      {/* Manage Colors Dialog */}
+      <ManageColorsDialog
+        open={isColorsDialogOpen}
+        onOpenChange={setIsColorsDialogOpen}
       />
       {/* Delete Model Dialog */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>

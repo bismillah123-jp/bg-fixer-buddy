@@ -15,6 +15,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { BarcodeScanner } from "@/components/BarcodeScanner";
 import { LabelSelect } from "@/components/LabelSelect";
+import { ColorSelect } from "@/components/ColorSelect";
 
 interface BulkIncomingStockDialogProps {
   open: boolean;
@@ -269,12 +270,10 @@ export function BulkIncomingStockDialog({ open, onOpenChange }: BulkIncomingStoc
                     </Button>
                   </div>
 
-                  {/* Color + Label row */}
                   <div className="grid grid-cols-2 gap-2">
-                    <Input
-                      placeholder="Warna"
+                    <ColorSelect
                       value={entry.color}
-                      onChange={(e) => updateEntry(idx, 'color', e.target.value)}
+                      onValueChange={(v) => updateEntry(idx, 'color', v)}
                       className="h-9 text-xs"
                     />
                     <LabelSelect
