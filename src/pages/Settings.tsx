@@ -69,6 +69,16 @@ const Settings = () => {
     }
   });
 
+  // Fetch phone colors for display
+  const { data: colorsData } = useQuery({
+    queryKey: ['phone-colors'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('phone_colors' as any).select('*').order('name');
+      if (error) throw error;
+      return data as any[];
+    }
+  });
+
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
     if (error) {
