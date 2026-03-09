@@ -594,7 +594,44 @@ const Settings = () => {
         </CardContent>
       </Card>
 
-      {/* Data Management Section */}
+      {/* Phone Colors Section */}
+      <Card className="bg-card/50 border-0 shadow-sm overflow-hidden">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-accent/50 flex items-center justify-center">
+                <Palette className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <CardTitle className="text-base">Warna HP</CardTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {colorsData?.length || 0} warna terdaftar
+                </p>
+              </div>
+            </div>
+            <Button size="sm" variant="outline" onClick={() => setIsColorsDialogOpen(true)}>
+              Kelola
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <div className="flex flex-wrap gap-2">
+            {colorsData?.map((color: any) => (
+              <span
+                key={color.id}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-muted/50 text-foreground border"
+              >
+                <span className="h-3 w-3 rounded-full border border-border" style={{ backgroundColor: color.hex_color }} />
+                {color.name}
+              </span>
+            ))}
+            {(!colorsData || colorsData.length === 0) && (
+              <p className="text-sm text-muted-foreground">Belum ada warna. Klik "Kelola" untuk menambahkan.</p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       <Card className="bg-card/50 border-0 shadow-sm overflow-hidden">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-3">
