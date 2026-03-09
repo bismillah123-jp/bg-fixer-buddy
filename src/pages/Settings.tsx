@@ -747,6 +747,11 @@ const Settings = () => {
         open={isLabelsDialogOpen}
         onOpenChange={setIsLabelsDialogOpen}
       />
+      {/* Manage Colors Dialog */}
+      <ManageColorsDialog
+        open={isColorsDialogOpen}
+        onOpenChange={setIsColorsDialogOpen}
+      />
       {/* Delete Model Dialog */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
