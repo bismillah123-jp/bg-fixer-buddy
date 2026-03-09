@@ -36,7 +36,7 @@ import { ManageColorsDialog } from "@/components/ManageColorsDialog";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { Tag } from "lucide-react";
+import { Tag, Palette } from "lucide-react";
 
 interface CsvRow {
   [key: string]: string;
