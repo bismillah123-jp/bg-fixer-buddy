@@ -336,15 +336,17 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
                       <Camera className="h-4 w-4" />
                     </Button>
                   </div>
-                  <Input
-                    placeholder="Warna (contoh: Hitam, Putih)"
-                    value={entry.color}
-                    onChange={(e) => {
-                      const newList = [...imeiList];
-                      newList[index].color = e.target.value;
-                      setImeiList(newList);
-                    }}
-                  />
+                  <div className="space-y-1">
+                    <span className="text-xs text-muted-foreground">Warna</span>
+                    <ColorSelect
+                      value={entry.color}
+                      onValueChange={(val) => {
+                        const newList = [...imeiList];
+                        newList[index].color = val;
+                        setImeiList(newList);
+                      }}
+                    />
+                  </div>
                   <div className="space-y-1">
                     <span className="text-xs text-muted-foreground">Label</span>
                     <LabelSelect
