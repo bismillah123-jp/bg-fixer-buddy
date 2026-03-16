@@ -90,6 +90,7 @@ export function FabMenu() {
       {dialog === 'addPhoneModel' && <AddPhoneModelDialog open={true} onOpenChange={() => setDialog(null)} />}
       {dialog === 'manageBrands' && <ManageBrandsDialog open={true} onOpenChange={() => setDialog(null)} />}
       {dialog === 'addLocation' && <AddLocationDialog open={true} onOpenChange={() => setDialog(null)} />}
+      {dialog === 'aiChat' && <AIChatDialog open={true} onOpenChange={() => setDialog(null)} />}
     </>
   );
 }
