@@ -21,6 +21,10 @@ export function FabMenu() {
 
   const actions = [
     {
+      label: 'Asisten AI',
+      icon: Sparkles,
+      dialog: 'aiChat',
+    },
       label: 'HP Datang',
       icon: Truck,
       dialog: 'incomingStock',
