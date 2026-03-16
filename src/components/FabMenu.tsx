@@ -25,6 +25,7 @@ export function FabMenu() {
       icon: Sparkles,
       dialog: 'aiChat',
     },
+    {
       label: 'HP Datang',
       icon: Truck,
       dialog: 'incomingStock',
