@@ -2,3 +2,6 @@ project_id = "jbyqdwhqfedmuekrpdsx"
 
 [functions.stock-api]
 verify_jwt = false
+
+[functions.stock-ai]
+verify_jwt = false
