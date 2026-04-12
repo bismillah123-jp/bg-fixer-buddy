@@ -18,6 +18,7 @@ import Settings from "@/pages/Settings";
 import { ThemeToggle } from "./ThemeToggle";
 import { MobileNavigation } from "./MobileNavigation";
 import { FabMenu } from "./FabMenu";
+import { AIChatPage } from "./AIChatPage";
 
 interface LocationData {
   morning_stock: number;
@@ -529,7 +530,11 @@ export function StockDashboard() {
             <StockAnalytics selectedDate={date} />
           )}
 
-          {/* Settings View */}
+          {/* AI Chat View */}
+          {activeTab === 'ai-chat' && (
+            <AIChatPage />
+          )}
+
           {activeTab === 'settings' && (
             <Settings />
           )}
