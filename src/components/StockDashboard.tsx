@@ -43,7 +43,7 @@ interface DashboardStats {
 }
 
 export function StockDashboard() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'table' | 'stock-detail' | 'analytics' | 'settings'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'table' | 'stock-detail' | 'analytics' | 'ai-chat' | 'settings'>('dashboard');
   const [date, setDate] = useState<Date>(new Date());
   const [quickFilter, setQuickFilter] = useState<'incoming' | 'sold' | 'transfer' | null>(null);
   const { toast } = useToast();
@@ -288,6 +288,7 @@ export function StockDashboard() {
               { id: 'table', label: 'Data Stok', icon: Package },
               { id: 'stock-detail', label: 'Detail Stok', icon: ListTree },
               { id: 'analytics', label: 'Statistik', icon: TrendingUp },
+              { id: 'ai-chat', label: 'Asisten AI', icon: Sparkles },
               { id: 'settings', label: 'Pengaturan', icon: SettingsIcon },
             ].map((tab) => {
               const Icon = tab.icon;
