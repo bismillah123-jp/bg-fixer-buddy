@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { Plus, Truck, TrendingUp, AlertTriangle, Package, BarChart3, LogOut, Calendar as CalendarIcon, PackageOpen, ArrowLeftRight, Settings as SettingsIcon, Sun, Tag, Moon, ListTree } from "lucide-react";
+import { Plus, Truck, TrendingUp, AlertTriangle, Package, BarChart3, LogOut, Calendar as CalendarIcon, PackageOpen, ArrowLeftRight, Settings as SettingsIcon, Sun, Tag, Moon, ListTree, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { StockTable } from "./StockTable";
@@ -18,6 +18,7 @@ import Settings from "@/pages/Settings";
 import { ThemeToggle } from "./ThemeToggle";
 import { MobileNavigation } from "./MobileNavigation";
 import { FabMenu } from "./FabMenu";
+import { AIChatPage } from "./AIChatPage";
 
 interface LocationData {
   morning_stock: number;
@@ -43,7 +44,7 @@ interface DashboardStats {
 }
 
 export function StockDashboard() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'table' | 'stock-detail' | 'analytics' | 'settings'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'table' | 'stock-detail' | 'analytics' | 'ai-chat' | 'settings'>('dashboard');
   const [date, setDate] = useState<Date>(new Date());
   const [quickFilter, setQuickFilter] = useState<'incoming' | 'sold' | 'transfer' | null>(null);
   const { toast } = useToast();
@@ -288,6 +289,7 @@ export function StockDashboard() {
               { id: 'table', label: 'Data Stok', icon: Package },
               { id: 'stock-detail', label: 'Detail Stok', icon: ListTree },
               { id: 'analytics', label: 'Statistik', icon: TrendingUp },
+              { id: 'ai-chat', label: 'Asisten AI', icon: Sparkles },
               { id: 'settings', label: 'Pengaturan', icon: SettingsIcon },
             ].map((tab) => {
               const Icon = tab.icon;
@@ -528,7 +530,11 @@ export function StockDashboard() {
             <StockAnalytics selectedDate={date} />
           )}
 
-          {/* Settings View */}
+          {/* AI Chat View */}
+          {activeTab === 'ai-chat' && (
+            <AIChatPage />
+          )}
+
           {activeTab === 'settings' && (
             <Settings />
           )}
