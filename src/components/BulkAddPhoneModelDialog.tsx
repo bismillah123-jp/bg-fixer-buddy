@@ -365,7 +365,7 @@ export function BulkAddPhoneModelDialog({ open, onOpenChange }: BulkAddPhoneMode
               <Textarea
                 value={csvText}
                 onChange={(e) => setCsvText(e.target.value)}
-                placeholder="SAMSUNG,Galaxy A15,128GB,2500000&#10;XIAOMI,Redmi 13,256GB,2800000"
+                placeholder="SAMSUNG,Galaxy A15,4/128,2500000&#10;XIAOMI,Redmi 13,6/128,2800000"
                 rows={8}
                 className="font-mono text-sm"
               />
