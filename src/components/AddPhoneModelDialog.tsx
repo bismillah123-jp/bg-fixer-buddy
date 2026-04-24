@@ -246,8 +246,13 @@ export function AddPhoneModelDialog({ open, onOpenChange }: AddPhoneModelDialogP
             <Input id="model" value={formData.model} onChange={(e) => setFormData({...formData, model: e.target.value})} required />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="storage_capacity">Kapasitas Penyimpanan</Label>
-            <Input id="storage_capacity" value={formData.storage_capacity} onChange={(e) => setFormData({...formData, storage_capacity: e.target.value})} />
+            <Label htmlFor="storage_capacity">Kapasitas (RAM/ROM)</Label>
+            <Input
+              id="storage_capacity"
+              value={formData.storage_capacity}
+              onChange={(e) => setFormData({...formData, storage_capacity: e.target.value})}
+              placeholder="cth: 4/128 atau 6/128"
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="srp">SRP (Harga Eceran yang Disarankan)</Label>
