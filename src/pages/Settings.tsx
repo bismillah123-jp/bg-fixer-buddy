@@ -161,7 +161,7 @@ const Settings = () => {
         'Lokasi': entry.stock_locations?.name || 'N/A',
         'Merk': entry.phone_models?.brand || 'N/A',
         'Model': entry.phone_models?.model || 'N/A',
-        'Penyimpanan': normalizeStorage(entry.phone_models?.storage_capacity),
+        'Penyimpanan': formatStorage(entry.phone_models?.storage_capacity),
         'IMEI': entry.imei,
         'Catatan': entry.notes || '',
         'Stok Pagi': entry.morning_stock,
