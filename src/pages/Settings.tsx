@@ -141,20 +141,19 @@ const Settings = () => {
         return;
       }
 
-      // Helper to normalize storage format
-      const normalizeStorage = (storage: string | null | undefined): string => {
+      // Format storage as "RAM/ROM" (e.g. "4/128", "6/128")
+      // Preserves "4/128" as-is. Converts "128GB" → "128". Strips placeholders.
+      const formatStorage = (storage: string | null | undefined): string => {
         if (!storage || storage === '-' || storage.trim() === '') return '';
-        // Already in correct format like "128GB" or "256GB"
-        if (/^\d+GB$/i.test(storage.trim())) return storage.trim();
-        // Format like "6/128" - extract ROM part and add GB
-        if (storage.includes('/')) {
-          const parts = storage.split('/');
-          const rom = parts[1]?.replace(/[^0-9]/g, '');
-          return rom ? `${rom}GB` : '';
-        }
-        // Just a number, add GB
-        const numOnly = storage.replace(/[^0-9]/g, '');
-        return numOnly ? `${numOnly}GB` : '';
+        const trimmed = storage.trim();
+        // Already in "RAM/ROM" format → keep as-is
+        if (/^\d+\/\d+$/.test(trimmed)) return trimmed;
+        // "128GB" or "128 GB" → "128"
+        const gbMatch = trimmed.match(/^(\d+)\s*GB$/i);
+        if (gbMatch) return gbMatch[1];
+        // Pure number → keep as-is
+        if (/^\d+$/.test(trimmed)) return trimmed;
+        return trimmed;
       };
 
       const flattenedData = data.map(entry => ({
