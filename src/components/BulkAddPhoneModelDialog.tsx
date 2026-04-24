@@ -262,19 +262,45 @@ export function BulkAddPhoneModelDialog({ open, onOpenChange }: BulkAddPhoneMode
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <div className="space-y-1">
                       <Label className="text-xs">Merk</Label>
-                      <div className="flex gap-1">
-                        <Input
-                          value={entry.brand}
-                          onChange={(e) => updateEntry(index, 'brand', e.target.value)}
-                          placeholder="cth: SAMSUNG"
-                          list={`brands-${index}`}
-                        />
-                        <datalist id={`brands-${index}`}>
+                      <Select
+                        value={
+                          entry.brand && brands?.includes(entry.brand)
+                            ? entry.brand
+                            : entry.brand
+                            ? '__new__'
+                            : ''
+                        }
+                        onValueChange={(val) => {
+                          if (val === '__new__') {
+                            updateEntry(index, 'brand', ' '); // trigger custom mode
+                          } else {
+                            updateEntry(index, 'brand', val);
+                          }
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Pilih merk..." />
+                        </SelectTrigger>
+                        <SelectContent>
                           {brands?.map((b) => (
-                            <option key={b} value={b} />
+                            <SelectItem key={b} value={b}>
+                              {b}
+                            </SelectItem>
                           ))}
-                        </datalist>
-                      </div>
+                          <SelectItem value="__new__" className="font-semibold text-primary">
+                            + Tambah Merk Baru
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {entry.brand && !brands?.includes(entry.brand) && (
+                        <Input
+                          value={entry.brand.trim()}
+                          onChange={(e) => updateEntry(index, 'brand', e.target.value)}
+                          placeholder="Ketik nama merk baru"
+                          autoFocus
+                          className="mt-1"
+                        />
+                      )}
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">Model</Label>
