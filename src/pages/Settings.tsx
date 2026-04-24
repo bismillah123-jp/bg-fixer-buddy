@@ -220,7 +220,30 @@ const Settings = () => {
     if (locationsRes.error || modelsRes.error) throw new Error(locationsRes.error?.message || modelsRes.error?.message);
 
     const locationMap = new Map(locationsRes.data.map(loc => [loc.name.toUpperCase(), loc.id]));
-    const modelMap = new Map(modelsRes.data.map(m => [`${m.brand.toUpperCase()}-${m.model.toUpperCase()}-${(m.storage_capacity || '').toUpperCase()}`, m.id]));
+
+    // Build a flexible storage key: extract just the ROM digits for matching.
+    // So "4/128", "6/128", "128", "128GB" all match the same model variant by ROM.
+    const storageKey = (s: string | null | undefined): string => {
+      if (!s) return '';
+      const t = s.trim();
+      if (!t || t === '-') return '';
+      // RAM/ROM format → use ROM
+      const slashMatch = t.match(/^(\d+)\s*\/\s*(\d+)$/);
+      if (slashMatch) return slashMatch[2];
+      // "128GB"
+      const gbMatch = t.match(/^(\d+)\s*GB$/i);
+      if (gbMatch) return gbMatch[1];
+      // Pure number
+      if (/^\d+$/.test(t)) return t;
+      return t.toUpperCase();
+    };
+
+    // Map: brand|model|romKey → modelId (last-write wins; brand+model+rom is generally unique enough)
+    const modelMap = new Map<string, string>();
+    modelsRes.data.forEach(m => {
+      const k = `${m.brand.toUpperCase()}|${m.model.toUpperCase()}|${storageKey(m.storage_capacity)}`;
+      modelMap.set(k, m.id);
+    });
 
     const validEntries: any[] = [];
     const errors: string[] = [];
@@ -240,24 +263,8 @@ const Settings = () => {
       const Lokasi = getColumnValue(['Lokasi', 'lokasi', 'LOKASI', 'Location', 'location']);
       const Merk = getColumnValue(['Merk', 'merk', 'MERK', 'Brand', 'brand']);
       const Model = getColumnValue(['Model', 'model', 'MODEL']);
-      const Penyimpanan = getColumnValue(['Penyimpanan', 'penyimpanan', 'PENYIMPANAN', 'Storage', 'storage', 'Kapasitas', 'kapasitas']);
-      
-      // Normalize storage: handle "6/128", "128GB", "128", "-", blank
-      let normalizedStorage = '';
-      if (Penyimpanan && Penyimpanan !== '-' && Penyimpanan.trim() !== '') {
-        if (Penyimpanan.includes('/')) {
-          // Format "6/128" - extract ROM
-          const rom = Penyimpanan.split('/')[1]?.replace(/[^0-9]/g, '');
-          normalizedStorage = rom ? `${rom}GB` : '';
-        } else if (/^\d+GB$/i.test(Penyimpanan.trim())) {
-          // Already "128GB"
-          normalizedStorage = Penyimpanan.trim();
-        } else {
-          // Just number "128"
-          const numOnly = Penyimpanan.replace(/[^0-9]/g, '');
-          normalizedStorage = numOnly ? `${numOnly}GB` : '';
-        }
-      }
+      const Penyimpanan = getColumnValue(['Penyimpanan', 'penyimpanan', 'PENYIMPANAN', 'Storage', 'storage', 'Kapasitas', 'kapasitas', 'RAM/ROM', 'ram/rom']);
+
       const IMEI = getColumnValue(['IMEI', 'imei', 'Imei']);
       const Catatan = getColumnValue(['Catatan', 'catatan', 'CATATAN', 'Notes', 'notes']);
       const StokPagi = getColumnValue(['Stok Pagi', 'stok pagi', 'STOK PAGI', 'Morning Stock', 'morning_stock']);
@@ -293,12 +300,14 @@ const Settings = () => {
         continue;
       }
 
-      let modelId = modelMap.get(`${Merk.toUpperCase()}-${Model.toUpperCase()}-${(normalizedStorage || '').toUpperCase()}`);
-      if (!modelId && normalizedStorage) {
-        modelId = modelMap.get(`${Merk.toUpperCase()}-${Model.toUpperCase()}-`);
+      const romKey = storageKey(Penyimpanan);
+      let modelId = modelMap.get(`${Merk.toUpperCase()}|${Model.toUpperCase()}|${romKey}`);
+      // Fallback: try empty storage match
+      if (!modelId && romKey) {
+        modelId = modelMap.get(`${Merk.toUpperCase()}|${Model.toUpperCase()}|`);
       }
       if (!modelId) {
-        errors.push(`Baris ${index + 2}: Model HP "${Merk} ${Model} ${normalizedStorage || ''}" tidak ditemukan.`);
+        errors.push(`Baris ${index + 2}: Model HP "${Merk} ${Model} ${Penyimpanan || ''}" tidak ditemukan.`);
         continue;
       }
 
