@@ -245,6 +245,57 @@ const Settings = () => {
       modelMap.set(k, m.id);
     });
 
+    // Pre-pass: collect missing phone models and bulk-create them so import doesn't fail
+    const missingModelsMap = new Map<string, { brand: string; model: string; storage_capacity: string }>();
+    for (const row of parsedData) {
+      const getVal = (names: string[]) => {
+        for (const n of names) {
+          const v = row[n] || row[n.toLowerCase()] || row[n.toUpperCase()];
+          if (v !== undefined && v !== null && v !== '') return v;
+        }
+        return null;
+      };
+      const Merk = getVal(['Merk', 'merk', 'MERK', 'Brand', 'brand']);
+      const Model = getVal(['Model', 'model', 'MODEL']);
+      const Penyimpanan = getVal(['Penyimpanan', 'penyimpanan', 'PENYIMPANAN', 'Storage', 'storage', 'Kapasitas', 'kapasitas', 'RAM/ROM', 'ram/rom']);
+      if (!Merk || !Model) continue;
+      const romKey = storageKey(Penyimpanan);
+      const key = `${Merk.toUpperCase()}|${Model.toUpperCase()}|${romKey}`;
+      if (!modelMap.has(key) && !modelMap.has(`${Merk.toUpperCase()}|${Model.toUpperCase()}|`)) {
+        if (!missingModelsMap.has(key)) {
+          missingModelsMap.set(key, {
+            brand: Merk.trim(),
+            model: Model.trim(),
+            storage_capacity: Penyimpanan ? String(Penyimpanan).trim() : '',
+          });
+        }
+      }
+    }
+
+    if (missingModelsMap.size > 0) {
+      const toInsert = Array.from(missingModelsMap.values()).map(m => ({
+        brand: m.brand,
+        model: m.model,
+        storage_capacity: m.storage_capacity || null,
+        srp: 0,
+      }));
+      const { data: inserted, error: insertErr } = await supabase
+        .from('phone_models')
+        .insert(toInsert)
+        .select('id, brand, model, storage_capacity');
+      if (insertErr) {
+        throw new Error(`Gagal menambahkan model HP otomatis: ${insertErr.message}`);
+      }
+      inserted?.forEach(m => {
+        const k = `${m.brand.toUpperCase()}|${m.model.toUpperCase()}|${storageKey(m.storage_capacity)}`;
+        modelMap.set(k, m.id);
+      });
+      toast({
+        title: 'Model HP Baru Ditambahkan',
+        description: `${inserted?.length ?? 0} model HP otomatis dibuat dari file import.`,
+      });
+    }
+
     const validEntries: any[] = [];
     const errors: string[] = [];
 
