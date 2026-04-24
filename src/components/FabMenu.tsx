@@ -1,11 +1,12 @@
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Plus, Truck, Smartphone, MapPin, Tags, PackagePlus } from 'lucide-react';
+import { Plus, Truck, Smartphone, MapPin, Tags, PackagePlus, Layers } from 'lucide-react';
 import { useState } from 'react';
 import { AddStockDialog } from './AddStockDialog';
 import { IncomingStockDialog } from './IncomingStockDialog';
 import { BulkIncomingStockDialog } from './BulkIncomingStockDialog';
 import { AddPhoneModelDialog } from './AddPhoneModelDialog';
+import { BulkAddPhoneModelDialog } from './BulkAddPhoneModelDialog';
 import { ManageBrandsDialog } from './ManageBrandsDialog';
 import { AddLocationDialog } from './AddLocationDialog';
 
@@ -40,6 +41,11 @@ export function FabMenu() {
       label: 'Tambah Model HP',
       icon: Smartphone,
       dialog: 'addPhoneModel',
+    },
+    {
+      label: 'Tambah Model Massal',
+      icon: Layers,
+      dialog: 'bulkAddPhoneModel',
     },
     {
       label: 'Kelola Merk',
@@ -84,6 +90,7 @@ export function FabMenu() {
       {dialog === 'incomingStock' && <IncomingStockDialog open={true} onOpenChange={() => setDialog(null)} />}
       {dialog === 'bulkIncoming' && <BulkIncomingStockDialog open={true} onOpenChange={() => setDialog(null)} />}
       {dialog === 'addPhoneModel' && <AddPhoneModelDialog open={true} onOpenChange={() => setDialog(null)} />}
+      {dialog === 'bulkAddPhoneModel' && <BulkAddPhoneModelDialog open={true} onOpenChange={() => setDialog(null)} />}
       {dialog === 'manageBrands' && <ManageBrandsDialog open={true} onOpenChange={() => setDialog(null)} />}
       {dialog === 'addLocation' && <AddLocationDialog open={true} onOpenChange={() => setDialog(null)} />}
       
