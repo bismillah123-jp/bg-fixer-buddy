@@ -208,7 +208,7 @@ export function BulkAddPhoneModelDialog({ open, onOpenChange }: BulkAddPhoneMode
   };
 
   const downloadTemplate = () => {
-    const csv = 'brand,model,storage_capacity,srp\nSAMSUNG,Galaxy A15,128GB,2500000\nXIAOMI,Redmi 13,256GB,2800000';
+    const csv = 'brand,model,storage_capacity,srp\nSAMSUNG,Galaxy A15,4/128,2500000\nXIAOMI,Redmi 13,6/128,2800000\nVIVO,Y29,4/128,2300000';
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -311,11 +311,11 @@ export function BulkAddPhoneModelDialog({ open, onOpenChange }: BulkAddPhoneMode
                       />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs">Kapasitas</Label>
+                      <Label className="text-xs">Kapasitas (RAM/ROM)</Label>
                       <Input
                         value={entry.storage_capacity}
                         onChange={(e) => updateEntry(index, 'storage_capacity', e.target.value)}
-                        placeholder="cth: 128GB"
+                        placeholder="cth: 4/128"
                       />
                     </div>
                     <div className="space-y-1">
@@ -365,7 +365,7 @@ export function BulkAddPhoneModelDialog({ open, onOpenChange }: BulkAddPhoneMode
               <Textarea
                 value={csvText}
                 onChange={(e) => setCsvText(e.target.value)}
-                placeholder="SAMSUNG,Galaxy A15,128GB,2500000&#10;XIAOMI,Redmi 13,256GB,2800000"
+                placeholder="SAMSUNG,Galaxy A15,4/128,2500000&#10;XIAOMI,Redmi 13,6/128,2800000"
                 rows={8}
                 className="font-mono text-sm"
               />
