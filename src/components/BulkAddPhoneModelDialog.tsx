@@ -208,7 +208,7 @@ export function BulkAddPhoneModelDialog({ open, onOpenChange }: BulkAddPhoneMode
   };
 
   const downloadTemplate = () => {
-    const csv = 'brand,model,storage_capacity,srp\nSAMSUNG,Galaxy A15,128GB,2500000\nXIAOMI,Redmi 13,256GB,2800000';
+    const csv = 'brand,model,storage_capacity,srp\nSAMSUNG,Galaxy A15,4/128,2500000\nXIAOMI,Redmi 13,6/128,2800000\nVIVO,Y29,4/128,2300000';
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
