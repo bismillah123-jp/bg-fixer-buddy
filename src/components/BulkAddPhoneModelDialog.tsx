@@ -311,11 +311,11 @@ export function BulkAddPhoneModelDialog({ open, onOpenChange }: BulkAddPhoneMode
                       />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs">Kapasitas</Label>
+                      <Label className="text-xs">Kapasitas (RAM/ROM)</Label>
                       <Input
                         value={entry.storage_capacity}
                         onChange={(e) => updateEntry(index, 'storage_capacity', e.target.value)}
-                        placeholder="cth: 128GB"
+                        placeholder="cth: 4/128"
                       />
                     </div>
                     <div className="space-y-1">
