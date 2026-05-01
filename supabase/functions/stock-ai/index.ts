@@ -6,40 +6,64 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// ===== Allowed columns per table (sanitize AI payload to prevent schema errors) =====
+const TABLE_FIELDS: Record<string, string[]> = {
+  phone_models: ["id", "brand", "model", "storage_capacity", "srp", "color"],
+  stock_locations: ["id", "name", "description"],
+  phone_colors: ["id", "name", "hex_color"],
+  labels: ["id", "name", "color"],
+  stock_entries: [
+    "id", "date", "location_id", "phone_model_id", "imei",
+    "morning_stock", "incoming", "sold", "returns", "adjustment", "night_stock",
+    "notes", "label", "metadata", "cost_price", "selling_price", "sale_date",
+  ],
+};
+
+function sanitizeFields(table: string, obj: any) {
+  const allowed = TABLE_FIELDS[table];
+  if (!allowed || !obj || typeof obj !== "object") return { clean: {}, dropped: [] as string[] };
+  const clean: Record<string, any> = {};
+  const dropped: string[] = [];
+  for (const [k, v] of Object.entries(obj)) {
+    if (allowed.includes(k)) clean[k] = v;
+    else dropped.push(k);
+  }
+  return { clean, dropped };
+}
+
 // ===== Action executor (admin powers, only run after user confirms in UI) =====
 async function executeAction(supabase: any, action: any) {
   const { type, table, payload, where } = action || {};
   if (!type || !table) throw new Error("Action butuh 'type' dan 'table'");
 
-  const allowedTables = [
-    "phone_models",
-    "stock_locations",
-    "phone_colors",
-    "labels",
-    "stock_entries",
-  ];
-  if (!allowedTables.includes(table)) throw new Error(`Tabel '${table}' tidak diizinkan`);
+  if (!TABLE_FIELDS[table]) throw new Error(`Tabel '${table}' tidak diizinkan`);
+
+  const { clean: cleanPayload, dropped: droppedPayload } = sanitizeFields(table, payload);
+  const { clean: cleanWhere, dropped: droppedWhere } = sanitizeFields(table, where);
+  const warnings: string[] = [];
+  if (droppedPayload.length) warnings.push(`payload drop: ${droppedPayload.join(", ")}`);
+  if (droppedWhere.length) warnings.push(`where drop: ${droppedWhere.join(", ")}`);
 
   if (type === "insert") {
-    const { data, error } = await supabase.from(table).insert(payload).select();
+    const { data, error } = await supabase.from(table).insert(cleanPayload).select();
     if (error) throw error;
-    return { ok: true, data };
+    return { ok: true, data, warnings };
   }
   if (type === "update") {
-    if (!where || Object.keys(where).length === 0) throw new Error("Update butuh 'where'");
-    let q = supabase.from(table).update(payload);
-    for (const [k, v] of Object.entries(where)) q = q.eq(k, v as any);
+    if (!cleanWhere || Object.keys(cleanWhere).length === 0) throw new Error("Update butuh 'where' yang valid");
+    let q = supabase.from(table).update(cleanPayload);
+    for (const [k, v] of Object.entries(cleanWhere)) q = q.eq(k, v as any);
     const { data, error } = await q.select();
     if (error) throw error;
-    return { ok: true, data };
+    return { ok: true, data, warnings };
   }
   if (type === "delete") {
-    if (!where || Object.keys(where).length === 0) throw new Error("Delete butuh 'where'");
+    if (!cleanWhere || Object.keys(cleanWhere).length === 0) throw new Error("Delete butuh 'where' yang valid");
     let q = supabase.from(table).delete();
-    for (const [k, v] of Object.entries(where)) q = q.eq(k, v as any);
+    for (const [k, v] of Object.entries(cleanWhere)) q = q.eq(k, v as any);
     const { data, error } = await q.select();
     if (error) throw error;
-    return { ok: true, data };
+    return { ok: true, data, warnings };
   }
   throw new Error(`Tipe aksi '${type}' tidak dikenal`);
 }
@@ -205,6 +229,15 @@ Aturan aksi:
 - Bisa keluarkan beberapa blok \`\`\`action\`\`\` dalam satu balasan jika user minta beberapa hal sekaligus.
 - Jika user minta sesuatu yang ambigu (misal "hapus iPhone"), TANYA dulu spesifik mana, jangan langsung bikin aksi.
 - Jika data tidak cukup (id tidak ada di REFERENSI), katakan dan minta user menyebut lebih spesifik.
+
+== SKEMA KOLOM (WAJIB DIPATUHI — jangan pakai field di luar daftar ini) ==
+- phone_models: brand, model, storage_capacity, srp, color
+- stock_locations: name, description
+- phone_colors: name, hex_color
+- labels: name, color
+- stock_entries: date, location_id, phone_model_id, imei, morning_stock, incoming, sold, returns, adjustment, night_stock, notes, label, metadata, cost_price, selling_price, sale_date
+  ⚠️ stock_entries TIDAK punya kolom 'color' / 'brand' / 'model'. Warna unit disimpan di metadata.color (JSON).
+  Contoh ubah warna unit: {"type":"update","table":"stock_entries","payload":{"metadata":{"color":"Hitam"}},"where":{"id":"<uuid>"}}
 
 Contoh:
 User: "tambah merk baru Xiaomi Redmi 13 4/128 SRP 2.300.000"
