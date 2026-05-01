@@ -389,7 +389,28 @@ export function AIChatPage() {
                 <>
                   {msg.content && (
                     <div className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_p]:leading-relaxed [&_li]:leading-relaxed [&_table]:text-xs [&_th]:px-2 [&_td]:px-2">
-                      <ReactMarkdown>{msg.content}</ReactMarkdown>
+                      <ReactMarkdown
+                        components={{
+                          a: ({ href, children }) => {
+                            const url = href || "";
+                            const isWa = /wa\.me|whatsapp/i.test(url);
+                            const label = isWa ? "Click here" : (children as any);
+                            return (
+                              <a
+                                href={url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 font-medium text-primary underline underline-offset-2 hover:text-primary/80 transition-colors"
+                              >
+                                {label}
+                                {isWa && <span aria-hidden>↗</span>}
+                              </a>
+                            );
+                          },
+                        }}
+                      >
+                        {msg.content}
+                      </ReactMarkdown>
                     </div>
                   )}
                   {msg.actions?.map((a) => (
