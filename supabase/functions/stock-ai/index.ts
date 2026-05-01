@@ -6,34 +6,85 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// ===== Action executor (admin powers, only run after user confirms in UI) =====
+async function executeAction(supabase: any, action: any) {
+  const { type, table, payload, where } = action || {};
+  if (!type || !table) throw new Error("Action butuh 'type' dan 'table'");
+
+  const allowedTables = [
+    "phone_models",
+    "stock_locations",
+    "phone_colors",
+    "labels",
+    "stock_entries",
+  ];
+  if (!allowedTables.includes(table)) throw new Error(`Tabel '${table}' tidak diizinkan`);
+
+  if (type === "insert") {
+    const { data, error } = await supabase.from(table).insert(payload).select();
+    if (error) throw error;
+    return { ok: true, data };
+  }
+  if (type === "update") {
+    if (!where || Object.keys(where).length === 0) throw new Error("Update butuh 'where'");
+    let q = supabase.from(table).update(payload);
+    for (const [k, v] of Object.entries(where)) q = q.eq(k, v as any);
+    const { data, error } = await q.select();
+    if (error) throw error;
+    return { ok: true, data };
+  }
+  if (type === "delete") {
+    if (!where || Object.keys(where).length === 0) throw new Error("Delete butuh 'where'");
+    let q = supabase.from(table).delete();
+    for (const [k, v] of Object.entries(where)) q = q.eq(k, v as any);
+    const { data, error } = await q.select();
+    if (error) throw error;
+    return { ok: true, data };
+  }
+  throw new Error(`Tipe aksi '${type}' tidak dikenal`);
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { messages, type } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
-
+    const body = await req.json();
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Fetch current stock context
+    // === Mode: execute confirmed action ===
+    if (body.mode === "execute") {
+      try {
+        const result = await executeAction(supabase, body.action);
+        return new Response(JSON.stringify(result), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } catch (e: any) {
+        return new Response(JSON.stringify({ ok: false, error: e.message || String(e) }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
+    // === Mode: chat (default) ===
+    const { messages } = body;
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+
     const today = new Date().toISOString().split("T")[0];
 
-    // Get stock summary
     const { data: stockData } = await supabase
       .from("stock_entries")
       .select(`
         id, date, morning_stock, incoming, sold, returns, adjustment, night_stock, imei, label, metadata, cost_price, selling_price, sale_date,
-        phone_model:phone_models(brand, model, storage_capacity),
-        location:stock_locations(name)
+        phone_model:phone_models(id, brand, model, storage_capacity),
+        location:stock_locations(id, name)
       `)
       .eq("date", today)
       .order("date", { ascending: false })
       .limit(500);
 
-    // Get recent sales (last 30 days)
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
     const { data: recentSales } = await supabase
       .from("stock_events")
@@ -47,29 +98,24 @@ serve(async (req) => {
       .order("date", { ascending: false })
       .limit(500);
 
-    // Get all locations
-    const { data: locations } = await supabase
-      .from("stock_locations")
-      .select("name");
+    const { data: locations } = await supabase.from("stock_locations").select("id, name");
+    const { data: phoneModels } = await supabase.from("phone_models").select("id, brand, model, storage_capacity, srp").limit(200);
+    const { data: colors } = await supabase.from("phone_colors").select("id, name");
+    const { data: labels } = await supabase.from("labels").select("id, name");
 
-    // Build context
     const locationNames = locations?.map((l: any) => l.name).join(", ") || "N/A";
 
-    // Stock summary by brand/location
     const stockSummary: Record<string, any> = {};
     stockData?.forEach((entry: any) => {
       const brand = entry.phone_model?.brand || "Unknown";
       const loc = entry.location?.name || "Unknown";
       const key = `${brand}-${loc}`;
-      if (!stockSummary[key]) {
-        stockSummary[key] = { brand, location: loc, total: 0, sold_today: 0, incoming_today: 0 };
-      }
+      if (!stockSummary[key]) stockSummary[key] = { brand, location: loc, total: 0, sold_today: 0, incoming_today: 0 };
       stockSummary[key].total += entry.night_stock;
       stockSummary[key].sold_today += entry.sold;
       stockSummary[key].incoming_today += entry.incoming;
     });
 
-    // Sales trend by brand (last 30 days)
     const salesByBrand: Record<string, number> = {};
     const salesByDate: Record<string, number> = {};
     recentSales?.forEach((sale: any) => {
@@ -78,7 +124,6 @@ serve(async (req) => {
       salesByDate[sale.date] = (salesByDate[sale.date] || 0) + sale.qty;
     });
 
-    // Slow moving stock (items with night_stock > 0 and no recent sales)
     const availableStock = stockData?.filter((e: any) => e.night_stock > 0) || [];
     const soldImeis = new Set(recentSales?.map((s: any) => s.imei) || []);
     const slowMoving = availableStock.filter((e: any) => e.imei && !soldImeis.has(e.imei));
@@ -106,38 +151,62 @@ ${slowMoving.slice(0, 20).map((e: any) =>
 === DETAIL STOK TERSEDIA ===
 ${availableStock.slice(0, 50).map((e: any) => {
   const color = e.metadata?.color || "-";
-  return `- ${e.phone_model?.brand} ${e.phone_model?.model} ${e.phone_model?.storage_capacity || ""} | Warna: ${color} | IMEI: ${e.imei} | Lokasi: ${e.location?.name} | Label: ${e.label || "-"}`;
+  return `- id:${e.id} | ${e.phone_model?.brand} ${e.phone_model?.model} ${e.phone_model?.storage_capacity || ""} | Warna: ${color} | IMEI: ${e.imei} | Lokasi: ${e.location?.name} | Label: ${e.label || "-"}`;
 }).join("\n")}
+
+=== REFERENSI ID (untuk aksi) ===
+Lokasi: ${locations?.map((l: any) => `${l.name}=${l.id}`).join(", ")}
+Model HP (sebagian): ${phoneModels?.slice(0, 50).map((p: any) => `${p.brand} ${p.model} ${p.storage_capacity || ""}=${p.id}`).join(", ")}
+Warna: ${colors?.map((c: any) => c.name).join(", ")}
+Label: ${labels?.map((l: any) => l.name).join(", ")}
 `;
 
-    const systemPrompt = `Kamu adalah asisten AI untuk manajemen stok HP (handphone). Kamu membantu pemilik toko HP dengan:
+    const systemPrompt = `Kamu adalah asisten AI ADMIN untuk manajemen stok HP. Kamu bisa MENJAWAB pertanyaan, dan juga MENGUSULKAN aksi tambah/edit/hapus data.
 
-1. **Menjawab pertanyaan stok** - berapa stok, di mana, model apa yang tersedia
-2. **Laporan cerdas** - ringkasan penjualan, tren, performa per merk/lokasi
-3. **Prediksi & rekomendasi restock** - berdasarkan tren penjualan, sarankan kapan dan apa yang perlu di-restock
+== ATURAN DASAR ==
+- Jawab dalam Bahasa Indonesia, ringkas, gunakan markdown & emoji 📱📊
+- Format mata uang: Rp 2.300.000 (titik sebagai pemisah ribuan)
+- Format kapasitas: RAM/ROM (contoh: 4/128, 6/128)
 
-Aturan:
-- Jawab dalam Bahasa Indonesia
-- Gunakan data yang diberikan sebagai referensi utama
-- Jika ditanya tentang prediksi, analisis tren dari data penjualan 30 hari
-- Format jawaban dengan jelas menggunakan markdown (bold, list, dll)
-- Jika data tidak cukup untuk menjawab, katakan dengan jujur
-- Singkat dan to the point, jangan bertele-tele
-- Gunakan emoji untuk membuat jawaban lebih friendly 📱📊
+== KEMAMPUAN AKSI ADMIN ==
+Kamu BOLEH mengusulkan aksi pada tabel: phone_models, stock_locations, phone_colors, labels, stock_entries.
+Tipe aksi: insert, update, delete.
+
+⚠️ WAJIB: Untuk SETIAP aksi, kamu HARUS mengeluarkan blok JSON dengan format PERSIS seperti ini (di dalam code fence \`\`\`action ... \`\`\`):
+
+\`\`\`action
+{
+  "type": "insert" | "update" | "delete",
+  "table": "phone_models" | "stock_locations" | "phone_colors" | "labels" | "stock_entries",
+  "payload": { ...field: value },     // untuk insert/update
+  "where": { ...field: value },        // untuk update/delete (WAJIB, jangan kosong)
+  "summary": "Penjelasan singkat 1 kalimat untuk user"
+}
+\`\`\`
+
+Aturan aksi:
+- JANGAN PERNAH eksekusi sendiri. Aksi hanya USULAN — user akan klik "Setujui" di UI untuk eksekusi.
+- Selalu jelaskan dulu apa yang akan kamu lakukan, lalu keluarkan blok \`\`\`action\`\`\`.
+- Untuk update/delete, gunakan id (dari REFERENSI ID di atas) di "where" — JANGAN tebak.
+- Bisa keluarkan beberapa blok \`\`\`action\`\`\` dalam satu balasan jika user minta beberapa hal sekaligus.
+- Jika user minta sesuatu yang ambigu (misal "hapus iPhone"), TANYA dulu spesifik mana, jangan langsung bikin aksi.
+- Jika data tidak cukup (id tidak ada di REFERENSI), katakan dan minta user menyebut lebih spesifik.
+
+Contoh:
+User: "tambah merk baru Xiaomi Redmi 13 4/128 SRP 2.300.000"
+Kamu: "Oke, saya akan menambahkan model HP baru:
+\`\`\`action
+{"type":"insert","table":"phone_models","payload":{"brand":"Xiaomi","model":"Redmi 13","storage_capacity":"4/128","srp":2300000},"summary":"Tambah model Xiaomi Redmi 13 4/128 dengan SRP Rp 2.300.000"}
+\`\`\`
+Klik Setujui untuk menyimpan."
 
 ${contextData}`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
+      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...messages,
-        ],
+        messages: [{ role: "system", content: systemPrompt }, ...messages],
         stream: true,
       }),
     });
