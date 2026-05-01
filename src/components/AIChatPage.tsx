@@ -344,9 +344,9 @@ export function AIChatPage() {
               </div>
             </div>
             <div className="space-y-2">
-              <h2 className="text-xl font-bold">Asisten AI Stok 🤖</h2>
+              <h2 className="text-xl font-bold">Hai, aku Shania ✨</h2>
               <p className="text-sm text-muted-foreground max-w-md">
-                Tanya stok, minta rekomendasi, atau suruh AI tambah/edit/hapus data — setiap aksi butuh persetujuan kamu dulu.
+                Asisten AI cerdas buat stok HP — sekaligus temen ngobrol kalau kamu mau curhat. Diciptakan oleh <span className="font-medium text-foreground">Ihsan</span> 💙
               </p>
               <div className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground bg-muted/50 px-2.5 py-1 rounded-full">
                 <Shield className="h-3 w-3" /> Mode Admin aktif — semua aksi minta konfirmasi
