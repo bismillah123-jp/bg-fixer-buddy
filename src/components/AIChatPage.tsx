@@ -348,28 +348,28 @@ export function AIChatPage() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-12rem)] md:h-[calc(100vh-10rem)] pb-16 md:pb-0">
+    <div className="relative flex flex-col h-[calc(100vh-12rem)] md:h-[calc(100vh-10rem)] pb-16 md:pb-0 overflow-hidden bg-gradient-to-b from-background via-background to-muted/20">
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto px-4 md:px-8 py-4 space-y-4 relative"
+        className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain px-3 md:px-8 py-4 space-y-4 scroll-smooth [scrollbar-gutter:stable]"
       >
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-center space-y-6 animate-fade-in">
             <div className="relative">
-              <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center rotate-3 transition-transform hover:rotate-0">
+              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center rotate-3 transition-transform hover:rotate-0 shadow-lg shadow-primary/10">
                 <Bot className="h-10 w-10 text-primary" />
               </div>
-              <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+              <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-primary flex items-center justify-center shadow-md">
                 <Sparkles className="h-3 w-3 text-primary-foreground" />
               </div>
             </div>
             <div className="space-y-2">
-              <h2 className="text-xl font-bold">Hai, aku Shania ✨</h2>
+              <h2 className="text-xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">Hai, aku Shania ✨</h2>
               <p className="text-sm text-muted-foreground max-w-md">
                 Asisten AI cerdas buat stok HP — sekaligus temen ngobrol kalau kamu mau curhat. Diciptakan oleh <span className="font-medium text-foreground">Ihsan</span> 💙
               </p>
-              <div className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground bg-muted/50 px-2.5 py-1 rounded-full">
+              <div className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground bg-muted/60 px-2.5 py-1 rounded-full border border-border/50">
                 <Shield className="h-3 w-3" /> Mode Admin aktif — semua aksi minta konfirmasi
               </div>
             </div>
@@ -378,7 +378,7 @@ export function AIChatPage() {
                 <Button
                   key={prompt.text}
                   variant="outline"
-                  className="text-xs h-auto py-3 px-3 whitespace-normal text-left rounded-xl border-border/50 hover:bg-primary/5 hover:border-primary/30 transition-all"
+                  className="text-xs h-auto py-3 px-3 whitespace-normal text-left rounded-xl border-border/50 hover:bg-primary/5 hover:border-primary/40 hover:shadow-md transition-all"
                   onClick={() => sendMessage(`${prompt.emoji} ${prompt.text}`)}
                 >
                   <span className="text-base mr-1.5">{prompt.emoji}</span>
@@ -389,70 +389,104 @@ export function AIChatPage() {
           </div>
         )}
 
-        {messages.map((msg, i) => (
-          <div
-            key={i}
-            className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"} animate-fade-in`}
-          >
-            {msg.role === "assistant" && (
-              <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center mr-2 mt-1 shrink-0">
-                <Bot className="h-4 w-4 text-primary" />
-              </div>
-            )}
+        {messages.map((msg, i) => {
+          const pendingActions = msg.actions?.filter((a) => a.status === "pending") ?? [];
+          const hasMultiplePending = pendingActions.length > 1;
+          return (
             <div
-              className={`max-w-[85%] md:max-w-[70%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-                msg.role === "user"
-                  ? "bg-primary text-primary-foreground rounded-br-md"
-                  : "bg-muted rounded-bl-md"
-              }`}
+              key={i}
+              className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"} animate-fade-in`}
             >
-              {msg.role === "assistant" ? (
-                <>
-                  {msg.content && (
-                    <div className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_p]:leading-relaxed [&_li]:leading-relaxed [&_table]:text-xs [&_th]:px-2 [&_td]:px-2">
-                      <ReactMarkdown
-                        components={{
-                          a: ({ href, children }) => {
-                            const url = href || "";
-                            const isWa = /wa\.me|whatsapp/i.test(url);
-                            const label = isWa ? "Click here" : (children as any);
-                            return (
-                              <a
-                                href={url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 font-medium text-primary underline underline-offset-2 hover:text-primary/80 transition-colors"
-                              >
-                                {label}
-                                {isWa && <span aria-hidden>↗</span>}
-                              </a>
-                            );
-                          },
-                        }}
-                      >
-                        {msg.content}
-                      </ReactMarkdown>
-                    </div>
-                  )}
-                  {msg.actions?.map((a) => (
-                    <ActionCard
-                      key={a.id}
-                      action={a}
-                      onApprove={() => executeAction(i, a)}
-                      onReject={() => updateAction(i, a.id, { status: "rejected", resultMessage: "Aksi dibatalkan." })}
-                    />
-                  ))}
-                </>
-              ) : (
-                <p>{msg.content}</p>
+              {msg.role === "assistant" && (
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center mr-2 mt-1 shrink-0 shadow-sm">
+                  <Bot className="h-4 w-4 text-primary" />
+                </div>
               )}
+              <div
+                className={`max-w-[85%] md:max-w-[70%] rounded-2xl px-4 py-3 text-sm leading-relaxed break-words shadow-sm ${
+                  msg.role === "user"
+                    ? "bg-gradient-to-br from-primary to-primary/90 text-primary-foreground rounded-br-md"
+                    : "bg-card border border-border/50 rounded-bl-md"
+                }`}
+              >
+                {msg.role === "assistant" ? (
+                  <>
+                    {msg.content && (
+                      <div className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_p]:leading-relaxed [&_li]:leading-relaxed [&_table]:text-xs [&_th]:px-2 [&_td]:px-2 [&_pre]:overflow-x-auto [&_pre]:max-w-full">
+                        <ReactMarkdown
+                          components={{
+                            a: ({ href, children }) => {
+                              const url = href || "";
+                              const isWa = /wa\.me|whatsapp/i.test(url);
+                              const label = isWa ? "Click here" : (children as any);
+                              return (
+                                <a
+                                  href={url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 font-medium text-primary underline underline-offset-2 hover:text-primary/80 transition-colors"
+                                >
+                                  {label}
+                                  {isWa && <span aria-hidden>↗</span>}
+                                </a>
+                              );
+                            },
+                          }}
+                        >
+                          {msg.content}
+                        </ReactMarkdown>
+                      </div>
+                    )}
+
+                    {hasMultiplePending && (
+                      <div className="mt-3 flex items-center justify-between gap-2 p-2 rounded-xl bg-primary/5 border border-primary/20">
+                        <div className="flex items-center gap-2 text-xs">
+                          <Sparkles className="h-3.5 w-3.5 text-primary" />
+                          <span className="font-medium">{pendingActions.length} aksi menunggu</span>
+                        </div>
+                        <div className="flex gap-1.5">
+                          <Button
+                            size="sm"
+                            className="h-7 text-xs rounded-lg"
+                            onClick={() => approveAll(i, msg.actions!)}
+                          >
+                            <Check className="h-3.5 w-3.5 mr-1" /> Setujui Semua
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs rounded-lg"
+                            onClick={() => rejectAll(i, msg.actions!)}
+                          >
+                            <X className="h-3.5 w-3.5 mr-1" /> Tolak Semua
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {msg.actions?.map((a) => (
+                      <ActionCard
+                        key={a.id}
+                        action={a}
+                        onApprove={async () => {
+                          const ok = await executeAction(i, a);
+                          if (ok) toast.success("Aksi berhasil dijalankan");
+                        }}
+                        onReject={() => updateAction(i, a.id, { status: "rejected", resultMessage: "Aksi dibatalkan." })}
+                      />
+                    ))}
+                  </>
+                ) : (
+                  <p className="whitespace-pre-wrap">{msg.content}</p>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
 
         {isLoading && messages[messages.length - 1]?.role === "user" && (
           <div className="flex items-start gap-2 animate-fade-in">
-            <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center shrink-0 shadow-sm">
               <Bot className="h-4 w-4 text-primary" />
             </div>
             <TypingIndicator />
@@ -463,19 +497,17 @@ export function AIChatPage() {
       </div>
 
       {showScrollDown && (
-        <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-10">
-          <Button
-            size="icon"
-            variant="secondary"
-            className="rounded-full shadow-lg h-8 w-8"
-            onClick={scrollToBottom}
-          >
-            <ArrowDown className="h-4 w-4" />
-          </Button>
-        </div>
+        <Button
+          size="icon"
+          variant="secondary"
+          className="absolute bottom-24 right-4 md:right-8 z-10 rounded-full shadow-lg h-9 w-9 border border-border/50"
+          onClick={scrollToBottom}
+        >
+          <ArrowDown className="h-4 w-4" />
+        </Button>
       )}
 
-      <div className="border-t border-border bg-background px-4 md:px-8 py-3">
+      <div className="border-t border-border/60 bg-background/80 backdrop-blur-md px-3 md:px-8 py-3 shrink-0">
         <div className="flex gap-2 items-center max-w-3xl mx-auto">
           {messages.length > 0 && (
             <Button
@@ -491,18 +523,18 @@ export function AIChatPage() {
           <div className="flex-1 relative">
             <Input
               ref={inputRef}
-              placeholder="Tanya atau suruh AI lakukan sesuatu..."
+              placeholder="Tanya atau suruh Shania lakukan sesuatu..."
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage(input)}
               disabled={isLoading}
-              className="pr-12 rounded-xl border-border/50 bg-muted/30 focus:bg-background transition-colors"
+              className="pr-12 rounded-xl border-border/50 bg-muted/40 focus:bg-background transition-colors h-11"
             />
             <Button
               size="icon"
               onClick={() => sendMessage(input)}
               disabled={!input.trim() || isLoading}
-              className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 rounded-lg"
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 h-8 w-8 rounded-lg shadow-sm"
             >
               <Send className="h-3.5 w-3.5" />
             </Button>
