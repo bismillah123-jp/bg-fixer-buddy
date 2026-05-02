@@ -212,18 +212,39 @@ export function AIChatPage() {
         const msg = json?.error || "Gagal mengeksekusi aksi";
         updateAction(msgIdx, action.id, { status: "error", resultMessage: msg });
         toast.error(msg);
-        return;
+        return false;
       }
       const count = Array.isArray(json.data) ? json.data.length : 1;
       updateAction(msgIdx, action.id, {
         status: "done",
         resultMessage: `Berhasil — ${count} baris terdampak.`,
       });
-      toast.success("Aksi berhasil dijalankan");
+      return true;
     } catch (e: any) {
       updateAction(msgIdx, action.id, { status: "error", resultMessage: e.message || "Error tidak diketahui" });
       toast.error(e.message || "Gagal mengeksekusi aksi");
+      return false;
     }
+  };
+
+  const approveAll = async (msgIdx: number, actions: ActionProposal[]) => {
+    const pending = actions.filter((a) => a.status === "pending");
+    if (pending.length === 0) return;
+    toast.info(`Menjalankan ${pending.length} aksi...`);
+    let ok = 0;
+    for (const a of pending) {
+      const success = await executeAction(msgIdx, a);
+      if (success) ok++;
+    }
+    if (ok > 0) toast.success(`${ok}/${pending.length} aksi berhasil dijalankan`);
+  };
+
+  const rejectAll = (msgIdx: number, actions: ActionProposal[]) => {
+    actions.forEach((a) => {
+      if (a.status === "pending") {
+        updateAction(msgIdx, a.id, { status: "rejected", resultMessage: "Aksi dibatalkan." });
+      }
+    });
   };
 
   const sendMessage = async (text: string) => {
