@@ -2,12 +2,12 @@ import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import {
-  Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { ConfirmableDialog } from '@/components/ConfirmableDialog';
 import {
     Popover,
     PopoverContent,
@@ -172,11 +172,17 @@ export function AddPhoneModelDialog({ open, onOpenChange }: AddPhoneModelDialogP
     return brands.filter(brand => brand.toLowerCase().includes(brandSearch.toLowerCase()));
   }, [brands, brandSearch]);
 
+  const isDirty = !!(formData.model || formData.storage_capacity || srpFormatted || selectedBrand || newBrand);
+
   return (
-    <Dialog open={open} onOpenChange={(isOpen) => {
-      if (!isOpen) resetForm();
-      onOpenChange(isOpen);
-    }}>
+    <ConfirmableDialog
+      open={open}
+      onOpenChange={(isOpen) => {
+        if (!isOpen) resetForm();
+        onOpenChange(isOpen);
+      }}
+      isDirty={isDirty}
+    >
       <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader className="sticky top-0 bg-background z-10 pb-4">
           <DialogTitle>Tambah Model HP Baru</DialogTitle>
@@ -272,6 +278,6 @@ export function AddPhoneModelDialog({ open, onOpenChange }: AddPhoneModelDialogP
           </DialogFooter>
         </form>
       </DialogContent>
-    </Dialog>
+    </ConfirmableDialog>
   );
 }
