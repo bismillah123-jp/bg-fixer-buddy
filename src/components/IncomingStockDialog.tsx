@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ConfirmableDialog } from "@/components/ConfirmableDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -196,8 +197,13 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
     }
   });
 
+  const isDirty = !!(
+    selectedLocation || selectedBrand || selectedModel ||
+    imeiList.some(e => e.imei.trim() || e.color.trim() || e.label.trim())
+  );
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <ConfirmableDialog open={open} onOpenChange={onOpenChange} isDirty={isDirty}>
       <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader className="sticky top-0 bg-background z-10 pb-4">
           <DialogTitle>HP Datang</DialogTitle>
@@ -392,6 +398,6 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
           }
         }}
       />
-    </Dialog>
+    </ConfirmableDialog>
   );
 }

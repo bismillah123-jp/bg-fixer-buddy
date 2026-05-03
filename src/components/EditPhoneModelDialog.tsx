@@ -2,12 +2,12 @@ import { useState, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import {
-  Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { ConfirmableDialog } from '@/components/ConfirmableDialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
@@ -74,8 +74,9 @@ export function EditPhoneModelDialog({ open, onOpenChange, phoneModel }: EditPho
 
   if (!phoneModel) return null;
 
+  const initialSrp = phoneModel.srp ? phoneModel.srp.toLocaleString('id-ID') : '';
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <ConfirmableDialog open={open} onOpenChange={onOpenChange} isDirty={srpFormatted !== initialSrp}>
       <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader className="sticky top-0 bg-background z-10 pb-4">
           <DialogTitle>Edit SRP</DialogTitle>
@@ -112,6 +113,6 @@ export function EditPhoneModelDialog({ open, onOpenChange, phoneModel }: EditPho
           </DialogFooter>
         </form>
       </DialogContent>
-    </Dialog>
+    </ConfirmableDialog>
   );
 }

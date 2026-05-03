@@ -2,12 +2,12 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import {
-  Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+import { ConfirmableDialog } from '@/components/ConfirmableDialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -227,8 +227,13 @@ export function BulkAddPhoneModelDialog({ open, onOpenChange }: BulkAddPhoneMode
     onOpenChange(isOpen);
   };
 
+  const isDirty = !!(
+    csvText.trim() ||
+    entries.some(e => e.brand.trim() || e.model.trim() || e.storage_capacity.trim() || e.srpFormatted.trim())
+  );
+
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
+    <ConfirmableDialog open={open} onOpenChange={handleClose} isDirty={isDirty}>
       <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader className="sticky top-0 bg-background z-10 pb-4">
           <DialogTitle>Tambah Model HP Massal</DialogTitle>
@@ -411,6 +416,6 @@ export function BulkAddPhoneModelDialog({ open, onOpenChange }: BulkAddPhoneMode
           </div>
         )}
       </DialogContent>
-    </Dialog>
+    </ConfirmableDialog>
   );
 }
