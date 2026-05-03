@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { ConfirmableDialog } from "@/components/ConfirmableDialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
@@ -106,7 +107,7 @@ export function TransferStockDialog({ open, onOpenChange, stockEntry }: Transfer
   const availableLocations = locations?.filter(loc => loc.id !== stockEntry?.stock_locations.id);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <ConfirmableDialog open={open} onOpenChange={onOpenChange} isDirty={!!destinationLocationId}>
       <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader className="sticky top-0 bg-background z-10 pb-4">
           <DialogTitle>Transfer Stok</DialogTitle>
@@ -143,6 +144,6 @@ export function TransferStockDialog({ open, onOpenChange, stockEntry }: Transfer
           </div>
         </div>
       </DialogContent>
-    </Dialog>
+    </ConfirmableDialog>
   );
 }

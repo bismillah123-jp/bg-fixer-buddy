@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { ConfirmableDialog } from "@/components/ConfirmableDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { LabelSelect } from "@/components/LabelSelect";
@@ -90,8 +91,14 @@ export function EditStockDialog({ open, onOpenChange, stockEntry }: EditStockDia
     editStockMutation.mutate({ notes, imei, label });
   };
 
+  const isDirty = !!stockEntry && (
+    notes !== (stockEntry.notes || "") ||
+    imei !== (stockEntry.imei || "") ||
+    label !== ((stockEntry as any).label || "")
+  );
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <ConfirmableDialog open={open} onOpenChange={onOpenChange} isDirty={isDirty}>
       <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader className="sticky top-0 bg-background z-10 pb-4">
           <DialogTitle>Edit Stok</DialogTitle>
@@ -160,6 +167,6 @@ export function EditStockDialog({ open, onOpenChange, stockEntry }: EditStockDia
           </div>
         </div>
       </DialogContent>
-    </Dialog>
+    </ConfirmableDialog>
   );
 }
