@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ConfirmableDialog } from "@/components/ConfirmableDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -152,8 +153,13 @@ export function BulkIncomingStockDialog({ open, onOpenChange }: BulkIncomingStoc
     }
   });
 
+  const isDirty = !!(
+    selectedLocation ||
+    entries.some(e => e.brand || e.model || e.imei.trim() || e.color.trim() || e.label.trim())
+  );
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <ConfirmableDialog open={open} onOpenChange={onOpenChange} isDirty={isDirty}>
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader className="sticky top-0 bg-background z-10 pb-4">
           <DialogTitle>HP Datang Massal</DialogTitle>
@@ -313,6 +319,6 @@ export function BulkIncomingStockDialog({ open, onOpenChange }: BulkIncomingStoc
           }
         }}
       />
-    </Dialog>
+    </ConfirmableDialog>
   );
 }
