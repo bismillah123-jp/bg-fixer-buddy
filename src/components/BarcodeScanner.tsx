@@ -132,26 +132,55 @@ export function BarcodeScanner({
       scannerRef.current = scanner;
 
       const config = {
-        fps: 10,
-        qrbox: { width: 300, height: 150 }, // Lebih lebar untuk barcode horizontal
-        aspectRatio: 2.0, // Aspect ratio untuk barcode
+        fps: 30, // Higher FPS for faster scanning
+        qrbox: (vw: number, vh: number) => {
+          const minEdge = Math.min(vw, vh);
+          const w = Math.floor(minEdge * 0.85);
+          const h = Math.floor(w * 0.45);
+          return { width: w, height: h };
+        },
+        aspectRatio: 1.7777778,
+        disableFlip: false,
+        useBarCodeDetectorIfSupported: true,
+        experimentalFeatures: {
+          useBarCodeDetectorIfSupported: true,
+        },
+        videoConstraints: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+          // @ts-ignore
+          focusMode: "continuous",
+          advanced: [
+            { focusMode: "continuous" } as any,
+            { exposureMode: "continuous" } as any,
+            { whiteBalanceMode: "continuous" } as any,
+          ],
+        },
         formatsToSupport: [
           Html5QrcodeSupportedFormats.CODE_128,
           Html5QrcodeSupportedFormats.CODE_39,
+          Html5QrcodeSupportedFormats.CODE_93,
           Html5QrcodeSupportedFormats.EAN_13,
+          Html5QrcodeSupportedFormats.EAN_8,
+          Html5QrcodeSupportedFormats.UPC_A,
+          Html5QrcodeSupportedFormats.UPC_E,
           Html5QrcodeSupportedFormats.ITF,
           Html5QrcodeSupportedFormats.QR_CODE,
+          Html5QrcodeSupportedFormats.DATA_MATRIX,
         ]
       };
 
       await scanner.start(
-        { facingMode: "environment" },
-        config,
+        { facingMode: { ideal: "environment" } } as any,
+        config as any,
         (decodedText) => {
           // Sanitize and validate
           const cleanedText = decodedText.trim().replace(/\D/g, '');
           
           if (cleanedText.length === 15) {
+            playBeep();
+            if (navigator.vibrate) navigator.vibrate(120);
             toast({
               title: "IMEI berhasil di-scan",
               description: cleanedText,
