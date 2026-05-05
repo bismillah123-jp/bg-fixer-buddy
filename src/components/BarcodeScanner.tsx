@@ -63,15 +63,21 @@ export function BarcodeScanner({
         return;
       }
 
-      // Request camera permission explicitly first with highest quality
+      // Request camera permission explicitly first with highest quality + autofocus
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ 
           video: { 
-            facingMode: "environment",
-            width: { min: 640, ideal: 1920, max: 3840 },
-            height: { min: 480, ideal: 1080, max: 2160 },
+            facingMode: { ideal: "environment" },
+            width: { min: 1280, ideal: 1920, max: 3840 },
+            height: { min: 720, ideal: 1080, max: 2160 },
             frameRate: { ideal: 30, max: 60 },
-            aspectRatio: 16/9
+            // @ts-ignore - advanced constraints for focus
+            focusMode: "continuous",
+            advanced: [
+              { focusMode: "continuous" } as any,
+              { exposureMode: "continuous" } as any,
+              { whiteBalanceMode: "continuous" } as any,
+            ],
           } 
         });
         
