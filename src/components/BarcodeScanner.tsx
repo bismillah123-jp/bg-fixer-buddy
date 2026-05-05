@@ -222,6 +222,32 @@ export function BarcodeScanner({
           // Silent error handling for continuous scanning
         }
       );
+
+      // Apply focus/exposure constraints on the live track for sharper image
+      setTimeout(async () => {
+        try {
+          const videoEl = document.querySelector('#qr-reader video') as HTMLVideoElement | null;
+          const stream = videoEl?.srcObject as MediaStream | undefined;
+          const track = stream?.getVideoTracks?.()[0];
+          if (track) {
+            const caps = track.getCapabilities() as any;
+            const advanced: any[] = [];
+            if (caps.focusMode?.includes?.("continuous")) advanced.push({ focusMode: "continuous" });
+            if (caps.exposureMode?.includes?.("continuous")) advanced.push({ exposureMode: "continuous" });
+            if (caps.whiteBalanceMode?.includes?.("continuous")) advanced.push({ whiteBalanceMode: "continuous" });
+            if (caps.focusDistance?.min !== undefined) advanced.push({ focusDistance: caps.focusDistance.min });
+            if (advanced.length) {
+              await track.applyConstraints({ advanced } as any);
+            }
+            if (caps.torch) {
+              setTorchSupported(true);
+              videoTrackRef.current = track;
+            }
+          }
+        } catch (e) {
+          console.warn("Focus constraints not applied:", e);
+        }
+      }, 500);
     } catch (err) {
       console.error("Scanner error:", err);
       toast({
