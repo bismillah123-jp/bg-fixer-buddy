@@ -220,6 +220,7 @@ export function FabMenu() {
       {dialog === 'addStock' && <AddStockDialog open={true} onOpenChange={() => setDialog(null)} />}
       {dialog === 'incomingStock' && <IncomingStockDialog open={true} onOpenChange={() => setDialog(null)} />}
       {dialog === 'bulkIncoming' && <BulkIncomingStockDialog open={true} onOpenChange={() => setDialog(null)} />}
+      {dialog === 'textImportIncoming' && <TextImportIncomingDialog open={true} onOpenChange={() => setDialog(null)} />}
       {dialog === 'addPhoneModel' && <AddPhoneModelDialog open={true} onOpenChange={() => setDialog(null)} />}
       {dialog === 'bulkAddPhoneModel' && <BulkAddPhoneModelDialog open={true} onOpenChange={() => setDialog(null)} />}
       {dialog === 'manageBrands' && <ManageBrandsDialog open={true} onOpenChange={() => setDialog(null)} />}
