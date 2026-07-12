@@ -45,6 +45,13 @@ const actions: ActionItem[] = [
     tone: 'success',
   },
   {
+    label: 'Impor Teks',
+    description: 'Tempel daftar HP: Tanggal,Model,Warna,IMEI',
+    icon: FileText,
+    dialog: 'textImportIncoming',
+    tone: 'accent',
+  },
+  {
     label: 'Tambah Model HP',
     description: 'Daftarkan model baru',
     icon: Smartphone,
