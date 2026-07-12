@@ -1,10 +1,11 @@
 import { Button } from '@/components/ui/button';
-import { Plus, Truck, Smartphone, MapPin, Tags, PackagePlus, Layers, X } from 'lucide-react';
+import { Plus, Truck, Smartphone, MapPin, Tags, PackagePlus, Layers, X, FileText } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { AddStockDialog } from './AddStockDialog';
 import { IncomingStockDialog } from './IncomingStockDialog';
 import { BulkIncomingStockDialog } from './BulkIncomingStockDialog';
+import { TextImportIncomingDialog } from './TextImportIncomingDialog';
 import { AddPhoneModelDialog } from './AddPhoneModelDialog';
 import { BulkAddPhoneModelDialog } from './BulkAddPhoneModelDialog';
 import { ManageBrandsDialog } from './ManageBrandsDialog';
