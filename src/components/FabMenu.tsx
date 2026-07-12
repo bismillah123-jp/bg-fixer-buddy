@@ -15,6 +15,7 @@ type DialogKey =
   | 'addStock'
   | 'incomingStock'
   | 'bulkIncoming'
+  | 'textImportIncoming'
   | 'addPhoneModel'
   | 'bulkAddPhoneModel'
   | 'manageBrands'
