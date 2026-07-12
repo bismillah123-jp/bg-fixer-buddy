@@ -19,54 +19,33 @@ interface Props {
 interface ParsedRow {
   raw: string;
   lineNo: number;
-  date?: string; // yyyy-mm-dd
+  date?: string;
   brand?: string;
-  model?: string;
+  label?: string;
   color?: string;
   imei?: string;
   error?: string;
 }
 
-const EXAMPLE = `12-07-2026,Samsung Galaxy S24 Ultra,Titanium Black,358712345678901
-11-07-2026,iPhone 15 Pro Max,Natural Titanium,359876543210987
-10-07-2026,Xiaomi 14 Pro,White,865432098765432`;
+const EXAMPLE = `12-07-2026,Realme,KPS,Hitam,358712345678901
+11-07-2026,Itel,,Putih,359876543210987
+10-07-2026,Xiaomi,SBY,Biru,865432098765432`;
+
+const DEFAULT_MODEL = "-";
 
 function parseDate(s: string): string | undefined {
   const t = s.trim();
-  // DD-MM-YYYY or DD/MM/YYYY
   let m = t.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
   if (m) {
     const [, d, mo, y] = m;
     return `${y}-${mo.padStart(2, "0")}-${d.padStart(2, "0")}`;
   }
-  // YYYY-MM-DD
   m = t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
   if (m) {
     const [, y, mo, d] = m;
     return `${y}-${mo.padStart(2, "0")}-${d.padStart(2, "0")}`;
   }
   return undefined;
-}
-
-function splitBrandModel(text: string, brands: string[]): { brand: string; model: string } {
-  const t = text.trim();
-  const lower = t.toLowerCase();
-  // Try longest brand match first
-  const sorted = [...brands].sort((a, b) => b.length - a.length);
-  for (const b of sorted) {
-    if (lower.startsWith(b.toLowerCase() + " ") || lower === b.toLowerCase()) {
-      return { brand: b, model: t.slice(b.length).trim() || t };
-    }
-  }
-  // iPhone special-case → Apple/iPhone
-  if (lower.startsWith("iphone")) {
-    return { brand: "APPLE", model: t };
-  }
-  // Fallback: first word as brand
-  const parts = t.split(/\s+/);
-  const brand = (parts.shift() || "").toUpperCase();
-  const model = parts.join(" ") || brand;
-  return { brand, model };
 }
 
 export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
@@ -84,20 +63,6 @@ export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
     },
   });
 
-  const { data: allModels } = useQuery({
-    queryKey: ["all-phone-models"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("phone_models").select("*");
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  const brands = useMemo(() => {
-    if (!allModels) return [];
-    return [...new Set(allModels.map((m: any) => m.brand))];
-  }, [allModels]);
-
   const parsed: ParsedRow[] = useMemo(() => {
     if (!text.trim()) return [];
     const lines = text.split(/\r?\n/);
@@ -107,36 +72,42 @@ export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
       lineNo++;
       const line = raw.trim();
       if (!line) continue;
-      // skip header
       if (/tanggal.*imei/i.test(line)) continue;
       const cols = line.split(",").map((c) => c.trim());
-      if (cols.length < 4) {
-        rows.push({ raw: line, lineNo, error: "Format kurang kolom (butuh 4: Tanggal,Merk/Model,Warna,IMEI)" });
+      if (cols.length < 5) {
+        rows.push({ raw: line, lineNo, error: "Format kurang kolom (butuh 5: Tanggal,Brand,Label,Warna,IMEI). Kosongkan label dengan koma ganda ,, jika tidak ada." });
         continue;
       }
-      const [dateStr, brandModel, color, imei] = cols;
+      const [dateStr, brandStr, labelStr, colorStr, imeiStr] = cols;
       const date = parseDate(dateStr);
       if (!date) {
         rows.push({ raw: line, lineNo, error: `Tanggal tidak valid: ${dateStr}` });
         continue;
       }
-      if (!/^\d{15}$/.test(imei)) {
-        rows.push({ raw: line, lineNo, date, error: `IMEI harus 15 digit angka: ${imei}` });
+      if (!brandStr) {
+        rows.push({ raw: line, lineNo, date, error: "Brand kosong" });
         continue;
       }
-      if (!color) {
+      if (!colorStr) {
         rows.push({ raw: line, lineNo, date, error: "Warna kosong" });
         continue;
       }
-      const { brand, model } = splitBrandModel(brandModel, brands);
-      if (!brand || !model) {
-        rows.push({ raw: line, lineNo, error: "Merk/Model tidak dapat dipisah" });
+      if (!/^\d{15}$/.test(imeiStr)) {
+        rows.push({ raw: line, lineNo, date, error: `IMEI harus 15 digit angka: ${imeiStr}` });
         continue;
       }
-      rows.push({ raw: line, lineNo, date, brand, model, color, imei });
+      rows.push({
+        raw: line,
+        lineNo,
+        date,
+        brand: brandStr.toUpperCase(),
+        label: labelStr || undefined,
+        color: colorStr,
+        imei: imeiStr,
+      });
     }
     return rows;
-  }, [text, brands]);
+  }, [text]);
 
   const validRows = parsed.filter((r) => !r.error);
   const errorRows = parsed.filter((r) => r.error);
@@ -146,41 +117,35 @@ export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
       if (!locationId) throw new Error("Lokasi wajib dipilih");
       if (validRows.length === 0) throw new Error("Tidak ada baris valid untuk diimpor");
 
-      // Duplicate IMEIs in list
       const imeis = validRows.map((r) => r.imei!);
       const dupes = imeis.filter((v, i) => imeis.indexOf(v) !== i);
       if (dupes.length > 0) throw new Error(`IMEI duplikat di daftar: ${[...new Set(dupes)].join(", ")}`);
 
-      // Existing IMEIs
       const { data: existing } = await supabase.from("stock_events").select("imei").in("imei", imeis);
       if (existing && existing.length > 0) {
         throw new Error(`IMEI sudah terdaftar: ${existing.map((s: any) => s.imei).join(", ")}`);
       }
 
-      // Ensure phone_model exists for each brand/model
-      const modelMap = new Map<string, string>(); // key: brand|model -> id
+      // Ensure a default phone_model per brand exists (brand + model "-")
+      const brandModelMap = new Map<string, string>();
       for (const r of validRows) {
-        const key = `${r.brand}|${r.model}`;
-        if (modelMap.has(key)) continue;
-
-        // Try find (case-insensitive)
+        if (brandModelMap.has(r.brand!)) continue;
         const { data: found } = await supabase
           .from("phone_models")
           .select("id")
           .ilike("brand", r.brand!)
-          .ilike("model", r.model!)
+          .eq("model", DEFAULT_MODEL)
           .maybeSingle();
-
         if (found?.id) {
-          modelMap.set(key, found.id);
+          brandModelMap.set(r.brand!, found.id);
         } else {
           const { data: created, error: cErr } = await supabase
             .from("phone_models")
-            .insert({ brand: r.brand!, model: r.model! })
+            .insert({ brand: r.brand!, model: DEFAULT_MODEL })
             .select("id")
             .single();
-          if (cErr) throw new Error(`Gagal buat model ${r.brand} ${r.model}: ${cErr.message}`);
-          modelMap.set(key, created.id);
+          if (cErr) throw new Error(`Gagal buat brand ${r.brand}: ${cErr.message}`);
+          brandModelMap.set(r.brand!, created.id);
         }
       }
 
@@ -188,12 +153,12 @@ export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
         date: r.date!,
         imei: r.imei!,
         location_id: locationId,
-        phone_model_id: modelMap.get(`${r.brand}|${r.model}`)!,
+        phone_model_id: brandModelMap.get(r.brand!)!,
         event_type: "masuk",
         qty: 1,
         notes: null,
         metadata: { color: r.color! },
-        label: null,
+        label: r.label ?? null,
       }));
 
       const { error } = await supabase.from("stock_events").insert(events);
@@ -222,7 +187,7 @@ export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
             Impor HP Datang (Teks)
           </DialogTitle>
           <DialogDescription>
-            Tempel daftar HP. Format tiap baris: <code className="text-xs">Tanggal,Merk/Model,Warna,IMEI</code>
+            Format tiap baris: <code className="text-xs">Tanggal,Brand,Label,Warna,IMEI</code>. Label opsional — kosongkan dengan koma ganda (,,).
           </DialogDescription>
         </DialogHeader>
 
@@ -259,12 +224,12 @@ export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
             <Textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder={`12-07-2026,Samsung Galaxy S24 Ultra,Titanium Black,358712345678901\n11-07-2026,iPhone 15 Pro Max,Natural Titanium,359876543210987`}
+              placeholder={`12-07-2026,Realme,KPS,Hitam,358712345678901\n11-07-2026,Itel,,Putih,359876543210987`}
               rows={8}
               className="font-mono text-xs"
             />
             <p className="text-[11px] text-muted-foreground">
-              Tanggal: <code>DD-MM-YYYY</code> atau <code>YYYY-MM-DD</code>. IMEI: 15 digit. Model baru akan otomatis dibuat.
+              Tanggal: <code>DD-MM-YYYY</code> atau <code>YYYY-MM-DD</code>. IMEI: 15 digit. Brand baru otomatis dibuat.
             </p>
           </div>
 
@@ -287,8 +252,8 @@ export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
                     <tr>
                       <th className="text-left p-2">#</th>
                       <th className="text-left p-2">Tanggal</th>
-                      <th className="text-left p-2">Merk</th>
-                      <th className="text-left p-2">Model</th>
+                      <th className="text-left p-2">Brand</th>
+                      <th className="text-left p-2">Label</th>
                       <th className="text-left p-2">Warna</th>
                       <th className="text-left p-2">IMEI</th>
                     </tr>
@@ -311,7 +276,7 @@ export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
                             <td className="p-2">{r.lineNo}</td>
                             <td className="p-2">{r.date}</td>
                             <td className="p-2 font-medium">{r.brand}</td>
-                            <td className="p-2">{r.model}</td>
+                            <td className="p-2">{r.label || <span className="opacity-40">—</span>}</td>
                             <td className="p-2">{r.color}</td>
                             <td className="p-2 font-mono">{r.imei}</td>
                           </>
