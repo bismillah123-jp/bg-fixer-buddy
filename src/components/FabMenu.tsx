@@ -1,10 +1,11 @@
 import { Button } from '@/components/ui/button';
-import { Plus, Truck, Smartphone, MapPin, Tags, PackagePlus, Layers, X } from 'lucide-react';
+import { Plus, Truck, Smartphone, MapPin, Tags, PackagePlus, Layers, X, FileText } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { AddStockDialog } from './AddStockDialog';
 import { IncomingStockDialog } from './IncomingStockDialog';
 import { BulkIncomingStockDialog } from './BulkIncomingStockDialog';
+import { TextImportIncomingDialog } from './TextImportIncomingDialog';
 import { AddPhoneModelDialog } from './AddPhoneModelDialog';
 import { BulkAddPhoneModelDialog } from './BulkAddPhoneModelDialog';
 import { ManageBrandsDialog } from './ManageBrandsDialog';
@@ -14,6 +15,7 @@ type DialogKey =
   | 'addStock'
   | 'incomingStock'
   | 'bulkIncoming'
+  | 'textImportIncoming'
   | 'addPhoneModel'
   | 'bulkAddPhoneModel'
   | 'manageBrands'
@@ -41,6 +43,13 @@ const actions: ActionItem[] = [
     icon: PackagePlus,
     dialog: 'bulkIncoming',
     tone: 'success',
+  },
+  {
+    label: 'Impor Teks',
+    description: 'Tempel daftar HP: Tanggal,Model,Warna,IMEI',
+    icon: FileText,
+    dialog: 'textImportIncoming',
+    tone: 'accent',
   },
   {
     label: 'Tambah Model HP',
@@ -211,6 +220,7 @@ export function FabMenu() {
       {dialog === 'addStock' && <AddStockDialog open={true} onOpenChange={() => setDialog(null)} />}
       {dialog === 'incomingStock' && <IncomingStockDialog open={true} onOpenChange={() => setDialog(null)} />}
       {dialog === 'bulkIncoming' && <BulkIncomingStockDialog open={true} onOpenChange={() => setDialog(null)} />}
+      {dialog === 'textImportIncoming' && <TextImportIncomingDialog open={true} onOpenChange={() => setDialog(null)} />}
       {dialog === 'addPhoneModel' && <AddPhoneModelDialog open={true} onOpenChange={() => setDialog(null)} />}
       {dialog === 'bulkAddPhoneModel' && <BulkAddPhoneModelDialog open={true} onOpenChange={() => setDialog(null)} />}
       {dialog === 'manageBrands' && <ManageBrandsDialog open={true} onOpenChange={() => setDialog(null)} />}
