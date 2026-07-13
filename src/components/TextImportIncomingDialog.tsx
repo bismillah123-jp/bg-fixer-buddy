@@ -187,9 +187,13 @@ export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
       queryClient.invalidateQueries({ queryKey: ["all-phone-models"] });
       setText("");
       setLocationId("");
+      setProgress(null);
       onOpenChange(false);
     },
-    onError: (e: any) => toast({ title: "Gagal", description: e.message, variant: "destructive" }),
+    onError: (e: any) => {
+      setProgress(null);
+      toast({ title: "Gagal", description: e.message, variant: "destructive" });
+    },
   });
 
   const isDirty = !!(locationId || text.trim());
