@@ -171,10 +171,13 @@ export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
       }));
 
       const BATCH_SIZE = 25;
+      const totalBatches = Math.ceil(events.length / BATCH_SIZE);
+      setProgress({ current: 0, total: totalBatches });
       for (let i = 0; i < events.length; i += BATCH_SIZE) {
         const chunk = events.slice(i, i + BATCH_SIZE);
         const { error } = await supabase.from("stock_events").insert(chunk);
         if (error) throw new Error(`Gagal menyimpan batch ${Math.floor(i / BATCH_SIZE) + 1}: ${error.message}`);
+        setProgress({ current: Math.min(i / BATCH_SIZE + 1, totalBatches), total: totalBatches });
       }
     },
     onSuccess: () => {
