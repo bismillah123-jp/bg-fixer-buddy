@@ -21,17 +21,16 @@ interface ParsedRow {
   lineNo: number;
   date?: string;
   brand?: string;
+  model?: string;
   label?: string;
   color?: string;
   imei?: string;
   error?: string;
 }
 
-const EXAMPLE = `12-07-2026,Realme,KPS,Hitam,358712345678901
-11-07-2026,Itel,,Putih,359876543210987
-10-07-2026,Xiaomi,SBY,Biru,865432098765432`;
-
-const DEFAULT_MODEL = "-";
+const EXAMPLE = `12-07-2026,Realme,C71,KPS,Hitam,358712345678901
+11-07-2026,Itel,A90,,Putih,359876543210987
+10-07-2026,Xiaomi,Redmi 15,SBY,Biru,865432098765432`;
 
 function parseDate(s: string): string | undefined {
   const t = s.trim();
@@ -74,11 +73,11 @@ export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
       if (!line) continue;
       if (/tanggal.*imei/i.test(line)) continue;
       const cols = line.split(",").map((c) => c.trim());
-      if (cols.length < 5) {
-        rows.push({ raw: line, lineNo, error: "Format kurang kolom (butuh 5: Tanggal,Brand,Label,Warna,IMEI). Kosongkan label dengan koma ganda ,, jika tidak ada." });
+      if (cols.length < 6) {
+        rows.push({ raw: line, lineNo, error: "Format kurang kolom (butuh 6: Tanggal,Brand,Tipe,Label,Warna,IMEI). Kosongkan label dengan koma ganda ,, jika tidak ada." });
         continue;
       }
-      const [dateStr, brandStr, labelStr, colorStr, imeiStr] = cols;
+      const [dateStr, brandStr, modelStr, labelStr, colorStr, imeiStr] = cols;
       const date = parseDate(dateStr);
       if (!date) {
         rows.push({ raw: line, lineNo, error: `Tanggal tidak valid: ${dateStr}` });
@@ -86,6 +85,10 @@ export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
       }
       if (!brandStr) {
         rows.push({ raw: line, lineNo, date, error: "Brand kosong" });
+        continue;
+      }
+      if (!modelStr) {
+        rows.push({ raw: line, lineNo, date, error: "Tipe kosong" });
         continue;
       }
       if (!colorStr) {
@@ -101,6 +104,7 @@ export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
         lineNo,
         date,
         brand: brandStr.toUpperCase(),
+        model: modelStr,
         label: labelStr || undefined,
         color: colorStr,
         imei: imeiStr,
@@ -126,26 +130,27 @@ export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
         throw new Error(`IMEI sudah terdaftar: ${existing.map((s: any) => s.imei).join(", ")}`);
       }
 
-      // Ensure a default phone_model per brand exists (brand + model "-")
-      const brandModelMap = new Map<string, string>();
+      // Ensure a phone_model per brand+model exists
+      const modelMap = new Map<string, string>();
       for (const r of validRows) {
-        if (brandModelMap.has(r.brand!)) continue;
+        const key = `${r.brand}|${r.model}`;
+        if (modelMap.has(key)) continue;
         const { data: found } = await supabase
           .from("phone_models")
           .select("id")
           .ilike("brand", r.brand!)
-          .eq("model", DEFAULT_MODEL)
+          .ilike("model", r.model!)
           .maybeSingle();
         if (found?.id) {
-          brandModelMap.set(r.brand!, found.id);
+          modelMap.set(key, found.id);
         } else {
           const { data: created, error: cErr } = await supabase
             .from("phone_models")
-            .insert({ brand: r.brand!, model: DEFAULT_MODEL })
+            .insert({ brand: r.brand!, model: r.model! })
             .select("id")
             .single();
-          if (cErr) throw new Error(`Gagal buat brand ${r.brand}: ${cErr.message}`);
-          brandModelMap.set(r.brand!, created.id);
+          if (cErr) throw new Error(`Gagal buat ${r.brand} ${r.model}: ${cErr.message}`);
+          modelMap.set(key, created.id);
         }
       }
 
@@ -153,7 +158,7 @@ export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
         date: r.date!,
         imei: r.imei!,
         location_id: locationId,
-        phone_model_id: brandModelMap.get(r.brand!)!,
+        phone_model_id: modelMap.get(`${r.brand}|${r.model}`)!,
         event_type: "masuk",
         qty: 1,
         notes: null,
@@ -187,7 +192,7 @@ export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
             Impor HP Datang (Teks)
           </DialogTitle>
           <DialogDescription>
-            Format tiap baris: <code className="text-xs">Tanggal,Brand,Label,Warna,IMEI</code>. Label opsional — kosongkan dengan koma ganda (,,).
+            Format tiap baris: <code className="text-xs">Tanggal,Brand,Tipe,Label,Warna,IMEI</code>. Label opsional — kosongkan dengan koma ganda (,,).
           </DialogDescription>
         </DialogHeader>
 
@@ -224,12 +229,12 @@ export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
             <Textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder={`12-07-2026,Realme,KPS,Hitam,358712345678901\n11-07-2026,Itel,,Putih,359876543210987`}
+              placeholder={`12-07-2026,Realme,C71,KPS,Hitam,358712345678901\n11-07-2026,Itel,A90,,Putih,359876543210987`}
               rows={8}
               className="font-mono text-xs"
             />
             <p className="text-[11px] text-muted-foreground">
-              Tanggal: <code>DD-MM-YYYY</code> atau <code>YYYY-MM-DD</code>. IMEI: 15 digit. Brand baru otomatis dibuat.
+              Tanggal: <code>DD-MM-YYYY</code> atau <code>YYYY-MM-DD</code>. IMEI: 15 digit. Brand & tipe baru otomatis dibuat.
             </p>
           </div>
 
@@ -253,6 +258,7 @@ export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
                       <th className="text-left p-2">#</th>
                       <th className="text-left p-2">Tanggal</th>
                       <th className="text-left p-2">Brand</th>
+                      <th className="text-left p-2">Tipe</th>
                       <th className="text-left p-2">Label</th>
                       <th className="text-left p-2">Warna</th>
                       <th className="text-left p-2">IMEI</th>
@@ -267,7 +273,7 @@ export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
                         {r.error ? (
                           <>
                             <td className="p-2">{r.lineNo}</td>
-                            <td className="p-2 text-destructive" colSpan={5}>
+                            <td className="p-2 text-destructive" colSpan={6}>
                               {r.error} — <span className="opacity-70">{r.raw}</span>
                             </td>
                           </>
@@ -276,6 +282,7 @@ export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
                             <td className="p-2">{r.lineNo}</td>
                             <td className="p-2">{r.date}</td>
                             <td className="p-2 font-medium">{r.brand}</td>
+                            <td className="p-2">{r.model}</td>
                             <td className="p-2">{r.label || <span className="opacity-40">—</span>}</td>
                             <td className="p-2">{r.color}</td>
                             <td className="p-2 font-mono">{r.imei}</td>
