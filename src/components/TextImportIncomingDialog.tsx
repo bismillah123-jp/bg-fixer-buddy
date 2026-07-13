@@ -51,6 +51,7 @@ function parseDate(s: string): string | undefined {
 export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
   const [locationId, setLocationId] = useState("");
   const [text, setText] = useState("");
+  const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
