@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ConfirmableDialog } from "@/components/ConfirmableDialog";
@@ -50,6 +51,7 @@ function parseDate(s: string): string | undefined {
 export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
   const [locationId, setLocationId] = useState("");
   const [text, setText] = useState("");
+  const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -169,10 +171,13 @@ export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
       }));
 
       const BATCH_SIZE = 25;
+      const totalBatches = Math.ceil(events.length / BATCH_SIZE);
+      setProgress({ current: 0, total: totalBatches });
       for (let i = 0; i < events.length; i += BATCH_SIZE) {
         const chunk = events.slice(i, i + BATCH_SIZE);
         const { error } = await supabase.from("stock_events").insert(chunk);
         if (error) throw new Error(`Gagal menyimpan batch ${Math.floor(i / BATCH_SIZE) + 1}: ${error.message}`);
+        setProgress({ current: Math.min(i / BATCH_SIZE + 1, totalBatches), total: totalBatches });
       }
     },
     onSuccess: () => {
@@ -182,9 +187,13 @@ export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
       queryClient.invalidateQueries({ queryKey: ["all-phone-models"] });
       setText("");
       setLocationId("");
+      setProgress(null);
       onOpenChange(false);
     },
-    onError: (e: any) => toast({ title: "Gagal", description: e.message, variant: "destructive" }),
+    onError: (e: any) => {
+      setProgress(null);
+      toast({ title: "Gagal", description: e.message, variant: "destructive" });
+    },
   });
 
   const isDirty = !!(locationId || text.trim());
@@ -299,6 +308,16 @@ export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
                   </tbody>
                 </table>
               </div>
+            </div>
+          )}
+
+          {importMutation.isPending && progress && (
+            <div className="space-y-1">
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>Memproses batch...</span>
+                <span>{Math.round(progress.current)} / {progress.total} ({Math.round((progress.current / progress.total) * 100)}%)</span>
+              </div>
+              <Progress value={(progress.current / progress.total) * 100} />
             </div>
           )}
 
