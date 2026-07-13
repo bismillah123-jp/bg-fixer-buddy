@@ -121,11 +121,13 @@ export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
       if (!locationId) throw new Error("Lokasi wajib dipilih");
       if (validRows.length === 0) throw new Error("Tidak ada baris valid untuk diimpor");
 
-      const imeis = validRows.map((r) => r.imei!);
-      const dupes = imeis.filter((v, i) => imeis.indexOf(v) !== i);
+      const nonRepackRows = validRows.filter((r) => (r.label ?? "").toLowerCase() !== "repack");
+      const nonRepackImeis = nonRepackRows.map((r) => r.imei!);
+
+      const dupes = nonRepackImeis.filter((v, i) => nonRepackImeis.indexOf(v) !== i);
       if (dupes.length > 0) throw new Error(`IMEI duplikat di daftar: ${[...new Set(dupes)].join(", ")}`);
 
-      const { data: existing } = await supabase.from("stock_events").select("imei").in("imei", imeis);
+      const { data: existing } = await supabase.from("stock_events").select("imei").in("imei", nonRepackImeis);
       if (existing && existing.length > 0) {
         throw new Error(`IMEI sudah terdaftar: ${existing.map((s: any) => s.imei).join(", ")}`);
       }
