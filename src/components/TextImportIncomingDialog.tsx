@@ -311,6 +311,16 @@ export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
             </div>
           )}
 
+          {importMutation.isPending && progress && (
+            <div className="space-y-1">
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>Memproses batch...</span>
+                <span>{Math.round(progress.current)} / {progress.total} ({Math.round((progress.current / progress.total) * 100)}%)</span>
+              </div>
+              <Progress value={(progress.current / progress.total) * 100} />
+            </div>
+          )}
+
           <div className="flex gap-2 pt-2">
             <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1">
               Batal
