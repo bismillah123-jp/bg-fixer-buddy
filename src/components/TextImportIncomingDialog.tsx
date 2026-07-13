@@ -168,8 +168,12 @@ export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
         label: r.label ?? null,
       }));
 
-      const { error } = await supabase.from("stock_events").insert(events);
-      if (error) throw new Error(`Gagal menyimpan: ${error.message}`);
+      const BATCH_SIZE = 25;
+      for (let i = 0; i < events.length; i += BATCH_SIZE) {
+        const chunk = events.slice(i, i + BATCH_SIZE);
+        const { error } = await supabase.from("stock_events").insert(chunk);
+        if (error) throw new Error(`Gagal menyimpan batch ${Math.floor(i / BATCH_SIZE) + 1}: ${error.message}`);
+      }
     },
     onSuccess: () => {
       toast({ title: "Berhasil", description: `${validRows.length} unit berhasil diimpor` });
