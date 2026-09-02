@@ -23,15 +23,17 @@ interface ParsedRow {
   date?: string;
   brand?: string;
   model?: string;
+  storage?: string;
   label?: string;
   color?: string;
   imei?: string;
   error?: string;
 }
 
-const EXAMPLE = `12-07-2026,Realme,C71,KPS,Hitam,358712345678901
-11-07-2026,Itel,A90,,Putih,359876543210987
-10-07-2026,Xiaomi,Redmi 15,SBY,Biru,865432098765432`;
+const EXAMPLE = `23/08/2026,VIVO,Y05,4/64,REPACK,123456789101112,BLUE
+12-07-2026,Realme,C71,4/128,KPS,358712345678901,Hitam
+11-07-2026,Itel,A90,4/64,,359876543210987,Putih
+10-07-2026,Xiaomi,Redmi 15,8/128,SBY,865432098765432,Biru`;
 
 function parseDate(s: string): string | undefined {
   const t = s.trim();
@@ -46,6 +48,15 @@ function parseDate(s: string): string | undefined {
     return `${y}-${mo.padStart(2, "0")}-${d.padStart(2, "0")}`;
   }
   return undefined;
+}
+
+// Normalize storage to RAM/ROM (e.g. "4/64", "6/128"). Accept "128GB" -> "" (drop).
+function normalizeStorage(s: string): string {
+  const t = s.trim();
+  if (!t) return "";
+  const m = t.match(/^(\d+)\s*\/\s*(\d+)$/);
+  if (m) return `${m[1]}/${m[2]}`;
+  return t;
 }
 
 export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
@@ -75,11 +86,11 @@ export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
       if (!line) continue;
       if (/tanggal.*imei/i.test(line)) continue;
       const cols = line.split(",").map((c) => c.trim());
-      if (cols.length < 6) {
-        rows.push({ raw: line, lineNo, error: "Format kurang kolom (butuh 6: Tanggal,Brand,Tipe,Label,Warna,IMEI). Kosongkan label dengan koma ganda ,, jika tidak ada." });
+      if (cols.length < 7) {
+        rows.push({ raw: line, lineNo, error: "Format kurang kolom (butuh 7: Tanggal,Brand,Tipe,RAM/ROM,Label,IMEI,Warna). Kosongkan label dengan koma ganda ,, jika tidak ada." });
         continue;
       }
-      const [dateStr, brandStr, modelStr, labelStr, colorStr, imeiStr] = cols;
+      const [dateStr, brandStr, modelStr, storageStr, labelStr, imeiStr, colorStr] = cols;
       const date = parseDate(dateStr);
       if (!date) {
         rows.push({ raw: line, lineNo, error: `Tanggal tidak valid: ${dateStr}` });
@@ -93,12 +104,16 @@ export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
         rows.push({ raw: line, lineNo, date, error: "Tipe kosong" });
         continue;
       }
-      if (!colorStr) {
-        rows.push({ raw: line, lineNo, date, error: "Warna kosong" });
+      if (!storageStr) {
+        rows.push({ raw: line, lineNo, date, error: "RAM/ROM kosong" });
         continue;
       }
-      if (!/^\d{15}$/.test(imeiStr)) {
-        rows.push({ raw: line, lineNo, date, error: `IMEI harus 15 digit angka: ${imeiStr}` });
+      if (!imeiStr || !/^\d{15}$/.test(imeiStr)) {
+        rows.push({ raw: line, lineNo, date, error: `IMEI harus 15 digit angka: ${imeiStr ?? ""}` });
+        continue;
+      }
+      if (!colorStr) {
+        rows.push({ raw: line, lineNo, date, error: "Warna kosong" });
         continue;
       }
       rows.push({
@@ -107,6 +122,7 @@ export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
         date,
         brand: brandStr.toUpperCase(),
         model: modelStr,
+        storage: normalizeStorage(storageStr),
         label: labelStr || undefined,
         color: colorStr,
         imei: imeiStr,
@@ -134,26 +150,27 @@ export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
         throw new Error(`IMEI sudah terdaftar: ${existing.map((s: any) => s.imei).join(", ")}`);
       }
 
-      // Ensure a phone_model per brand+model exists
+      // Ensure a phone_model per brand+model+storage exists
       const modelMap = new Map<string, string>();
       for (const r of validRows) {
-        const key = `${r.brand}|${r.model}`;
+        const key = `${r.brand}|${r.model}|${r.storage}`;
         if (modelMap.has(key)) continue;
         const { data: found } = await supabase
           .from("phone_models")
           .select("id")
           .ilike("brand", r.brand!)
           .ilike("model", r.model!)
+          .eq("storage_capacity", r.storage ?? "")
           .maybeSingle();
         if (found?.id) {
           modelMap.set(key, found.id);
         } else {
           const { data: created, error: cErr } = await supabase
             .from("phone_models")
-            .insert({ brand: r.brand!, model: r.model! })
+            .insert({ brand: r.brand!, model: r.model!, storage_capacity: r.storage ?? "" })
             .select("id")
             .single();
-          if (cErr) throw new Error(`Gagal buat ${r.brand} ${r.model}: ${cErr.message}`);
+          if (cErr) throw new Error(`Gagal buat ${r.brand} ${r.model} ${r.storage}: ${cErr.message}`);
           modelMap.set(key, created.id);
         }
       }
@@ -162,7 +179,7 @@ export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
         date: r.date!,
         imei: r.imei!,
         location_id: locationId,
-        phone_model_id: modelMap.get(`${r.brand}|${r.model}`)!,
+        phone_model_id: modelMap.get(`${r.brand}|${r.model}|${r.storage}`)!,
         event_type: "masuk",
         qty: 1,
         notes: null,
@@ -207,7 +224,7 @@ export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
             Impor HP Datang (Teks)
           </DialogTitle>
           <DialogDescription>
-            Format tiap baris: <code className="text-xs">Tanggal,Brand,Tipe,Label,Warna,IMEI</code>. Label opsional — kosongkan dengan koma ganda (,,).
+            Format tiap baris: <code className="text-xs">Tanggal,Brand,Tipe,RAM/ROM,Label,IMEI,Warna</code>. Label opsional — kosongkan dengan koma ganda (,,). Contoh: <code className="text-xs">23/08/2026,VIVO,Y05,4/64,REPACK,123456789101112,BLUE</code>
           </DialogDescription>
         </DialogHeader>
 
@@ -244,12 +261,12 @@ export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
             <Textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder={`12-07-2026,Realme,C71,KPS,Hitam,358712345678901\n11-07-2026,Itel,A90,,Putih,359876543210987`}
+              placeholder={`23/08/2026,VIVO,Y05,4/64,REPACK,123456789101112,BLUE\n12-07-2026,Realme,C71,4/128,KPS,358712345678901,Hitam`}
               rows={8}
               className="font-mono text-xs"
             />
             <p className="text-[11px] text-muted-foreground">
-              Tanggal: <code>DD-MM-YYYY</code> atau <code>YYYY-MM-DD</code>. IMEI: 15 digit. Brand & tipe baru otomatis dibuat.
+              Tanggal: <code>DD-MM-YYYY</code> atau <code>DD/MM/YYYY</code>. IMEI: 15 digit. RAM/ROM: <code>4/64</code>, <code>6/128</code>. Label <code>REPACK</code> boleh IMEI duplikat.
             </p>
           </div>
 
@@ -274,6 +291,7 @@ export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
                       <th className="text-left p-2">Tanggal</th>
                       <th className="text-left p-2">Brand</th>
                       <th className="text-left p-2">Tipe</th>
+                      <th className="text-left p-2">RAM/ROM</th>
                       <th className="text-left p-2">Label</th>
                       <th className="text-left p-2">Warna</th>
                       <th className="text-left p-2">IMEI</th>
@@ -288,7 +306,7 @@ export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
                         {r.error ? (
                           <>
                             <td className="p-2">{r.lineNo}</td>
-                            <td className="p-2 text-destructive" colSpan={6}>
+                            <td className="p-2 text-destructive" colSpan={7}>
                               {r.error} — <span className="opacity-70">{r.raw}</span>
                             </td>
                           </>
@@ -298,6 +316,7 @@ export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
                             <td className="p-2">{r.date}</td>
                             <td className="p-2 font-medium">{r.brand}</td>
                             <td className="p-2">{r.model}</td>
+                            <td className="p-2">{r.storage}</td>
                             <td className="p-2">{r.label || <span className="opacity-40">—</span>}</td>
                             <td className="p-2">{r.color}</td>
                             <td className="p-2 font-mono">{r.imei}</td>
