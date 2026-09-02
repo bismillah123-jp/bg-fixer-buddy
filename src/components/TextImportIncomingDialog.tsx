@@ -224,7 +224,7 @@ export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
             Impor HP Datang (Teks)
           </DialogTitle>
           <DialogDescription>
-            Format tiap baris: <code className="text-xs">Tanggal,Brand,Tipe,Label,Warna,IMEI</code>. Label opsional — kosongkan dengan koma ganda (,,).
+            Format tiap baris: <code className="text-xs">Tanggal,Brand,Tipe,RAM/ROM,Label,IMEI,Warna</code>. Label opsional — kosongkan dengan koma ganda (,,). Contoh: <code className="text-xs">23/08/2026,VIVO,Y05,4/64,REPACK,123456789101112,BLUE</code>
           </DialogDescription>
         </DialogHeader>
 
@@ -261,12 +261,12 @@ export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
             <Textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder={`12-07-2026,Realme,C71,KPS,Hitam,358712345678901\n11-07-2026,Itel,A90,,Putih,359876543210987`}
+              placeholder={`23/08/2026,VIVO,Y05,4/64,REPACK,123456789101112,BLUE\n12-07-2026,Realme,C71,4/128,KPS,358712345678901,Hitam`}
               rows={8}
               className="font-mono text-xs"
             />
             <p className="text-[11px] text-muted-foreground">
-              Tanggal: <code>DD-MM-YYYY</code> atau <code>YYYY-MM-DD</code>. IMEI: 15 digit. Brand & tipe baru otomatis dibuat.
+              Tanggal: <code>DD-MM-YYYY</code> atau <code>DD/MM/YYYY</code>. IMEI: 15 digit. RAM/ROM: <code>4/64</code>, <code>6/128</code>. Label <code>REPACK</code> boleh IMEI duplikat.
             </p>
           </div>
 
