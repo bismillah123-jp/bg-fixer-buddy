@@ -291,6 +291,7 @@ export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
                       <th className="text-left p-2">Tanggal</th>
                       <th className="text-left p-2">Brand</th>
                       <th className="text-left p-2">Tipe</th>
+                      <th className="text-left p-2">RAM/ROM</th>
                       <th className="text-left p-2">Label</th>
                       <th className="text-left p-2">Warna</th>
                       <th className="text-left p-2">IMEI</th>
@@ -305,7 +306,7 @@ export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
                         {r.error ? (
                           <>
                             <td className="p-2">{r.lineNo}</td>
-                            <td className="p-2 text-destructive" colSpan={6}>
+                            <td className="p-2 text-destructive" colSpan={7}>
                               {r.error} — <span className="opacity-70">{r.raw}</span>
                             </td>
                           </>
@@ -315,6 +316,7 @@ export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
                             <td className="p-2">{r.date}</td>
                             <td className="p-2 font-medium">{r.brand}</td>
                             <td className="p-2">{r.model}</td>
+                            <td className="p-2">{r.storage}</td>
                             <td className="p-2">{r.label || <span className="opacity-40">—</span>}</td>
                             <td className="p-2">{r.color}</td>
                             <td className="p-2 font-mono">{r.imei}</td>
