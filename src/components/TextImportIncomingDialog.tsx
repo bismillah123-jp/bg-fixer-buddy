@@ -23,15 +23,17 @@ interface ParsedRow {
   date?: string;
   brand?: string;
   model?: string;
+  storage?: string;
   label?: string;
   color?: string;
   imei?: string;
   error?: string;
 }
 
-const EXAMPLE = `12-07-2026,Realme,C71,KPS,Hitam,358712345678901
-11-07-2026,Itel,A90,,Putih,359876543210987
-10-07-2026,Xiaomi,Redmi 15,SBY,Biru,865432098765432`;
+const EXAMPLE = `23/08/2026,VIVO,Y05,4/64,REPACK,123456789101112,BLUE
+12-07-2026,Realme,C71,4/128,KPS,358712345678901,Hitam
+11-07-2026,Itel,A90,4/64,,359876543210987,Putih
+10-07-2026,Xiaomi,Redmi 15,8/128,SBY,865432098765432,Biru`;
 
 function parseDate(s: string): string | undefined {
   const t = s.trim();
@@ -46,6 +48,15 @@ function parseDate(s: string): string | undefined {
     return `${y}-${mo.padStart(2, "0")}-${d.padStart(2, "0")}`;
   }
   return undefined;
+}
+
+// Normalize storage to RAM/ROM (e.g. "4/64", "6/128"). Accept "128GB" -> "" (drop).
+function normalizeStorage(s: string): string {
+  const t = s.trim();
+  if (!t) return "";
+  const m = t.match(/^(\d+)\s*\/\s*(\d+)$/);
+  if (m) return `${m[1]}/${m[2]}`;
+  return t;
 }
 
 export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
@@ -75,11 +86,11 @@ export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
       if (!line) continue;
       if (/tanggal.*imei/i.test(line)) continue;
       const cols = line.split(",").map((c) => c.trim());
-      if (cols.length < 6) {
-        rows.push({ raw: line, lineNo, error: "Format kurang kolom (butuh 6: Tanggal,Brand,Tipe,Label,Warna,IMEI). Kosongkan label dengan koma ganda ,, jika tidak ada." });
+      if (cols.length < 7) {
+        rows.push({ raw: line, lineNo, error: "Format kurang kolom (butuh 7: Tanggal,Brand,Tipe,RAM/ROM,Label,IMEI,Warna). Kosongkan label dengan koma ganda ,, jika tidak ada." });
         continue;
       }
-      const [dateStr, brandStr, modelStr, labelStr, colorStr, imeiStr] = cols;
+      const [dateStr, brandStr, modelStr, storageStr, labelStr, imeiStr, colorStr] = cols;
       const date = parseDate(dateStr);
       if (!date) {
         rows.push({ raw: line, lineNo, error: `Tanggal tidak valid: ${dateStr}` });
@@ -93,12 +104,16 @@ export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
         rows.push({ raw: line, lineNo, date, error: "Tipe kosong" });
         continue;
       }
-      if (!colorStr) {
-        rows.push({ raw: line, lineNo, date, error: "Warna kosong" });
+      if (!storageStr) {
+        rows.push({ raw: line, lineNo, date, error: "RAM/ROM kosong" });
         continue;
       }
-      if (!/^\d{15}$/.test(imeiStr)) {
-        rows.push({ raw: line, lineNo, date, error: `IMEI harus 15 digit angka: ${imeiStr}` });
+      if (!imeiStr || !/^\d{15}$/.test(imeiStr)) {
+        rows.push({ raw: line, lineNo, date, error: `IMEI harus 15 digit angka: ${imeiStr ?? ""}` });
+        continue;
+      }
+      if (!colorStr) {
+        rows.push({ raw: line, lineNo, date, error: "Warna kosong" });
         continue;
       }
       rows.push({
@@ -107,6 +122,7 @@ export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
         date,
         brand: brandStr.toUpperCase(),
         model: modelStr,
+        storage: normalizeStorage(storageStr),
         label: labelStr || undefined,
         color: colorStr,
         imei: imeiStr,
