@@ -150,26 +150,27 @@ export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
         throw new Error(`IMEI sudah terdaftar: ${existing.map((s: any) => s.imei).join(", ")}`);
       }
 
-      // Ensure a phone_model per brand+model exists
+      // Ensure a phone_model per brand+model+storage exists
       const modelMap = new Map<string, string>();
       for (const r of validRows) {
-        const key = `${r.brand}|${r.model}`;
+        const key = `${r.brand}|${r.model}|${r.storage}`;
         if (modelMap.has(key)) continue;
         const { data: found } = await supabase
           .from("phone_models")
           .select("id")
           .ilike("brand", r.brand!)
           .ilike("model", r.model!)
+          .eq("storage_capacity", r.storage ?? "")
           .maybeSingle();
         if (found?.id) {
           modelMap.set(key, found.id);
         } else {
           const { data: created, error: cErr } = await supabase
             .from("phone_models")
-            .insert({ brand: r.brand!, model: r.model! })
+            .insert({ brand: r.brand!, model: r.model!, storage_capacity: r.storage ?? "" })
             .select("id")
             .single();
-          if (cErr) throw new Error(`Gagal buat ${r.brand} ${r.model}: ${cErr.message}`);
+          if (cErr) throw new Error(`Gagal buat ${r.brand} ${r.model} ${r.storage}: ${cErr.message}`);
           modelMap.set(key, created.id);
         }
       }
@@ -178,7 +179,7 @@ export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
         date: r.date!,
         imei: r.imei!,
         location_id: locationId,
-        phone_model_id: modelMap.get(`${r.brand}|${r.model}`)!,
+        phone_model_id: modelMap.get(`${r.brand}|${r.model}|${r.storage}`)!,
         event_type: "masuk",
         qty: 1,
         notes: null,
