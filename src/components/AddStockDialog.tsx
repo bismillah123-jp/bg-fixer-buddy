@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,7 +15,7 @@ import { Calendar as CalendarIcon, Camera } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
-import { BarcodeScanner } from "@/components/BarcodeScanner";
+const BarcodeScanner = lazy(() => import("@/components/BarcodeScanner").then(m => ({ default: m.BarcodeScanner })));
 
 interface AddStockDialogProps {
   open: boolean;
@@ -322,7 +322,7 @@ export function AddStockDialog({ open, onOpenChange }: AddStockDialogProps) {
         </div>
       </DialogContent>
 
-      <BarcodeScanner
+      <Suspense fallback={null}><BarcodeScanner
         open={scannerOpen}
         onOpenChange={setScannerOpen}
         onScanSuccess={(scannedImei) => {
