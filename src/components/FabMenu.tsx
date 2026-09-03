@@ -1,15 +1,15 @@
 import { Button } from '@/components/ui/button';
 import { Plus, Truck, Smartphone, MapPin, Tags, PackagePlus, Layers, X, FileText } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { cn } from '@/lib/utils';
-import { AddStockDialog } from './AddStockDialog';
-import { IncomingStockDialog } from './IncomingStockDialog';
-import { BulkIncomingStockDialog } from './BulkIncomingStockDialog';
-import { TextImportIncomingDialog } from './TextImportIncomingDialog';
-import { AddPhoneModelDialog } from './AddPhoneModelDialog';
-import { BulkAddPhoneModelDialog } from './BulkAddPhoneModelDialog';
-import { ManageBrandsDialog } from './ManageBrandsDialog';
-import { AddLocationDialog } from './AddLocationDialog';
+const AddStockDialog = lazy(() => import('./AddStockDialog').then(m => ({ default: m.AddStockDialog })));
+const IncomingStockDialog = lazy(() => import('./IncomingStockDialog').then(m => ({ default: m.IncomingStockDialog })));
+const BulkIncomingStockDialog = lazy(() => import('./BulkIncomingStockDialog').then(m => ({ default: m.BulkIncomingStockDialog })));
+const TextImportIncomingDialog = lazy(() => import('./TextImportIncomingDialog').then(m => ({ default: m.TextImportIncomingDialog })));
+const AddPhoneModelDialog = lazy(() => import('./AddPhoneModelDialog').then(m => ({ default: m.AddPhoneModelDialog })));
+const BulkAddPhoneModelDialog = lazy(() => import('./BulkAddPhoneModelDialog').then(m => ({ default: m.BulkAddPhoneModelDialog })));
+const ManageBrandsDialog = lazy(() => import('./ManageBrandsDialog').then(m => ({ default: m.ManageBrandsDialog })));
+const AddLocationDialog = lazy(() => import('./AddLocationDialog').then(m => ({ default: m.AddLocationDialog })));
 
 type DialogKey =
   | 'addStock'
@@ -217,6 +217,7 @@ export function FabMenu() {
         </Button>
       </div>
 
+      <Suspense fallback={null}>
       {dialog === 'addStock' && <AddStockDialog open={true} onOpenChange={() => setDialog(null)} />}
       {dialog === 'incomingStock' && <IncomingStockDialog open={true} onOpenChange={() => setDialog(null)} />}
       {dialog === 'bulkIncoming' && <BulkIncomingStockDialog open={true} onOpenChange={() => setDialog(null)} />}
@@ -225,6 +226,7 @@ export function FabMenu() {
       {dialog === 'bulkAddPhoneModel' && <BulkAddPhoneModelDialog open={true} onOpenChange={() => setDialog(null)} />}
       {dialog === 'manageBrands' && <ManageBrandsDialog open={true} onOpenChange={() => setDialog(null)} />}
       {dialog === 'addLocation' && <AddLocationDialog open={true} onOpenChange={() => setDialog(null)} />}
+      </Suspense>
     </>
   );
 }

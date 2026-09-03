@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
@@ -11,14 +11,14 @@ import { Calendar } from "@/components/ui/calendar";
 import { Plus, Truck, TrendingUp, AlertTriangle, Package, BarChart3, LogOut, Calendar as CalendarIcon, PackageOpen, ArrowLeftRight, Settings as SettingsIcon, Sun, Tag, Moon, ListTree, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { StockTable } from "./StockTable";
-import { StockAnalytics } from "./StockAnalytics";
-import { StockDetailView } from "./StockDetailView";
-import Settings from "@/pages/Settings";
+const StockTable = lazy(() => import("./StockTable").then(m => ({ default: m.StockTable })));
+const StockAnalytics = lazy(() => import("./StockAnalytics").then(m => ({ default: m.StockAnalytics })));
+const StockDetailView = lazy(() => import("./StockDetailView").then(m => ({ default: m.StockDetailView })));
+const Settings = lazy(() => import("@/pages/Settings"));
 import { ThemeToggle } from "./ThemeToggle";
 import { MobileNavigation } from "./MobileNavigation";
 import { FabMenu } from "./FabMenu";
-import { AIChatPage } from "./AIChatPage";
+const AIChatPage = lazy(() => import("./AIChatPage").then(m => ({ default: m.AIChatPage })));
 
 interface LocationData {
   morning_stock: number;
@@ -41,6 +41,14 @@ interface DashboardStats {
     toSoko: number;
     toMbutoh: number;
   };
+}
+
+function ViewFallback() {
+  return (
+    <div className="flex items-center justify-center py-16">
+      <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+    </div>
+  );
 }
 
 export function StockDashboard() {
@@ -515,29 +523,15 @@ export function StockDashboard() {
             </div>
           )}
 
-          {/* Stock Table View */}
-          {activeTab === 'table' && (
-            <StockTable selectedDate={date} quickFilter={quickFilter} onFilterChange={() => setQuickFilter(null)} />
-          )}
-
-          {/* Stock Detail View */}
-          {activeTab === 'stock-detail' && (
-            <StockDetailView selectedDate={date} />
-          )}
-
-          {/* Analytics View */}
-          {activeTab === 'analytics' && (
-            <StockAnalytics selectedDate={date} />
-          )}
-
-          {/* AI Chat View */}
-          {activeTab === 'ai-chat' && (
-            <AIChatPage />
-          )}
-
-          {activeTab === 'settings' && (
-            <Settings />
-          )}
+          <Suspense fallback={<ViewFallback />}>
+            {activeTab === 'table' && (
+              <StockTable selectedDate={date} quickFilter={quickFilter} onFilterChange={() => setQuickFilter(null)} />
+            )}
+            {activeTab === 'stock-detail' && <StockDetailView selectedDate={date} />}
+            {activeTab === 'analytics' && <StockAnalytics selectedDate={date} />}
+            {activeTab === 'ai-chat' && <AIChatPage />}
+            {activeTab === 'settings' && <Settings />}
+          </Suspense>
         </div>
       </main>
 
