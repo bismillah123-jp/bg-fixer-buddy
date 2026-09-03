@@ -309,7 +309,8 @@ export function BulkIncomingStockDialog({ open, onOpenChange }: BulkIncomingStoc
         </div>
       </DialogContent>
 
-      <Suspense fallback={null}><BarcodeScanner
+      {scannerOpen && (
+        <Suspense fallback={null}><BarcodeScanner
         open={scanningIndex !== null}
         onOpenChange={(o) => !o && setScanningIndex(null)}
         onScanSuccess={(scannedImei) => {
@@ -318,7 +319,8 @@ export function BulkIncomingStockDialog({ open, onOpenChange }: BulkIncomingStoc
             setScanningIndex(null);
           }
         }}
-      />
+      /></Suspense>
+      )}
     </ConfirmableDialog>
   );
 }

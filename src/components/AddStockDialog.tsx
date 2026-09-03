@@ -322,14 +322,16 @@ export function AddStockDialog({ open, onOpenChange }: AddStockDialogProps) {
         </div>
       </DialogContent>
 
-      <Suspense fallback={null}><BarcodeScanner
+      {scannerOpen && (
+        <Suspense fallback={null}><BarcodeScanner
         open={scannerOpen}
         onOpenChange={setScannerOpen}
         onScanSuccess={(scannedImei) => {
           setImei(scannedImei);
           setScannerOpen(false);
         }}
-      />
+      /></Suspense>
+      )}
     </ConfirmableDialog>
   );
 }
