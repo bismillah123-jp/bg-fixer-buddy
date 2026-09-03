@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,7 +14,7 @@ import { Calendar as CalendarIcon, Camera, Plus, Trash2 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
-import { BarcodeScanner } from "@/components/BarcodeScanner";
+const BarcodeScanner = lazy(() => import("@/components/BarcodeScanner").then(m => ({ default: m.BarcodeScanner })));
 import { LabelSelect } from "@/components/LabelSelect";
 import { ColorSelect } from "@/components/ColorSelect";
 
@@ -309,7 +309,8 @@ export function BulkIncomingStockDialog({ open, onOpenChange }: BulkIncomingStoc
         </div>
       </DialogContent>
 
-      <BarcodeScanner
+      {scannerOpen && (
+        <Suspense fallback={null}><BarcodeScanner
         open={scanningIndex !== null}
         onOpenChange={(o) => !o && setScanningIndex(null)}
         onScanSuccess={(scannedImei) => {
@@ -318,7 +319,8 @@ export function BulkIncomingStockDialog({ open, onOpenChange }: BulkIncomingStoc
             setScanningIndex(null);
           }
         }}
-      />
+      /></Suspense>
+      )}
     </ConfirmableDialog>
   );
 }

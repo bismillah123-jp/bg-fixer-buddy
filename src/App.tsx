@@ -1,13 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
-import Index from "./pages/Index";
-import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
-import Callback from "./pages/Callback";
-import Settings from "./pages/Settings";
+const Index = lazy(() => import("./pages/Index"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const Callback = lazy(() => import("./pages/Callback"));
+const Settings = lazy(() => import("./pages/Settings"));
 import { supabase } from "./integrations/supabase/client";
 import { useRealtimeSubscription } from "./hooks/useRealtimeSubscription";
 import type { Session } from "@supabase/supabase-js";
@@ -55,6 +55,7 @@ const App = () => {
     <TooltipProvider>
       <Toaster />
       <Sonner />
+      <Suspense fallback={<div className="flex items-center justify-center h-screen"><div className="h-10 w-10 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>}>
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/callback" element={<Callback />} />
@@ -63,6 +64,7 @@ const App = () => {
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />
       </Routes>
+      </Suspense>
     </TooltipProvider>
   );
 };

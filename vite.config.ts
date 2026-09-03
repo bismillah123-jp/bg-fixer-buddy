@@ -18,6 +18,25 @@ export default defineConfig(({ mode }) => ({
     },
     dedupe: ["react", "react-dom"],
   },
+  esbuild: {
+    drop: mode === "production" ? ["console", "debugger"] : [],
+  },
+  build: {
+    target: "es2020",
+    cssCodeSplit: true,
+    chunkSizeWarningLimit: 900,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          react: ["react", "react-dom", "react-router-dom"],
+          supabase: ["@supabase/supabase-js"],
+          charts: ["recharts"],
+          scanner: ["html5-qrcode"],
+          markdown: ["react-markdown"],
+        },
+      },
+    },
+  },
   optimizeDeps: {
     include: ["react", "react-dom", "next-themes"],
   },
