@@ -309,7 +309,7 @@ export function BulkIncomingStockDialog({ open, onOpenChange }: BulkIncomingStoc
         </div>
       </DialogContent>
 
-      {scannerOpen && (
+      {scanningIndex !== null && (
         <Suspense fallback={null}><BarcodeScanner
         open={scanningIndex !== null}
         onOpenChange={(o) => !o && setScanningIndex(null)}
