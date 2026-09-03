@@ -386,7 +386,7 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
         </div>
       </DialogContent>
 
-      {scannerOpen && (
+      {scanningIndex !== null && (
         <Suspense fallback={null}><BarcodeScanner
         open={scanningIndex !== null}
         onOpenChange={(open) => !open && setScanningIndex(null)}
