@@ -96,7 +96,9 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    const today = new Date().toISOString().split("T")[0];
+    const todayDate = new Date();
+    const today = todayDate.toISOString().split("T")[0];
+    const yesterday = new Date(todayDate.getTime() - 24 * 60 * 60 * 1000).toISOString().split("T")[0];
 
     const { data: stockData } = await supabase
       .from("stock_entries")
@@ -107,23 +109,25 @@ serve(async (req) => {
       `)
       .eq("date", today)
       .order("date", { ascending: false })
-      .limit(500);
+      .limit(1000);
 
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-    const { data: recentSales } = await supabase
+    // === SEMUA RIWAYAT EVENT (semua tanggal) ===
+    const { data: allEvents } = await supabase
       .from("stock_events")
       .select(`
         date, imei, qty, event_type, metadata, label,
         phone_model:phone_models(brand, model, storage_capacity),
         location:stock_locations(name)
       `)
-      .eq("event_type", "laku")
-      .gte("date", thirtyDaysAgo)
       .order("date", { ascending: false })
-      .limit(500);
+      .limit(5000);
+
+    const events = allEvents || [];
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+    const recentSales = events.filter((e: any) => e.event_type === "laku" && e.date >= thirtyDaysAgo);
 
     const { data: locations } = await supabase.from("stock_locations").select("id, name");
-    const { data: phoneModels } = await supabase.from("phone_models").select("id, brand, model, storage_capacity, srp").limit(200);
+    const { data: phoneModels } = await supabase.from("phone_models").select("id, brand, model, storage_capacity, srp").limit(500);
     const { data: colors } = await supabase.from("phone_colors").select("id, name");
     const { data: labels } = await supabase.from("labels").select("id, name");
 
@@ -140,47 +144,102 @@ serve(async (req) => {
       stockSummary[key].incoming_today += entry.incoming;
     });
 
+    // === Rekap harian LENGKAP untuk SEMUA tanggal ===
+    type DayRec = { laku: number; masuk: number; retur: number; lain: number };
+    const daily: Record<string, DayRec> = {};
+    const perDayDetail: Record<string, string[]> = {};
     const salesByBrand: Record<string, number> = {};
-    const salesByDate: Record<string, number> = {};
-    recentSales?.forEach((sale: any) => {
-      const brand = sale.phone_model?.brand || "Unknown";
-      salesByBrand[brand] = (salesByBrand[brand] || 0) + sale.qty;
-      salesByDate[sale.date] = (salesByDate[sale.date] || 0) + sale.qty;
-    });
+    const incomingByBrand: Record<string, number> = {};
+    const salesByLocation: Record<string, number> = {};
+
+    for (const ev of events as any[]) {
+      const d = ev.date;
+      if (!daily[d]) daily[d] = { laku: 0, masuk: 0, retur: 0, lain: 0 };
+      const t = String(ev.event_type || "").toLowerCase();
+      const qty = ev.qty || 1;
+      if (t === "laku") daily[d].laku += qty;
+      else if (t === "masuk") daily[d].masuk += qty;
+      else if (t === "retur" || t === "return") daily[d].retur += qty;
+      else daily[d].lain += qty;
+
+      const brand = ev.phone_model?.brand || "Unknown";
+      if (t === "laku") {
+        salesByBrand[brand] = (salesByBrand[brand] || 0) + qty;
+        const loc = ev.location?.name || "Unknown";
+        salesByLocation[loc] = (salesByLocation[loc] || 0) + qty;
+      }
+      if (t === "masuk") incomingByBrand[brand] = (incomingByBrand[brand] || 0) + qty;
+
+      if (d === today || d === yesterday) {
+        (perDayDetail[d] ||= []).push(
+          `${t.toUpperCase()} | ${brand} ${ev.phone_model?.model || ""} ${ev.phone_model?.storage_capacity || ""} | Warna: ${ev.metadata?.color || "-"} | IMEI: ${ev.imei} | ${ev.location?.name || "-"} | Label: ${ev.label || "-"}`,
+        );
+      }
+    }
+
+    const sortedDays = Object.keys(daily).sort((a, b) => (a < b ? 1 : -1));
+    const totalAll = sortedDays.reduce(
+      (acc, d) => {
+        acc.laku += daily[d].laku; acc.masuk += daily[d].masuk; acc.retur += daily[d].retur;
+        return acc;
+      },
+      { laku: 0, masuk: 0, retur: 0 },
+    );
 
     const availableStock = stockData?.filter((e: any) => e.night_stock > 0) || [];
-    const soldImeis = new Set(recentSales?.map((s: any) => s.imei) || []);
+    const soldImeis = new Set(recentSales.map((s: any) => s.imei));
     const slowMoving = availableStock.filter((e: any) => e.imei && !soldImeis.has(e.imei));
 
     const contextData = `
+=== TANGGAL ACUAN ===
+Hari ini: ${today} | Kemarin: ${yesterday}
+Rentang data tersedia: ${sortedDays[sortedDays.length - 1] || "-"} s/d ${sortedDays[0] || "-"} (${sortedDays.length} hari)
+
 === DATA STOK HARI INI (${today}) ===
 Lokasi: ${locationNames}
 Total unit tersedia: ${availableStock.length}
 
 Ringkasan per Merk & Lokasi:
-${Object.values(stockSummary).map((s: any) => 
+${Object.values(stockSummary).map((s: any) =>
   `- ${s.brand} di ${s.location}: ${s.total} unit, terjual hari ini: ${s.sold_today}, masuk hari ini: ${s.incoming_today}`
-).join("\n")}
+).join("\n") || "Tidak ada data"}
+
+=== REKAP HARIAN SEMUA TANGGAL (terbaru → terlama) ===
+Total keseluruhan: laku ${totalAll.laku} | masuk ${totalAll.masuk} | retur ${totalAll.retur}
+${sortedDays.map((d) => `- ${d}: laku ${daily[d].laku}, masuk ${daily[d].masuk}, retur ${daily[d].retur}${daily[d].lain ? `, lainnya ${daily[d].lain}` : ""}`).join("\n") || "Tidak ada data"}
+
+=== DETAIL TRANSAKSI HARI INI (${today}) ===
+${(perDayDetail[today] || []).slice(0, 150).map((s) => `- ${s}`).join("\n") || "Belum ada transaksi hari ini"}
+
+=== DETAIL TRANSAKSI KEMARIN (${yesterday}) ===
+${(perDayDetail[yesterday] || []).slice(0, 150).map((s) => `- ${s}`).join("\n") || "Tidak ada transaksi kemarin"}
+
+=== PENJUALAN PER MERK (SEMUA WAKTU) ===
+${Object.entries(salesByBrand).sort((a, b) => b[1] - a[1]).map(([b, c]) => `${b}: ${c}`).join(", ") || "-"}
+
+=== BARANG MASUK PER MERK (SEMUA WAKTU) ===
+${Object.entries(incomingByBrand).sort((a, b) => b[1] - a[1]).map(([b, c]) => `${b}: ${c}`).join(", ") || "-"}
+
+=== PENJUALAN PER LOKASI (SEMUA WAKTU) ===
+${Object.entries(salesByLocation).sort((a, b) => b[1] - a[1]).map(([l, c]) => `${l}: ${c}`).join(", ") || "-"}
 
 === PENJUALAN 30 HARI TERAKHIR ===
-Total terjual: ${recentSales?.length || 0} unit
-Per Merk: ${Object.entries(salesByBrand).map(([b, c]) => `${b}: ${c}`).join(", ")}
-Tren harian (5 hari terakhir): ${Object.entries(salesByDate).slice(0, 5).map(([d, c]) => `${d}: ${c} unit`).join(", ")}
+Total terjual: ${recentSales.length} unit
 
 === STOK LAMBAT TERJUAL ===
-${slowMoving.slice(0, 20).map((e: any) => 
+${slowMoving.slice(0, 20).map((e: any) =>
   `- ${e.phone_model?.brand} ${e.phone_model?.model} ${e.phone_model?.storage_capacity || ""} (IMEI: ${e.imei}) di ${e.location?.name}`
 ).join("\n") || "Tidak ada data"}
 
 === DETAIL STOK TERSEDIA ===
-${availableStock.slice(0, 50).map((e: any) => {
+${availableStock.slice(0, 120).map((e: any) => {
   const color = e.metadata?.color || "-";
   return `- id:${e.id} | ${e.phone_model?.brand} ${e.phone_model?.model} ${e.phone_model?.storage_capacity || ""} | Warna: ${color} | IMEI: ${e.imei} | Lokasi: ${e.location?.name} | Label: ${e.label || "-"}`;
-}).join("\n")}
+}).join("\n") || "Tidak ada data"}
 
 === REFERENSI ID (untuk aksi) ===
 Lokasi: ${locations?.map((l: any) => `${l.name}=${l.id}`).join(", ")}
-Model HP (sebagian): ${phoneModels?.slice(0, 50).map((p: any) => `${p.brand} ${p.model} ${p.storage_capacity || ""}=${p.id}`).join(", ")}
+Model HP: ${phoneModels?.slice(0, 150).map((p: any) => `${p.brand} ${p.model} ${p.storage_capacity || ""}=${p.id}`).join(", ")}
 Warna: ${colors?.map((c: any) => c.name).join(", ")}
 Label: ${labels?.map((l: any) => l.name).join(", ")}
 `;
