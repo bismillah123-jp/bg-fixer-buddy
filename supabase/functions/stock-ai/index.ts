@@ -120,7 +120,18 @@ serve(async (req) => {
         location:stock_locations(name)
       `)
       .order("date", { ascending: false })
-      .limit(5000);
+      .limit(20000);
+
+    // === STOK PAGI/MALAM SEMUA TANGGAL (dari stock_entries) ===
+    const { data: allEntries } = await supabase
+      .from("stock_entries")
+      .select(`
+        date, imei, morning_stock, incoming, add_stock, returns, sold, adjustment, night_stock,
+        phone_model:phone_models(brand, model, storage_capacity),
+        location:stock_locations(name)
+      `)
+      .order("date", { ascending: false })
+      .limit(20000);
 
     const events = allEvents || [];
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
@@ -170,12 +181,31 @@ serve(async (req) => {
       }
       if (t === "masuk") incomingByBrand[brand] = (incomingByBrand[brand] || 0) + qty;
 
-      if (d === today || d === yesterday) {
-        (perDayDetail[d] ||= []).push(
-          `${t.toUpperCase()} | ${brand} ${ev.phone_model?.model || ""} ${ev.phone_model?.storage_capacity || ""} | Warna: ${ev.metadata?.color || "-"} | IMEI: ${ev.imei} | ${ev.location?.name || "-"} | Label: ${ev.label || "-"}`,
-        );
-      }
+      // Detail untuk SEMUA tanggal (bukan cuma hari ini/kemarin)
+      (perDayDetail[d] ||= []).push(
+        `${t.toUpperCase()} | ${brand} ${ev.phone_model?.model || ""} ${ev.phone_model?.storage_capacity || ""} | Warna: ${ev.metadata?.color || "-"} | IMEI: ${ev.imei} | ${ev.location?.name || "-"} | Label: ${ev.label || "-"}`,
+      );
     }
+
+    // === Rekap stok pagi/malam per tanggal dari stock_entries (SEMUA tanggal) ===
+    const entries = allEntries || [];
+    const dailyStock: Record<string, { pagi: number; malam: number; masuk: number; laku: number; retur: number; koreksi: number }> = {};
+    const entryDetail: Record<string, string[]> = {};
+    for (const en of entries as any[]) {
+      const d = en.date;
+      if (!dailyStock[d]) dailyStock[d] = { pagi: 0, malam: 0, masuk: 0, laku: 0, retur: 0, koreksi: 0 };
+      dailyStock[d].pagi += en.morning_stock || 0;
+      dailyStock[d].malam += en.night_stock || 0;
+      dailyStock[d].masuk += (en.incoming || 0) + (en.add_stock || 0);
+      dailyStock[d].laku += en.sold || 0;
+      dailyStock[d].retur += en.returns || 0;
+      dailyStock[d].koreksi += en.adjustment || 0;
+
+      (entryDetail[d] ||= []).push(
+        `${en.phone_model?.brand || "-"} ${en.phone_model?.model || ""} ${en.phone_model?.storage_capacity || ""} | IMEI: ${en.imei || "-"} | ${en.location?.name || "-"} | Pagi: ${en.morning_stock ?? 0} | Masuk: ${(en.incoming ?? 0) + (en.add_stock ?? 0)} | Laku: ${en.sold ?? 0} | Retur: ${en.returns ?? 0} | Koreksi: ${en.adjustment ?? 0} | Malam: ${en.night_stock ?? 0}`,
+      );
+    }
+    const sortedStockDays = Object.keys(dailyStock).sort((a, b) => (a < b ? 1 : -1));
 
     const sortedDays = Object.keys(daily).sort((a, b) => (a < b ? 1 : -1));
     const totalAll = sortedDays.reduce(
@@ -208,11 +238,14 @@ ${Object.values(stockSummary).map((s: any) =>
 Total keseluruhan: laku ${totalAll.laku} | masuk ${totalAll.masuk} | retur ${totalAll.retur}
 ${sortedDays.map((d) => `- ${d}: laku ${daily[d].laku}, masuk ${daily[d].masuk}, retur ${daily[d].retur}${daily[d].lain ? `, lainnya ${daily[d].lain}` : ""}`).join("\n") || "Tidak ada data"}
 
-=== DETAIL TRANSAKSI HARI INI (${today}) ===
-${(perDayDetail[today] || []).slice(0, 150).map((s) => `- ${s}`).join("\n") || "Belum ada transaksi hari ini"}
+=== STOK PAGI & MALAM PER TANGGAL (SEMUA TANGGAL & TAHUN) ===
+${sortedStockDays.map((d) => `- ${d}: stok pagi ${dailyStock[d].pagi}, masuk ${dailyStock[d].masuk}, laku ${dailyStock[d].laku}, retur ${dailyStock[d].retur}, koreksi ${dailyStock[d].koreksi}, stok malam ${dailyStock[d].malam}`).join("\n") || "Tidak ada data"}
 
-=== DETAIL TRANSAKSI KEMARIN (${yesterday}) ===
-${(perDayDetail[yesterday] || []).slice(0, 150).map((s) => `- ${s}`).join("\n") || "Tidak ada transaksi kemarin"}
+=== DETAIL STOK PER TANGGAL (per unit: pagi/masuk/laku/retur/koreksi/malam) ===
+${sortedStockDays.map((d) => `[${d}]\n${(entryDetail[d] || []).slice(0, 200).map((s) => `- ${s}`).join("\n") || "(kosong)"}`).join("\n") || "Tidak ada data"}
+
+=== DETAIL TRANSAKSI PER TANGGAL (SEMUA TANGGAL: laku, masuk, retur, dll) ===
+${sortedDays.map((d) => `[${d}]\n${(perDayDetail[d] || []).slice(0, 200).map((s) => `- ${s}`).join("\n") || "(kosong)"}`).join("\n") || "Tidak ada data"}
 
 === PENJUALAN PER MERK (SEMUA WAKTU) ===
 ${Object.entries(salesByBrand).sort((a, b) => b[1] - a[1]).map(([b, c]) => `${b}: ${c}`).join(", ") || "-"}
@@ -266,7 +299,8 @@ Contoh: "Boleh hubungi Ihsan langsung di sini ya 👉 [Click here](https://wa.me
 - Untuk obrolan santai/curhat: JANGAN paksa bahas stok. Jadi pendengar dulu, bales kayak sahabat dekat. Boleh kasih semangat, perspektif, atau saran kecil kalau diminta.
 
 == CARA PAKAI DATA (WAJIB) ==
-- Kamu punya REKAP HARIAN SEMUA TANGGAL (laku, masuk, retur per tanggal) + DETAIL TRANSAKSI HARI INI & KEMARIN. Pakai itu untuk jawab pertanyaan tanggal apa pun ("hari ini", "kemarin", "tanggal 3", "minggu lalu", "bulan ini").
+- Kamu punya data LENGKAP SEMUA TANGGAL & TAHUN: rekap harian (laku/masuk/retur), stok pagi & malam per tanggal, DETAIL STOK PER TANGGAL per unit (pagi, masuk, laku, retur, koreksi, malam), dan DETAIL TRANSAKSI PER TANGGAL (tipe, merk, tipe, RAM/ROM, warna, IMEI, lokasi, label). Pakai semua itu untuk jawab pertanyaan tanggal/perioda apa pun ("hari ini", "kemarin", "tanggal 3", "minggu lalu", "bulan lalu", "tahun 2025", dst).
+- Kalau ditanya detail laku / detail masuk / detail stok pagi / detail stok malam di tanggal tertentu, ambil dari bagian DETAIL TRANSAKSI PER TANGGAL dan DETAIL STOK PER TANGGAL — sebutkan unit per unit kalau diminta detail.
 - Kalau ditanya perbandingan antar tanggal/periode, hitung sendiri dari rekap harian dan sajikan tabel markdown singkat + kesimpulan.
 - JANGAN bilang "tidak punya data" kalau tanggalnya ada di rekap. Kalau tanggal di luar rentang data, sebutkan rentang data yang tersedia.
 - Selalu sebut angka konkret (jumlah unit, merk, lokasi) — jangan jawab mengambang.
