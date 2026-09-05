@@ -120,7 +120,18 @@ serve(async (req) => {
         location:stock_locations(name)
       `)
       .order("date", { ascending: false })
-      .limit(5000);
+      .limit(20000);
+
+    // === STOK PAGI/MALAM SEMUA TANGGAL (dari stock_entries) ===
+    const { data: allEntries } = await supabase
+      .from("stock_entries")
+      .select(`
+        date, imei, morning_stock, incoming, add_stock, returns, sold, adjustment, night_stock,
+        phone_model:phone_models(brand, model, storage_capacity),
+        location:stock_locations(name)
+      `)
+      .order("date", { ascending: false })
+      .limit(20000);
 
     const events = allEvents || [];
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
