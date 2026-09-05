@@ -561,6 +561,7 @@ export function AIChatPage() {
 
     setIsLoading(false);
     abortRef.current = null;
+    requestAnimationFrame(() => inputRef.current?.focus());
   };
 
   const stopGenerating = () => {
