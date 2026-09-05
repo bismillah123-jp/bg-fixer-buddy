@@ -181,12 +181,31 @@ serve(async (req) => {
       }
       if (t === "masuk") incomingByBrand[brand] = (incomingByBrand[brand] || 0) + qty;
 
-      if (d === today || d === yesterday) {
-        (perDayDetail[d] ||= []).push(
-          `${t.toUpperCase()} | ${brand} ${ev.phone_model?.model || ""} ${ev.phone_model?.storage_capacity || ""} | Warna: ${ev.metadata?.color || "-"} | IMEI: ${ev.imei} | ${ev.location?.name || "-"} | Label: ${ev.label || "-"}`,
-        );
-      }
+      // Detail untuk SEMUA tanggal (bukan cuma hari ini/kemarin)
+      (perDayDetail[d] ||= []).push(
+        `${t.toUpperCase()} | ${brand} ${ev.phone_model?.model || ""} ${ev.phone_model?.storage_capacity || ""} | Warna: ${ev.metadata?.color || "-"} | IMEI: ${ev.imei} | ${ev.location?.name || "-"} | Label: ${ev.label || "-"}`,
+      );
     }
+
+    // === Rekap stok pagi/malam per tanggal dari stock_entries (SEMUA tanggal) ===
+    const entries = allEntries || [];
+    const dailyStock: Record<string, { pagi: number; malam: number; masuk: number; laku: number; retur: number; koreksi: number }> = {};
+    const entryDetail: Record<string, string[]> = {};
+    for (const en of entries as any[]) {
+      const d = en.date;
+      if (!dailyStock[d]) dailyStock[d] = { pagi: 0, malam: 0, masuk: 0, laku: 0, retur: 0, koreksi: 0 };
+      dailyStock[d].pagi += en.morning_stock || 0;
+      dailyStock[d].malam += en.night_stock || 0;
+      dailyStock[d].masuk += (en.incoming || 0) + (en.add_stock || 0);
+      dailyStock[d].laku += en.sold || 0;
+      dailyStock[d].retur += en.returns || 0;
+      dailyStock[d].koreksi += en.adjustment || 0;
+
+      (entryDetail[d] ||= []).push(
+        `${en.phone_model?.brand || "-"} ${en.phone_model?.model || ""} ${en.phone_model?.storage_capacity || ""} | IMEI: ${en.imei || "-"} | ${en.location?.name || "-"} | Pagi: ${en.morning_stock ?? 0} | Masuk: ${(en.incoming ?? 0) + (en.add_stock ?? 0)} | Laku: ${en.sold ?? 0} | Retur: ${en.returns ?? 0} | Koreksi: ${en.adjustment ?? 0} | Malam: ${en.night_stock ?? 0}`,
+      );
+    }
+    const sortedStockDays = Object.keys(dailyStock).sort((a, b) => (a < b ? 1 : -1));
 
     const sortedDays = Object.keys(daily).sort((a, b) => (a < b ? 1 : -1));
     const totalAll = sortedDays.reduce(
