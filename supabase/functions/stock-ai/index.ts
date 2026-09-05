@@ -238,11 +238,14 @@ ${Object.values(stockSummary).map((s: any) =>
 Total keseluruhan: laku ${totalAll.laku} | masuk ${totalAll.masuk} | retur ${totalAll.retur}
 ${sortedDays.map((d) => `- ${d}: laku ${daily[d].laku}, masuk ${daily[d].masuk}, retur ${daily[d].retur}${daily[d].lain ? `, lainnya ${daily[d].lain}` : ""}`).join("\n") || "Tidak ada data"}
 
-=== DETAIL TRANSAKSI HARI INI (${today}) ===
-${(perDayDetail[today] || []).slice(0, 150).map((s) => `- ${s}`).join("\n") || "Belum ada transaksi hari ini"}
+=== STOK PAGI & MALAM PER TANGGAL (SEMUA TANGGAL & TAHUN) ===
+${sortedStockDays.map((d) => `- ${d}: stok pagi ${dailyStock[d].pagi}, masuk ${dailyStock[d].masuk}, laku ${dailyStock[d].laku}, retur ${dailyStock[d].retur}, koreksi ${dailyStock[d].koreksi}, stok malam ${dailyStock[d].malam}`).join("\n") || "Tidak ada data"}
 
-=== DETAIL TRANSAKSI KEMARIN (${yesterday}) ===
-${(perDayDetail[yesterday] || []).slice(0, 150).map((s) => `- ${s}`).join("\n") || "Tidak ada transaksi kemarin"}
+=== DETAIL STOK PER TANGGAL (per unit: pagi/masuk/laku/retur/koreksi/malam) ===
+${sortedStockDays.map((d) => `[${d}]\n${(entryDetail[d] || []).slice(0, 200).map((s) => `- ${s}`).join("\n") || "(kosong)"}`).join("\n") || "Tidak ada data"}
+
+=== DETAIL TRANSAKSI PER TANGGAL (SEMUA TANGGAL: laku, masuk, retur, dll) ===
+${sortedDays.map((d) => `[${d}]\n${(perDayDetail[d] || []).slice(0, 200).map((s) => `- ${s}`).join("\n") || "(kosong)"}`).join("\n") || "Tidak ada data"}
 
 === PENJUALAN PER MERK (SEMUA WAKTU) ===
 ${Object.entries(salesByBrand).sort((a, b) => b[1] - a[1]).map(([b, c]) => `${b}: ${c}`).join(", ") || "-"}
