@@ -462,6 +462,8 @@ export function AIChatPage() {
     setMessages(newMessages);
     setInput("");
     setIsLoading(true);
+    // keep the caret in the box so the user can keep typing right away
+    requestAnimationFrame(() => inputRef.current?.focus());
 
     let assistantSoFar = "";
     const upsertAssistant = (chunk: string) => {
@@ -559,6 +561,7 @@ export function AIChatPage() {
 
     setIsLoading(false);
     abortRef.current = null;
+    requestAnimationFrame(() => inputRef.current?.focus());
   };
 
   const stopGenerating = () => {
@@ -713,10 +716,9 @@ export function AIChatPage() {
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
-                  sendMessage(input);
+                  if (!isLoading) sendMessage(input);
                 }
               }}
-              disabled={isLoading}
               rows={1}
               className="flex-1 resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 text-sm py-2 px-2.5 min-h-[36px] max-h-[160px] shadow-none"
             />
