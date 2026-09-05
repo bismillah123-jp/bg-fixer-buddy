@@ -462,6 +462,8 @@ export function AIChatPage() {
     setMessages(newMessages);
     setInput("");
     setIsLoading(true);
+    // keep the caret in the box so the user can keep typing right away
+    requestAnimationFrame(() => inputRef.current?.focus());
 
     let assistantSoFar = "";
     const upsertAssistant = (chunk: string) => {
