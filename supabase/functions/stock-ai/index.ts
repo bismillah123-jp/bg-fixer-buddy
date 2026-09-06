@@ -91,15 +91,56 @@ serve(async (req) => {
       }
     }
 
-    // === Mode: chat (default) ===
+    // === Mode: chat (default) — streaming dengan status realtime ===
     const { messages } = body;
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
+    const stream = new TransformStream();
+    const writer = stream.getWriter();
+    const enc = new TextEncoder();
+    const sendFrame = (s: string) => writer.write(enc.encode(s));
+    const sendStatus = (label: string) =>
+      sendFrame(`event: status\ndata: ${JSON.stringify({ label })}\n\n`);
+    const sendError = (message: string) =>
+      sendFrame(`event: error\ndata: ${JSON.stringify({ error: message })}\n\n`);
+
+    (async () => {
+      try {
+        await runChat(supabase, LOVABLE_API_KEY, messages, sendStatus, sendError, writer);
+      } catch (e: any) {
+        console.error("stock-ai chat error:", e);
+        try { await sendError(e?.message || "Gagal menghubungi AI"); } catch { /* closed */ }
+      } finally {
+        try { await writer.close(); } catch { /* already closed */ }
+      }
+    })();
+
+    return new Response(stream.readable, {
+      headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
+    });
+  } catch (e) {
+    console.error("stock-ai error:", e);
+    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+});
+
+// ===== Chat pipeline: query DB sambil kirim status realtime, lalu stream jawaban AI =====
+async function runChat(
+  supabase: any,
+  LOVABLE_API_KEY: string,
+  messages: any[],
+  sendStatus: (label: string) => Promise<void>,
+  sendError: (message: string) => Promise<void>,
+  writer: WritableStreamDefaultWriter<Uint8Array>,
+) {
     const todayDate = new Date();
     const today = todayDate.toISOString().split("T")[0];
     const yesterday = new Date(todayDate.getTime() - 24 * 60 * 60 * 1000).toISOString().split("T")[0];
 
+    await sendStatus("📦 Membaca data stok hari ini...");
     const { data: stockData } = await supabase
       .from("stock_entries")
       .select(`
