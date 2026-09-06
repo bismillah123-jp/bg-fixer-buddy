@@ -165,6 +165,7 @@ async function runChat(
       .limit(20000);
 
     // === STOK PAGI/MALAM SEMUA TANGGAL (dari stock_entries) ===
+    await sendStatus("🌙 Membaca stok pagi & malam semua tanggal...");
     const { data: allEntries } = await supabase
       .from("stock_entries")
       .select(`
