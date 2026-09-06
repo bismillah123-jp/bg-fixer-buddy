@@ -180,6 +180,7 @@ async function runChat(
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
     const recentSales = events.filter((e: any) => e.event_type === "laku" && e.date >= thirtyDaysAgo);
 
+    await sendStatus("📊 Menganalisis & merangkum data...");
     const { data: locations } = await supabase.from("stock_locations").select("id, name");
     const { data: phoneModels } = await supabase.from("phone_models").select("id, brand, model, storage_capacity, srp").limit(500);
     const { data: colors } = await supabase.from("phone_colors").select("id, name");
