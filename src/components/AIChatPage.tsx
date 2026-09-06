@@ -82,12 +82,19 @@ const TYPE_META: Record<
   },
 };
 
-function TypingIndicator() {
+function TypingIndicator({ status }: { status?: string }) {
   return (
-    <div className="bg-card border border-border/50 rounded-2xl rounded-bl-sm px-4 py-3 flex items-center gap-1.5 shadow-sm">
-      <span className="w-1.5 h-1.5 rounded-full bg-primary/70 animate-[bounce_1.4s_ease-in-out_infinite]" />
-      <span className="w-1.5 h-1.5 rounded-full bg-primary/70 animate-[bounce_1.4s_ease-in-out_0.15s_infinite]" />
-      <span className="w-1.5 h-1.5 rounded-full bg-primary/70 animate-[bounce_1.4s_ease-in-out_0.3s_infinite]" />
+    <div className="bg-card border border-border/50 rounded-2xl rounded-bl-sm px-4 py-3 flex flex-col gap-1.5 shadow-sm min-w-[180px]">
+      {status && (
+        <span key={status} className="text-xs text-muted-foreground animate-fade-in">
+          {status}
+        </span>
+      )}
+      <div className="flex items-center gap-1.5">
+        <span className="w-1.5 h-1.5 rounded-full bg-primary/70 animate-[bounce_1.4s_ease-in-out_infinite]" />
+        <span className="w-1.5 h-1.5 rounded-full bg-primary/70 animate-[bounce_1.4s_ease-in-out_0.15s_infinite]" />
+        <span className="w-1.5 h-1.5 rounded-full bg-primary/70 animate-[bounce_1.4s_ease-in-out_0.3s_infinite]" />
+      </div>
     </div>
   );
 }
@@ -336,6 +343,7 @@ export function AIChatPage() {
   });
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [statusText, setStatusText] = useState<string | null>(null);
   const [showScrollDown, setShowScrollDown] = useState(false);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
