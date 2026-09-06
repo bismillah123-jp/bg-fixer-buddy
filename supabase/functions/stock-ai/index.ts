@@ -153,6 +153,7 @@ async function runChat(
       .limit(1000);
 
     // === SEMUA RIWAYAT EVENT (semua tanggal) ===
+    await sendStatus("📜 Membaca riwayat transaksi semua tanggal...");
     const { data: allEvents } = await supabase
       .from("stock_events")
       .select(`
@@ -406,6 +407,7 @@ Klik Setujui untuk menyimpan."
 
 ${contextData}`;
 
+    await sendStatus("🧠 Shania sedang berpikir...");
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
@@ -417,29 +419,26 @@ ${contextData}`;
 
     if (!response.ok) {
       if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Terlalu banyak permintaan, coba lagi nanti." }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        await sendError("Terlalu banyak permintaan, coba lagi nanti.");
+        return;
       }
       if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Kredit AI habis, silakan top up di Lovable." }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        await sendError("Kredit AI habis, silakan top up di Lovable.");
+        return;
       }
       const t = await response.text();
       console.error("AI gateway error:", response.status, t);
-      return new Response(JSON.stringify({ error: "Gagal menghubungi AI" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      await sendError("Gagal menghubungi AI");
+      return;
     }
 
-    return new Response(response.body, {
-      headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
-    });
-  } catch (e) {
-    console.error("stock-ai error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-});
+    await sendStatus("✍️ Menyusun jawaban...");
+    if (response.body) {
+      const reader = response.body.getReader();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        await writer.write(value);
+      }
+    }
+}
