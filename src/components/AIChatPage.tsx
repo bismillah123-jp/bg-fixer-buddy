@@ -507,6 +507,7 @@ export function AIChatPage() {
         const err = await resp.json().catch(() => ({ error: "Gagal menghubungi AI" }));
         upsertAssistant(`❌ ${err.error || "Terjadi kesalahan"}`);
         setIsLoading(false);
+        setStatusText(null);
         return;
       }
       if (!resp.body) throw new Error("No response body");
@@ -588,6 +589,7 @@ export function AIChatPage() {
     }
 
     setIsLoading(false);
+    setStatusText(null);
     abortRef.current = null;
     requestAnimationFrame(() => inputRef.current?.focus());
   };
@@ -595,6 +597,7 @@ export function AIChatPage() {
   const stopGenerating = () => {
     abortRef.current?.abort();
     setIsLoading(false);
+    setStatusText(null);
   };
 
   const clearChat = () => {
@@ -624,8 +627,8 @@ export function AIChatPage() {
                 <Shield className="h-2.5 w-2.5" /> Admin
               </Badge>
             </div>
-            <p className="text-[11px] text-muted-foreground">
-              {isLoading ? "Sedang mengetik..." : "Asisten AI · by Ihsan"}
+            <p className="text-[11px] text-muted-foreground truncate max-w-[200px] md:max-w-xs">
+              {isLoading ? (statusText || "Sedang mengetik...") : "Asisten AI · by Ihsan"}
             </p>
           </div>
         </div>
@@ -713,7 +716,7 @@ export function AIChatPage() {
             <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shrink-0 shadow-md shadow-primary/20">
               <Sparkles className="h-4 w-4 text-primary-foreground" />
             </div>
-            <TypingIndicator />
+            <TypingIndicator status={statusText ?? undefined} />
           </div>
         )}
 
