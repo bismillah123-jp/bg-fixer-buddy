@@ -470,6 +470,7 @@ export function AIChatPage() {
     setMessages(newMessages);
     setInput("");
     setIsLoading(true);
+    setStatusText("📡 Menghubungi Shania...");
     // keep the caret in the box so the user can keep typing right away
     requestAnimationFrame(() => inputRef.current?.focus());
 
@@ -514,6 +515,7 @@ export function AIChatPage() {
       const decoder = new TextDecoder();
       let textBuffer = "";
       let streamDone = false;
+      let pendingEvent = "";
 
       while (!streamDone) {
         const { done, value } = await reader.read();
@@ -526,6 +528,10 @@ export function AIChatPage() {
           textBuffer = textBuffer.slice(newlineIndex + 1);
           if (line.endsWith("\r")) line = line.slice(0, -1);
           if (line.startsWith(":") || line.trim() === "") continue;
+          if (line.startsWith("event: ")) {
+            pendingEvent = line.slice(7).trim();
+            continue;
+          }
           if (!line.startsWith("data: ")) continue;
           const jsonStr = line.slice(6).trim();
           if (jsonStr === "[DONE]") {
@@ -534,8 +540,22 @@ export function AIChatPage() {
           }
           try {
             const parsed = JSON.parse(jsonStr);
+            if (pendingEvent === "status") {
+              pendingEvent = "";
+              setStatusText(parsed.label ?? null);
+              continue;
+            }
+            if (pendingEvent === "error") {
+              pendingEvent = "";
+              upsertAssistant(`❌ ${parsed.error || "Terjadi kesalahan"}`);
+              continue;
+            }
+            pendingEvent = "";
             const content = parsed.choices?.[0]?.delta?.content as string | undefined;
-            if (content) upsertAssistant(content);
+            if (content) {
+              setStatusText(null);
+              upsertAssistant(content);
+            }
           } catch {
             textBuffer = line + "\n" + textBuffer;
             break;
