@@ -91,15 +91,56 @@ serve(async (req) => {
       }
     }
 
-    // === Mode: chat (default) ===
+    // === Mode: chat (default) — streaming dengan status realtime ===
     const { messages } = body;
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
+    const stream = new TransformStream();
+    const writer = stream.getWriter();
+    const enc = new TextEncoder();
+    const sendFrame = (s: string) => writer.write(enc.encode(s));
+    const sendStatus = (label: string) =>
+      sendFrame(`event: status\ndata: ${JSON.stringify({ label })}\n\n`);
+    const sendError = (message: string) =>
+      sendFrame(`event: error\ndata: ${JSON.stringify({ error: message })}\n\n`);
+
+    (async () => {
+      try {
+        await runChat(supabase, LOVABLE_API_KEY, messages, sendStatus, sendError, writer);
+      } catch (e: any) {
+        console.error("stock-ai chat error:", e);
+        try { await sendError(e?.message || "Gagal menghubungi AI"); } catch { /* closed */ }
+      } finally {
+        try { await writer.close(); } catch { /* already closed */ }
+      }
+    })();
+
+    return new Response(stream.readable, {
+      headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
+    });
+  } catch (e) {
+    console.error("stock-ai error:", e);
+    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+});
+
+// ===== Chat pipeline: query DB sambil kirim status realtime, lalu stream jawaban AI =====
+async function runChat(
+  supabase: any,
+  LOVABLE_API_KEY: string,
+  messages: any[],
+  sendStatus: (label: string) => Promise<void>,
+  sendError: (message: string) => Promise<void>,
+  writer: WritableStreamDefaultWriter<Uint8Array>,
+) {
     const todayDate = new Date();
     const today = todayDate.toISOString().split("T")[0];
     const yesterday = new Date(todayDate.getTime() - 24 * 60 * 60 * 1000).toISOString().split("T")[0];
 
+    await sendStatus("📦 Membaca data stok hari ini...");
     const { data: stockData } = await supabase
       .from("stock_entries")
       .select(`
@@ -112,6 +153,7 @@ serve(async (req) => {
       .limit(1000);
 
     // === SEMUA RIWAYAT EVENT (semua tanggal) ===
+    await sendStatus("📜 Membaca riwayat transaksi semua tanggal...");
     const { data: allEvents } = await supabase
       .from("stock_events")
       .select(`
@@ -123,6 +165,7 @@ serve(async (req) => {
       .limit(20000);
 
     // === STOK PAGI/MALAM SEMUA TANGGAL (dari stock_entries) ===
+    await sendStatus("🌙 Membaca stok pagi & malam semua tanggal...");
     const { data: allEntries } = await supabase
       .from("stock_entries")
       .select(`
@@ -137,6 +180,7 @@ serve(async (req) => {
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
     const recentSales = events.filter((e: any) => e.event_type === "laku" && e.date >= thirtyDaysAgo);
 
+    await sendStatus("📊 Menganalisis & merangkum data...");
     const { data: locations } = await supabase.from("stock_locations").select("id, name");
     const { data: phoneModels } = await supabase.from("phone_models").select("id, brand, model, storage_capacity, srp").limit(500);
     const { data: colors } = await supabase.from("phone_colors").select("id, name");
@@ -365,6 +409,7 @@ Klik Setujui untuk menyimpan."
 
 ${contextData}`;
 
+    await sendStatus("🧠 Shania sedang berpikir...");
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
@@ -376,29 +421,26 @@ ${contextData}`;
 
     if (!response.ok) {
       if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Terlalu banyak permintaan, coba lagi nanti." }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        await sendError("Terlalu banyak permintaan, coba lagi nanti.");
+        return;
       }
       if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Kredit AI habis, silakan top up di Lovable." }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        await sendError("Kredit AI habis, silakan top up di Lovable.");
+        return;
       }
       const t = await response.text();
       console.error("AI gateway error:", response.status, t);
-      return new Response(JSON.stringify({ error: "Gagal menghubungi AI" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      await sendError("Gagal menghubungi AI");
+      return;
     }
 
-    return new Response(response.body, {
-      headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
-    });
-  } catch (e) {
-    console.error("stock-ai error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-});
+    await sendStatus("✍️ Menyusun jawaban...");
+    if (response.body) {
+      const reader = response.body.getReader();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        await writer.write(value);
+      }
+    }
+}

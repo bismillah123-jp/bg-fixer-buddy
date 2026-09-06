@@ -82,12 +82,19 @@ const TYPE_META: Record<
   },
 };
 
-function TypingIndicator() {
+function TypingIndicator({ status }: { status?: string }) {
   return (
-    <div className="bg-card border border-border/50 rounded-2xl rounded-bl-sm px-4 py-3 flex items-center gap-1.5 shadow-sm">
-      <span className="w-1.5 h-1.5 rounded-full bg-primary/70 animate-[bounce_1.4s_ease-in-out_infinite]" />
-      <span className="w-1.5 h-1.5 rounded-full bg-primary/70 animate-[bounce_1.4s_ease-in-out_0.15s_infinite]" />
-      <span className="w-1.5 h-1.5 rounded-full bg-primary/70 animate-[bounce_1.4s_ease-in-out_0.3s_infinite]" />
+    <div className="bg-card border border-border/50 rounded-2xl rounded-bl-sm px-4 py-3 flex flex-col gap-1.5 shadow-sm min-w-[180px]">
+      {status && (
+        <span key={status} className="text-xs text-muted-foreground animate-fade-in">
+          {status}
+        </span>
+      )}
+      <div className="flex items-center gap-1.5">
+        <span className="w-1.5 h-1.5 rounded-full bg-primary/70 animate-[bounce_1.4s_ease-in-out_infinite]" />
+        <span className="w-1.5 h-1.5 rounded-full bg-primary/70 animate-[bounce_1.4s_ease-in-out_0.15s_infinite]" />
+        <span className="w-1.5 h-1.5 rounded-full bg-primary/70 animate-[bounce_1.4s_ease-in-out_0.3s_infinite]" />
+      </div>
     </div>
   );
 }
@@ -336,6 +343,7 @@ export function AIChatPage() {
   });
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [statusText, setStatusText] = useState<string | null>(null);
   const [showScrollDown, setShowScrollDown] = useState(false);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -462,6 +470,7 @@ export function AIChatPage() {
     setMessages(newMessages);
     setInput("");
     setIsLoading(true);
+    setStatusText("📡 Menghubungi Shania...");
     // keep the caret in the box so the user can keep typing right away
     requestAnimationFrame(() => inputRef.current?.focus());
 
@@ -498,6 +507,7 @@ export function AIChatPage() {
         const err = await resp.json().catch(() => ({ error: "Gagal menghubungi AI" }));
         upsertAssistant(`❌ ${err.error || "Terjadi kesalahan"}`);
         setIsLoading(false);
+        setStatusText(null);
         return;
       }
       if (!resp.body) throw new Error("No response body");
@@ -506,6 +516,7 @@ export function AIChatPage() {
       const decoder = new TextDecoder();
       let textBuffer = "";
       let streamDone = false;
+      let pendingEvent = "";
 
       while (!streamDone) {
         const { done, value } = await reader.read();
@@ -518,6 +529,10 @@ export function AIChatPage() {
           textBuffer = textBuffer.slice(newlineIndex + 1);
           if (line.endsWith("\r")) line = line.slice(0, -1);
           if (line.startsWith(":") || line.trim() === "") continue;
+          if (line.startsWith("event: ")) {
+            pendingEvent = line.slice(7).trim();
+            continue;
+          }
           if (!line.startsWith("data: ")) continue;
           const jsonStr = line.slice(6).trim();
           if (jsonStr === "[DONE]") {
@@ -526,8 +541,22 @@ export function AIChatPage() {
           }
           try {
             const parsed = JSON.parse(jsonStr);
+            if (pendingEvent === "status") {
+              pendingEvent = "";
+              setStatusText(parsed.label ?? null);
+              continue;
+            }
+            if (pendingEvent === "error") {
+              pendingEvent = "";
+              upsertAssistant(`❌ ${parsed.error || "Terjadi kesalahan"}`);
+              continue;
+            }
+            pendingEvent = "";
             const content = parsed.choices?.[0]?.delta?.content as string | undefined;
-            if (content) upsertAssistant(content);
+            if (content) {
+              setStatusText(null);
+              upsertAssistant(content);
+            }
           } catch {
             textBuffer = line + "\n" + textBuffer;
             break;
@@ -560,6 +589,7 @@ export function AIChatPage() {
     }
 
     setIsLoading(false);
+    setStatusText(null);
     abortRef.current = null;
     requestAnimationFrame(() => inputRef.current?.focus());
   };
@@ -567,6 +597,7 @@ export function AIChatPage() {
   const stopGenerating = () => {
     abortRef.current?.abort();
     setIsLoading(false);
+    setStatusText(null);
   };
 
   const clearChat = () => {
@@ -596,8 +627,8 @@ export function AIChatPage() {
                 <Shield className="h-2.5 w-2.5" /> Admin
               </Badge>
             </div>
-            <p className="text-[11px] text-muted-foreground">
-              {isLoading ? "Sedang mengetik..." : "Asisten AI · by Ihsan"}
+            <p className="text-[11px] text-muted-foreground truncate max-w-[200px] md:max-w-xs">
+              {isLoading ? (statusText || "Sedang mengetik...") : "Asisten AI · by Ihsan"}
             </p>
           </div>
         </div>
@@ -685,7 +716,7 @@ export function AIChatPage() {
             <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shrink-0 shadow-md shadow-primary/20">
               <Sparkles className="h-4 w-4 text-primary-foreground" />
             </div>
-            <TypingIndicator />
+            <TypingIndicator status={statusText ?? undefined} />
           </div>
         )}
 
