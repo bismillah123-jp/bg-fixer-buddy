@@ -17,6 +17,12 @@ import {
   Copy,
   CheckCheck,
   ChevronDown,
+  BarChart3,
+  Trophy,
+  Package,
+  Timer,
+  MapPin,
+  MessageCircle,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Badge } from "@/components/ui/badge";
@@ -45,12 +51,12 @@ const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stock-ai`;
 const STORAGE_KEY = "shania-chat-history-v2";
 
 const QUICK_PROMPTS = [
-  { emoji: "📊", text: "Ringkasan stok hari ini", desc: "Lihat performa harian" },
-  { emoji: "🏆", text: "Model paling laku minggu ini", desc: "Top sellers" },
-  { emoji: "📦", text: "Rekomendasi restock", desc: "Apa yang harus dibeli" },
-  { emoji: "🐌", text: "Stok yang lambat terjual", desc: "Slow movers" },
-  { emoji: "➕", text: "Tambah lokasi baru 'Cabang Solo'", desc: "Contoh aksi admin" },
-  { emoji: "💬", text: "Hai Shania, apa kabar?", desc: "Sekedar ngobrol" },
+  { icon: BarChart3, text: "Ringkasan stok hari ini", desc: "Lihat performa harian" },
+  { icon: Trophy, text: "Model paling laku minggu ini", desc: "Top sellers" },
+  { icon: Package, text: "Rekomendasi restock", desc: "Apa yang harus dibeli" },
+  { icon: Timer, text: "Stok yang lambat terjual", desc: "Slow movers" },
+  { icon: MapPin, text: "Tambah lokasi baru 'Cabang Solo'", desc: "Contoh aksi admin" },
+  { icon: MessageCircle, text: "Hai Shania, apa kabar?", desc: "Sekedar ngobrol" },
 ];
 
 const TABLE_LABELS: Record<string, string> = {
@@ -505,7 +511,7 @@ export function AIChatPage() {
 
       if (!resp.ok) {
         const err = await resp.json().catch(() => ({ error: "Gagal menghubungi AI" }));
-        upsertAssistant(`❌ ${err.error || "Terjadi kesalahan"}`);
+        upsertAssistant(`${err.error || "Terjadi kesalahan"}`);
         setIsLoading(false);
         setStatusText(null);
         return;
@@ -548,7 +554,7 @@ export function AIChatPage() {
             }
             if (pendingEvent === "error") {
               pendingEvent = "";
-              upsertAssistant(`❌ ${parsed.error || "Terjadi kesalahan"}`);
+              upsertAssistant(`${parsed.error || "Terjadi kesalahan"}`);
               continue;
             }
             pendingEvent = "";
@@ -584,7 +590,7 @@ export function AIChatPage() {
     } catch (e: any) {
       if (e.name !== "AbortError") {
         console.error("AI chat error:", e);
-        upsertAssistant("❌ Gagal menghubungi AI. Coba lagi nanti.");
+        upsertAssistant("Gagal menghubungi AI. Coba lagi nanti.");
       }
     }
 
@@ -663,7 +669,7 @@ export function AIChatPage() {
             </div>
             <div className="space-y-2 max-w-md">
               <h2 className="text-2xl font-bold tracking-tight">
-                Hai, aku <span className="bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">Shania</span> ✨
+                Hai, aku <span className="bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">Shania</span>
               </h2>
               <p className="text-sm text-muted-foreground leading-relaxed">
                 Asisten AI cerdas buat manajemen stok HP — sekaligus temen ngobrol kalau kamu mau curhat.
@@ -682,7 +688,7 @@ export function AIChatPage() {
                   className="group text-left p-3 rounded-xl border border-border/50 bg-card/50 hover:bg-card hover:border-primary/40 hover:shadow-md hover:shadow-primary/5 transition-all"
                 >
                   <div className="flex items-start gap-2.5">
-                    <span className="text-xl shrink-0 group-hover:scale-110 transition-transform">{p.emoji}</span>
+                    <span className="shrink-0 mt-0.5 h-7 w-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center group-hover:scale-110 transition-transform"><p.icon className="h-4 w-4" /></span>
                     <div className="min-w-0">
                       <p className="text-sm font-medium leading-tight">{p.text}</p>
                       <p className="text-[11px] text-muted-foreground mt-0.5">{p.desc}</p>

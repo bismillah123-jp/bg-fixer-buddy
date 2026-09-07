@@ -19,10 +19,10 @@ interface AIChatDialogProps {
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stock-ai`;
 
 const QUICK_PROMPTS = [
-  "📊 Ringkasan stok hari ini",
-  "🏆 Model paling laku minggu ini",
-  "📦 Rekomendasi restock",
-  "🐌 Stok yang lambat terjual",
+  "Ringkasan stok hari ini",
+  "Model paling laku minggu ini",
+  "Rekomendasi restock",
+  "Stok yang lambat terjual",
 ];
 
 export function AIChatDialog({ open, onOpenChange }: AIChatDialogProps) {
@@ -77,7 +77,7 @@ export function AIChatDialog({ open, onOpenChange }: AIChatDialogProps) {
 
       if (!resp.ok) {
         const err = await resp.json().catch(() => ({ error: "Gagal menghubungi AI" }));
-        upsertAssistant(`❌ ${err.error || "Terjadi kesalahan"}`);
+        upsertAssistant(`${err.error || "Terjadi kesalahan"}`);
         setIsLoading(false);
         return;
       }
@@ -138,7 +138,7 @@ export function AIChatDialog({ open, onOpenChange }: AIChatDialogProps) {
       }
     } catch (e) {
       console.error("AI chat error:", e);
-      upsertAssistant("❌ Gagal menghubungi AI. Coba lagi nanti.");
+      upsertAssistant("Gagal menghubungi AI. Coba lagi nanti.");
     }
 
     setIsLoading(false);
@@ -161,7 +161,7 @@ export function AIChatDialog({ open, onOpenChange }: AIChatDialogProps) {
                 <Bot className="h-7 w-7 text-primary" />
               </div>
               <div>
-                <p className="font-medium text-sm">Halo! Saya asisten AI stok HP kamu 👋</p>
+                <p className="font-medium text-sm">Halo! Saya asisten AI stok HP kamu</p>
                 <p className="text-xs text-muted-foreground mt-1">Tanya apa saja soal stok, penjualan, atau rekomendasi restock</p>
               </div>
               <div className="grid grid-cols-2 gap-2 w-full max-w-xs">

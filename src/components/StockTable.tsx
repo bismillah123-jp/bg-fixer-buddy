@@ -746,8 +746,8 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
                               {status.label}
                             </Badge>
                             {undoInfo && (
-                              <span className="text-[10px] text-orange-500 font-medium">
-                                ↩ {undoInfo.remainingMinutes}m
+                              <span className="text-[10px] text-orange-500 font-medium inline-flex items-center gap-0.5">
+                                <Undo2 className="h-3 w-3" /> {undoInfo.remainingMinutes}m
                               </span>
                             )}
                             <div className="flex items-center gap-2 text-sm">

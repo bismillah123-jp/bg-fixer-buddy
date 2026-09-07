@@ -11,7 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
-import { Calendar as CalendarIcon, Camera } from "lucide-react";
+import { Calendar as CalendarIcon, Camera, Smartphone, AlertTriangle, Lightbulb } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
@@ -273,11 +273,11 @@ export function AddStockDialog({ open, onOpenChange }: AddStockDialogProps) {
                 <Camera className="h-4 w-4" />
               </Button>
             </div>
-            <p className="text-sm text-muted-foreground">
-              📱 Koreksi stok pagi untuk IMEI ini (bisa + atau -)
+            <p className="text-sm text-muted-foreground flex items-center gap-1.5">
+              <Smartphone className="h-3.5 w-3.5 shrink-0" /> Koreksi stok pagi untuk IMEI ini (bisa + atau -)
             </p>
-            <p className="text-xs text-amber-600 dark:text-amber-500">
-              ⚠️ Gunakan untuk: HP hilang/rusak, kesalahan input, atau perbedaan stok fisik
+            <p className="text-xs text-amber-600 dark:text-amber-500 flex items-center gap-1.5">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" /> Gunakan untuk: HP hilang/rusak, kesalahan input, atau perbedaan stok fisik
             </p>
           </div>
 
@@ -292,8 +292,8 @@ export function AddStockDialog({ open, onOpenChange }: AddStockDialogProps) {
               }}
               inputMode="numeric"
             />
-            <p className="text-sm text-muted-foreground">
-              💡 Auto-terisi dari SRP, bisa diedit kalau harga beli berbeda
+            <p className="text-sm text-muted-foreground flex items-center gap-1.5">
+              <Lightbulb className="h-3.5 w-3.5 shrink-0" /> Auto-terisi dari SRP, bisa diedit kalau harga beli berbeda
             </p>
           </div>
 
