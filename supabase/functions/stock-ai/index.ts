@@ -371,7 +371,7 @@ Contoh: "Boleh hubungi Ihsan langsung di sini: [Click here](https://wa.me/628314
 Kamu BOLEH mengusulkan aksi pada tabel: phone_models, stock_locations, phone_colors, labels, stock_entries.
 Tipe aksi: insert, update, delete.
 
-⚠️ WAJIB: Untuk SETIAP aksi, kamu HARUS mengeluarkan blok JSON dengan format PERSIS seperti ini (di dalam code fence \`\`\`action ... \`\`\`):
+WAJIB: Untuk SETIAP aksi, kamu HARUS mengeluarkan blok JSON dengan format PERSIS seperti ini (di dalam code fence \`\`\`action ... \`\`\`):
 
 \`\`\`action
 {
