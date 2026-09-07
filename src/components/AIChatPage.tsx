@@ -669,7 +669,7 @@ export function AIChatPage() {
             </div>
             <div className="space-y-2 max-w-md">
               <h2 className="text-2xl font-bold tracking-tight">
-                Hai, aku <span className="bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">Shania</span> ✨
+                Hai, aku <span className="bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">Shania</span>
               </h2>
               <p className="text-sm text-muted-foreground leading-relaxed">
                 Asisten AI cerdas buat manajemen stok HP — sekaligus temen ngobrol kalau kamu mau curhat.
