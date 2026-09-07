@@ -511,7 +511,7 @@ export function AIChatPage() {
 
       if (!resp.ok) {
         const err = await resp.json().catch(() => ({ error: "Gagal menghubungi AI" }));
-        upsertAssistant(`❌ ${err.error || "Terjadi kesalahan"}`);
+        upsertAssistant(`${err.error || "Terjadi kesalahan"}`);
         setIsLoading(false);
         setStatusText(null);
         return;
@@ -554,7 +554,7 @@ export function AIChatPage() {
             }
             if (pendingEvent === "error") {
               pendingEvent = "";
-              upsertAssistant(`❌ ${parsed.error || "Terjadi kesalahan"}`);
+              upsertAssistant(`${parsed.error || "Terjadi kesalahan"}`);
               continue;
             }
             pendingEvent = "";
@@ -590,7 +590,7 @@ export function AIChatPage() {
     } catch (e: any) {
       if (e.name !== "AbortError") {
         console.error("AI chat error:", e);
-        upsertAssistant("❌ Gagal menghubungi AI. Coba lagi nanti.");
+        upsertAssistant("Gagal menghubungi AI. Coba lagi nanti.");
       }
     }
 
