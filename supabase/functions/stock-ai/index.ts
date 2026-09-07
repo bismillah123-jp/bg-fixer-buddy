@@ -97,7 +97,7 @@ serve(async (req) => {
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
     const stream = new TransformStream();
-    const writer = stream.getWriter();
+    const writer = stream.writable.getWriter();
     const enc = new TextEncoder();
     const sendFrame = (s: string) => writer.write(enc.encode(s));
     const sendStatus = (label: string) =>
