@@ -77,7 +77,7 @@ export function AIChatDialog({ open, onOpenChange }: AIChatDialogProps) {
 
       if (!resp.ok) {
         const err = await resp.json().catch(() => ({ error: "Gagal menghubungi AI" }));
-        upsertAssistant(`❌ ${err.error || "Terjadi kesalahan"}`);
+        upsertAssistant(`${err.error || "Terjadi kesalahan"}`);
         setIsLoading(false);
         return;
       }
@@ -138,7 +138,7 @@ export function AIChatDialog({ open, onOpenChange }: AIChatDialogProps) {
       }
     } catch (e) {
       console.error("AI chat error:", e);
-      upsertAssistant("❌ Gagal menghubungi AI. Coba lagi nanti.");
+      upsertAssistant("Gagal menghubungi AI. Coba lagi nanti.");
     }
 
     setIsLoading(false);
