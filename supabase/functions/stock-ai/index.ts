@@ -140,7 +140,7 @@ async function runChat(
     const today = todayDate.toISOString().split("T")[0];
     const yesterday = new Date(todayDate.getTime() - 24 * 60 * 60 * 1000).toISOString().split("T")[0];
 
-    await sendStatus("📦 Membaca data stok hari ini...");
+    await sendStatus("Membaca data stok hari ini...");
     const { data: stockData } = await supabase
       .from("stock_entries")
       .select(`
@@ -153,7 +153,7 @@ async function runChat(
       .limit(1000);
 
     // === SEMUA RIWAYAT EVENT (semua tanggal) ===
-    await sendStatus("📜 Membaca riwayat transaksi semua tanggal...");
+    await sendStatus("Membaca riwayat transaksi semua tanggal...");
     const { data: allEvents } = await supabase
       .from("stock_events")
       .select(`
@@ -165,7 +165,7 @@ async function runChat(
       .limit(20000);
 
     // === STOK PAGI/MALAM SEMUA TANGGAL (dari stock_entries) ===
-    await sendStatus("🌙 Membaca stok pagi & malam semua tanggal...");
+    await sendStatus("Membaca stok pagi & malam semua tanggal...");
     const { data: allEntries } = await supabase
       .from("stock_entries")
       .select(`
@@ -180,7 +180,7 @@ async function runChat(
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
     const recentSales = events.filter((e: any) => e.event_type === "laku" && e.date >= thirtyDaysAgo);
 
-    await sendStatus("📊 Menganalisis & merangkum data...");
+    await sendStatus("Menganalisis & merangkum data...");
     const { data: locations } = await supabase.from("stock_locations").select("id, name");
     const { data: phoneModels } = await supabase.from("phone_models").select("id, brand, model, storage_capacity, srp").limit(500);
     const { data: colors } = await supabase.from("phone_colors").select("id, name");
@@ -334,10 +334,11 @@ Label: ${labels?.map((l: any) => l.name).join(", ")}
 Kalau user nanya nomor WhatsApp / kontak / cara hubungi Ihsan / admin / owner, JAWAB dengan link markdown PERSIS seperti ini (tulisannya "Click here", BUKAN URL panjang):
 [Click here](https://wa.me/6283146993017)
 
-Contoh: "Boleh hubungi Ihsan langsung di sini ya 👉 [Click here](https://wa.me/6283146993017)"
+Contoh: "Boleh hubungi Ihsan langsung di sini: [Click here](https://wa.me/6283146993017)"
 
 == ATURAN DASAR ==
-- Jawab dalam Bahasa Indonesia natural & enak dibaca, gunakan markdown & emoji secukupnya 📱📊✨
+- Jawab dalam Bahasa Indonesia natural & enak dibaca, gunakan markdown secukupnya.
+- DILARANG KERAS memakai emoji/karakter simbol hiasan APA PUN dalam jawaban (banyak pengguna memakai perangkat lama yang tidak bisa menampilkan emoji — tampil jadi kotak). Penanda bagian pakai teks tebal, misal: **Stok**, **Laku**, **Masuk**, **Retur**, **Lokasi**, **Tanggal**.
 - Format mata uang: Rp 2.300.000 (titik sebagai pemisah ribuan)
 - Format kapasitas: RAM/ROM (contoh: 4/128, 6/128)
 - Untuk obrolan santai/curhat: JANGAN paksa bahas stok. Jadi pendengar dulu, bales kayak sahabat dekat. Boleh kasih semangat, perspektif, atau saran kecil kalau diminta.
@@ -353,7 +354,7 @@ Contoh: "Boleh hubungi Ihsan langsung di sini ya 👉 [Click here](https://wa.me
 - Angka penting (total, selisih, persentase) dibuat **tebal**.
 - Pisahkan bagian yang berbeda dengan garis --- kalau jawabannya panjang.
 - JANGAN tumpuk semua info dalam satu paragraf panjang. Paragraf maksimal 3 kalimat.
-- Pakai emoji sebagai penanda bagian, bukan hiasan acak: 📦 stok, 💰 penjualan/laku, 📥 barang masuk, ↩️ retur, 📍 lokasi, 📅 tanggal.
+- Pakai label teks tebal sebagai penanda bagian, bukan emoji: **Stok**, **Laku**, **Masuk**, **Retur**, **Lokasi**, **Tanggal**.
 - Rekap perbandingan periode WAJIB tabel + baris "Selisih" atau kesimpulan tebal di bawahnya.
 - Tutup jawaban data dengan 1 kalimat insight/kesimpulan yang berguna (misal: "Stok malam turun 5 unit dibanding kemarin."), bukan sekadar berhenti setelah tabel.
 
@@ -396,7 +397,7 @@ Aturan aksi:
 - phone_colors: name, hex_color
 - labels: name, color
 - stock_entries: date, location_id, phone_model_id, imei, morning_stock, incoming, sold, returns, adjustment, night_stock, notes, label, metadata, cost_price, selling_price, sale_date
-  ⚠️ stock_entries TIDAK punya kolom 'color' / 'brand' / 'model'. Warna unit disimpan di metadata.color (JSON).
+  PENTING: stock_entries TIDAK punya kolom 'color' / 'brand' / 'model'. Warna unit disimpan di metadata.color (JSON).
   Contoh ubah warna unit: {"type":"update","table":"stock_entries","payload":{"metadata":{"color":"Hitam"}},"where":{"id":"<uuid>"}}
 
 Contoh:
@@ -409,7 +410,7 @@ Klik Setujui untuk menyimpan."
 
 ${contextData}`;
 
-    await sendStatus("🧠 Shania sedang berpikir...");
+    await sendStatus("Shania sedang berpikir...");
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
@@ -434,7 +435,7 @@ ${contextData}`;
       return;
     }
 
-    await sendStatus("✍️ Menyusun jawaban...");
+    await sendStatus("Menyusun jawaban...");
     if (response.body) {
       const reader = response.body.getReader();
       while (true) {
