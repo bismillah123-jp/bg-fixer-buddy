@@ -25,6 +25,7 @@ import {
   MessageCircle,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -263,6 +264,7 @@ function MessageBubble({
               {msg.content && (
                 <div className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_p]:leading-relaxed [&_p]:my-2 [&_li]:my-0.5 [&_ul]:my-2 [&_ol]:my-2 [&_table]:text-xs [&_table]:my-2 [&_th]:px-2 [&_th]:py-1 [&_td]:px-2 [&_td]:py-1 [&_code]:text-xs [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:bg-muted [&_pre]:overflow-x-auto [&_pre]:max-w-full [&_pre]:rounded-lg [&_pre]:border [&_pre]:border-border/50 [&_h1]:text-base [&_h2]:text-sm [&_h3]:text-sm [&_strong]:text-foreground">
                   <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
                     components={{
                       a: ({ href, children }) => {
                         const url = href || "";
@@ -280,6 +282,23 @@ function MessageBubble({
                           </a>
                         );
                       },
+                      table: ({ children }) => (
+                        <div className="my-2 w-full overflow-x-auto rounded-lg border border-border/60 shadow-sm">
+                          <table className="w-full border-collapse text-xs">{children}</table>
+                        </div>
+                      ),
+                      thead: ({ children }) => (
+                        <thead className="bg-primary/10 border-b border-border/60">{children}</thead>
+                      ),
+                      th: ({ children }) => (
+                        <th className="px-3 py-2 text-left font-semibold text-foreground whitespace-nowrap">{children}</th>
+                      ),
+                      td: ({ children }) => (
+                        <td className="px-3 py-1.5 border-t border-border/40 align-top">{children}</td>
+                      ),
+                      tr: ({ children }) => (
+                        <tr className="even:bg-muted/40 hover:bg-muted/60 transition-colors">{children}</tr>
+                      ),
                     }}
                   >
                     {msg.content}
