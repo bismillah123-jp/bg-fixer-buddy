@@ -93,8 +93,8 @@ serve(async (req) => {
 
     // === Mode: chat (default) — streaming dengan status realtime ===
     const { messages } = body;
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+    const AI_API_KEY = Deno.env.get("SHANIA_API_KEY") || Deno.env.get("LOVABLE_API_KEY");
+    if (!AI_API_KEY) throw new Error("AI API key is not configured");
 
     const stream = new TransformStream();
     const writer = stream.writable.getWriter();
@@ -107,7 +107,7 @@ serve(async (req) => {
 
     (async () => {
       try {
-        await runChat(supabase, LOVABLE_API_KEY, messages, sendStatus, sendError, writer);
+        await runChat(supabase, AI_API_KEY, messages, sendStatus, sendError, writer);
       } catch (e: any) {
         console.error("stock-ai chat error:", e);
         try { await sendError(e?.message || "Gagal menghubungi AI"); } catch { /* closed */ }
@@ -411,10 +411,13 @@ Klik Setujui untuk menyimpan."
 ${contextData}`;
 
     await sendStatus("Shania sedang berpikir...");
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const aiBaseUrl = (Deno.env.get("SHANIA_BASE_URL") || "https://ai.gateway.lovable.dev/v1").replace(/\/$/, "");
+    const aiModel = Deno.env.get("SHANIA_MODEL") || "google/gemini-2.5-flash";
+    const response = await fetch(`${aiBaseUrl}/chat/completions`, {
       method: "POST",
       headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
+        model: aiModel,
         messages: [{ role: "system", content: systemPrompt }, ...messages],
         stream: true,
       }),
