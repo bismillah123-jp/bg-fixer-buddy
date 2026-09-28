@@ -93,8 +93,8 @@ serve(async (req) => {
 
     // === Mode: chat (default) — streaming dengan status realtime ===
     const { messages } = body;
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+    const AI_API_KEY = Deno.env.get("SHANIA_API_KEY") || Deno.env.get("LOVABLE_API_KEY");
+    if (!AI_API_KEY) throw new Error("AI API key is not configured");
 
     const stream = new TransformStream();
     const writer = stream.writable.getWriter();
