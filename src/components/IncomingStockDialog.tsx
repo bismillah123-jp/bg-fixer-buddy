@@ -120,26 +120,29 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
         }
       }
 
-      // Check for duplicates in the list
-      const imeis = validEntries.map(e => e.imei);
-      const duplicates = imeis.filter((imei, index) => imeis.indexOf(imei) !== index);
+      // Check for duplicates in the list (label REPACK boleh duplikat — HP bekas laku yang direpack)
+      const isRepack = (l: string) => l.trim().toLowerCase() === "repack";
+      const checkImeis = validEntries.filter(e => !isRepack(e.label)).map(e => e.imei);
+      const duplicates = checkImeis.filter((imei, index) => checkImeis.indexOf(imei) !== index);
       if (duplicates.length > 0) {
         throw new Error(`IMEI duplikat: ${duplicates.join(", ")}`);
       }
 
       const date = format(selectedDate, "yyyy-MM-dd");
 
-      // Check for duplicate IMEI in database
-      const { data: existingStock, error: checkError } = await supabase
-        .from('stock_events')
-        .select('imei')
-        .in('imei', imeis);
+      // Check for duplicate IMEI in database (skip REPACK)
+      if (checkImeis.length > 0) {
+        const { data: existingStock, error: checkError } = await supabase
+          .from('stock_events')
+          .select('imei')
+          .in('imei', checkImeis);
 
-      if (checkError) throw new Error(`Gagal memeriksa IMEI: ${checkError.message}`);
+        if (checkError) throw new Error(`Gagal memeriksa IMEI: ${checkError.message}`);
 
-      if (existingStock && existingStock.length > 0) {
-        const existingImeis = existingStock.map(s => s.imei).join(", ");
-        throw new Error(`IMEI sudah terdaftar: ${existingImeis}`);
+        if (existingStock && existingStock.length > 0) {
+          const existingImeis = existingStock.map(s => s.imei).join(", ");
+          throw new Error(`IMEI sudah terdaftar: ${existingImeis}`);
+        }
       }
 
       // Get base model info - use the same model for all colors

@@ -110,15 +110,19 @@ export function BulkIncomingStockDialog({ open, onOpenChange }: BulkIncomingStoc
         if (!e.color.trim()) throw new Error(`Unit #${i + 1}: Warna wajib diisi`);
       }
 
-      // Check duplicate IMEIs in list
+      // Check duplicate IMEIs in list (label REPACK boleh duplikat — HP bekas laku yang direpack)
+      const isRepack = (l: string) => l.trim().toLowerCase() === "repack";
       const imeis = validEntries.map(e => e.imei);
-      const dupes = imeis.filter((v, i) => imeis.indexOf(v) !== i);
+      const checkImeis = validEntries.filter(e => !isRepack(e.label)).map(e => e.imei);
+      const dupes = checkImeis.filter((v, i) => checkImeis.indexOf(v) !== i);
       if (dupes.length > 0) throw new Error(`IMEI duplikat: ${dupes.join(", ")}`);
 
-      // Check duplicate in DB
-      const { data: existing } = await supabase.from('stock_events').select('imei').in('imei', imeis);
-      if (existing && existing.length > 0) {
-        throw new Error(`IMEI sudah terdaftar: ${existing.map(s => s.imei).join(", ")}`);
+      // Check duplicate in DB (skip REPACK)
+      if (checkImeis.length > 0) {
+        const { data: existing } = await supabase.from('stock_events').select('imei').in('imei', checkImeis);
+        if (existing && existing.length > 0) {
+          throw new Error(`IMEI sudah terdaftar: ${existing.map(s => s.imei).join(", ")}`);
+        }
       }
 
       const date = format(selectedDate, "yyyy-MM-dd");
