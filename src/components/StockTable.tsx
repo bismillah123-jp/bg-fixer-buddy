@@ -429,16 +429,20 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
     }
   });
 
-  // Query to get sale event timestamps for undo eligibility
+  // Query to get sale event timestamps for undo eligibility.
+  // Ambil event 'laku' 2 hari terakhir (bukan cuma tanggal yang sedang dilihat)
+  // supaya tombol Batal Laku tetap muncul walau tanggal penjualan beda dengan
+  // tanggal yang sedang dibuka, dan walau ada IMEI duplikat (repack).
   const { data: saleEvents } = useQuery({
-    queryKey: ['sale-events-timestamps', format(selectedDate, 'yyyy-MM-dd')],
+    queryKey: ['sale-events-timestamps'],
     queryFn: async () => {
-      const date = format(selectedDate, 'yyyy-MM-dd');
+      const since = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
       const { data, error } = await supabase
         .from('stock_events')
         .select('id, imei, created_at, location_id, phone_model_id')
         .eq('event_type', 'laku')
-        .eq('date', date);
+        .gte('created_at', since)
+        .order('created_at', { ascending: false });
       if (error) throw error;
       return data || [];
     }
@@ -446,8 +450,10 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
 
   const getSaleUndoInfo = useCallback((entry: StockEntry) => {
     if (!entry.sale_date || !saleEvents) return null;
-    const event = saleEvents.find(e => 
-      e.imei === (entry.imei || '') && 
+    // Ambil event PALING BARU yang cocok (saleEvents sudah terurut terbaru dulu),
+    // supaya IMEI duplikat (repack) tidak tertukar dengan penjualan lama.
+    const event = saleEvents.find(e =>
+      e.imei === (entry.imei || '') &&
       e.location_id === entry.stock_locations?.id &&
       e.phone_model_id === entry.phone_models?.id
     );
