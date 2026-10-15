@@ -517,6 +517,10 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
   };
 
   const handleMarkAsSoldClick = (entry: StockEntry) => {
+    if (markAsSoldMutation.isPending) {
+      toast({ title: "Sedang diproses", description: "Penjualan sebelumnya masih dikirim, tunggu sebentar ya." });
+      return;
+    }
     setSelectedEntry(entry);
     setIsSaleConfirmDialogOpen(true);
   };
