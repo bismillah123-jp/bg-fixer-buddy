@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { Plus, Truck, Smartphone, MapPin, Tags, PackagePlus, Layers, X, FileText } from 'lucide-react';
+import { Plus, Truck, Smartphone, MapPin, Tags, PackagePlus, Layers, X, FileText, History } from 'lucide-react';
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { cn } from '@/lib/utils';
 const AddStockDialog = lazy(() => import('./AddStockDialog').then(m => ({ default: m.AddStockDialog })));
@@ -10,6 +10,7 @@ const AddPhoneModelDialog = lazy(() => import('./AddPhoneModelDialog').then(m =>
 const BulkAddPhoneModelDialog = lazy(() => import('./BulkAddPhoneModelDialog').then(m => ({ default: m.BulkAddPhoneModelDialog })));
 const ManageBrandsDialog = lazy(() => import('./ManageBrandsDialog').then(m => ({ default: m.ManageBrandsDialog })));
 const AddLocationDialog = lazy(() => import('./AddLocationDialog').then(m => ({ default: m.AddLocationDialog })));
+const ImeiHistoryDialog = lazy(() => import('./ImeiHistoryDialog').then(m => ({ default: m.ImeiHistoryDialog })));
 
 type DialogKey =
   | 'addStock'
@@ -19,7 +20,8 @@ type DialogKey =
   | 'addPhoneModel'
   | 'bulkAddPhoneModel'
   | 'manageBrands'
-  | 'addLocation';
+  | 'addLocation'
+  | 'imeiHistory';
 
 interface ActionItem {
   label: string;
@@ -77,6 +79,13 @@ const actions: ActionItem[] = [
     description: 'Buat cabang / gudang baru',
     icon: MapPin,
     dialog: 'addLocation',
+    tone: 'info',
+  },
+  {
+    label: 'Riwayat IMEI',
+    description: 'Lacak perjalanan unit dari masuk sampai laku',
+    icon: History,
+    dialog: 'imeiHistory',
     tone: 'info',
   },
 ];
@@ -226,6 +235,7 @@ export function FabMenu() {
       {dialog === 'bulkAddPhoneModel' && <BulkAddPhoneModelDialog open={true} onOpenChange={() => setDialog(null)} />}
       {dialog === 'manageBrands' && <ManageBrandsDialog open={true} onOpenChange={() => setDialog(null)} />}
       {dialog === 'addLocation' && <AddLocationDialog open={true} onOpenChange={() => setDialog(null)} />}
+      {dialog === 'imeiHistory' && <ImeiHistoryDialog open={true} onOpenChange={() => setDialog(null)} />}
       </Suspense>
     </>
   );
