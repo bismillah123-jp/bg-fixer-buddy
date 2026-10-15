@@ -351,7 +351,22 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
       // Use cost_price if available, otherwise use SRP for profit/loss calculation
       const costBasis = saleData.costPrice > 0 ? saleData.costPrice : saleData.srp;
       const profitLoss = saleData.price - costBasis;
-      
+
+      // 0. Anti dobel-klik / sinyal lemot: cek apakah unit ini masih tersedia di lokasi ini
+      if (entry.imei) {
+        const { data: evs, error: evErr } = await supabase
+          .from('stock_events')
+          .select('event_type, qty')
+          .eq('imei', entry.imei)
+          .eq('location_id', entry.stock_locations.id);
+        if (evErr) throw new Error(`Gagal cek status unit: ${evErr.message}`);
+        const plus = ['masuk', 'retur_in', 'transfer_in'];
+        const minus = ['laku', 'retur_out', 'transfer_out'];
+        const balance = (evs || []).reduce((s, e) =>
+          s + (plus.includes(e.event_type) ? (e.qty || 1) : minus.includes(e.event_type) ? -(e.qty || 1) : 0), 0);
+        if (balance <= 0) throw new Error('Unit ini sudah tercatat terjual sebelumnya (tidak dicatat dua kali)');
+      }
+
       // 1. Write to stock_events (event-sourcing primary source)
       const { error: eventError } = await supabase
         .from('stock_events')
@@ -502,14 +517,18 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
   };
 
   const handleMarkAsSoldClick = (entry: StockEntry) => {
+    if (markAsSoldMutation.isPending) {
+      toast({ title: "Sedang diproses", description: "Penjualan sebelumnya masih dikirim, tunggu sebentar ya." });
+      return;
+    }
     setSelectedEntry(entry);
     setIsSaleConfirmDialogOpen(true);
   };
 
   const handleSaleConfirm = (saleData: { price: number; date: Date; srp: number; costPrice: number }) => {
-    if (selectedEntry) {
-      markAsSoldMutation.mutate({ entry: selectedEntry, saleData });
-    }
+    // Kunci: abaikan klik kedua selama proses penjualan masih berjalan
+    if (!selectedEntry || markAsSoldMutation.isPending) return;
+    markAsSoldMutation.mutate({ entry: selectedEntry, saleData });
   };
 
   const handleEditClick = (entry: StockEntry) => {
