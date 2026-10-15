@@ -167,16 +167,15 @@ export function ImeiHistoryDialog({ open, onOpenChange, initialImei }: Props) {
           )}
         </div>
 
-        {scanning && (
-          <BarcodeScanner
-            onScan={(code) => {
-              setScanning(false);
-              setImei(code);
-              search(code);
-            }}
-            onClose={() => setScanning(false)}
-          />
-        )}
+        <BarcodeScanner
+          open={scanning}
+          onOpenChange={setScanning}
+          onScanSuccess={(code) => {
+            setScanning(false);
+            setImei(code);
+            search(code);
+          }}
+        />
       </DialogContent>
     </Dialog>
   );
