@@ -248,28 +248,36 @@ export function StockDashboard() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col pb-20 md:pb-0">
-      {/* Header */}
-      <header className="sticky top-0 z-10 border-b border-border bg-background/95 backdrop-blur-sm">
+      {/* Header — glass sticky */}
+      <header className="sticky top-0 z-20 border-b border-border/60 glass">
         <div className="container mx-auto px-4 lg:px-6">
-          <div className="flex h-16 items-center justify-between">
-            <div className="flex-1 min-w-0">
-              <h1 className="text-xl font-bold truncate">Indah Cell</h1>
-              <p className="text-sm text-muted-foreground truncate">
-                Pusat Gadget Termurah
-              </p>
+          <div className="flex h-16 items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-[#a31226] shadow-md shadow-primary/25">
+                <Package className="h-5 w-5 text-primary-foreground" strokeWidth={2.2} />
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-lg font-extrabold tracking-tight truncate leading-tight">
+                  Indah <span className="text-gradient">Cell</span>
+                </h1>
+                <p className="text-xs text-muted-foreground truncate font-medium">
+                  {format(date, "EEEE, d MMM yyyy", { locale: id })}
+                </p>
+              </div>
             </div>
-            <div className="flex items-center gap-2 sm:gap-4">
+            <div className="flex items-center gap-2">
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
                     variant={"outline"}
-                    className="w-[150px] sm:w-[240px] justify-start text-left font-normal"
+                    className="h-10 rounded-xl border-border/70 bg-background/60 hover:border-primary/50 hover:bg-background font-medium text-sm px-3"
                   >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {format(date, "PPP", { locale: id })}
+                    <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
+                    <span className="hidden sm:inline">{format(date, "PPP", { locale: id })}</span>
+                    <span className="sm:hidden">{format(date, "d MMM", { locale: id })}</span>
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="end">
+                <PopoverContent className="w-auto p-0 rounded-2xl" align="end">
                   <Calendar
                     mode="single"
                     selected={date}
@@ -289,9 +297,9 @@ export function StockDashboard() {
       </header>
 
       {/* Desktop Navigation Tabs - Hidden on mobile */}
-      <div className="hidden md:block border-b border-border">
+      <div className="hidden md:block border-b border-border/60">
         <div className="container mx-auto px-4 lg:px-6">
-          <nav className="flex gap-1 -mb-px">
+          <nav className="flex gap-1.5 -mb-px pt-2">
             {([
               { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
               { id: 'table', label: 'Data Stok', icon: Package },
@@ -301,19 +309,23 @@ export function StockDashboard() {
               { id: 'settings', label: 'Pengaturan', icon: SettingsIcon },
             ] as const).map((tab) => {
               const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
               return (
                 <Button
                   key={tab.id}
                   variant="ghost"
                   onClick={() => setActiveTab(tab.id)}
-                  className={`h-12 rounded-none border-b-2 ${
-                    activeTab === tab.id
-                      ? 'border-primary text-primary'
-                      : 'border-transparent text-muted-foreground hover:text-foreground'
+                  className={`relative h-11 rounded-t-xl px-4 font-semibold text-sm pressable ${
+                    isActive
+                      ? 'text-primary bg-primary/[0.08]'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
                   }`}
                 >
-                  <Icon className="w-4 h-4 mr-2" />
+                  <Icon className="w-4 h-4 mr-2" strokeWidth={isActive ? 2.4 : 2} />
                   {tab.label}
+                  {isActive && (
+                    <span className="absolute bottom-0 left-3 right-3 h-[2.5px] rounded-full bg-gradient-to-r from-primary to-[#c22436]" />
+                  )}
                 </Button>
               );
             })}
@@ -326,7 +338,41 @@ export function StockDashboard() {
         <div className="container mx-auto px-4 lg:px-6 py-6">
           {/* Dashboard View */}
           {activeTab === 'dashboard' && (
-            <div className="space-y-6 pb-20">
+            <div className="space-y-5 pb-20">
+              {/* Hero banner */}
+              <div className="relative overflow-hidden rounded-[1.4rem] border border-primary/20 bg-gradient-to-br from-primary/[0.16] via-card to-card p-5 sm:p-6 animate-fade-up">
+                <div className="absolute -top-20 -right-20 w-64 h-64 rounded-full bg-primary/20 blur-3xl pointer-events-none" />
+                <div className="absolute -bottom-24 -left-16 w-56 h-56 rounded-full bg-primary/10 blur-3xl pointer-events-none" />
+                <div className="relative">
+                  <p className="text-sm font-medium text-muted-foreground">
+                    {(() => {
+                      const h = new Date().getHours();
+                      if (h >= 5 && h < 11) return "Selamat pagi";
+                      if (h >= 11 && h < 15) return "Selamat siang";
+                      if (h >= 15 && h < 18) return "Selamat sore";
+                      return "Selamat malam";
+                    })()}
+                  </p>
+                  <h2 className="mt-1 text-xl sm:text-2xl font-extrabold tracking-tight">
+                    Ringkasan <span className="text-gradient">Hari Ini</span>
+                  </h2>
+                  <div className="mt-4 grid grid-cols-3 gap-3">
+                    <div className="rounded-2xl bg-background/50 border border-border/50 p-3 sm:p-4 backdrop-blur-sm">
+                      <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Stok Akhir</p>
+                      <p className="mt-1 text-xl sm:text-3xl font-extrabold tabular">{statsLoading ? "–" : (stats?.totalNightStock ?? 0)}</p>
+                    </div>
+                    <div className="rounded-2xl bg-background/50 border border-border/50 p-3 sm:p-4 backdrop-blur-sm">
+                      <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Laku</p>
+                      <p className="mt-1 text-xl sm:text-3xl font-extrabold tabular text-destructive">{statsLoading ? "–" : (stats?.totalSold ?? 0)}</p>
+                    </div>
+                    <div className="rounded-2xl bg-background/50 border border-border/50 p-3 sm:p-4 backdrop-blur-sm">
+                      <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Datang</p>
+                      <p className="mt-1 text-xl sm:text-3xl font-extrabold tabular text-[hsl(var(--success))]">{statsLoading ? "–" : (stats?.totalIncoming ?? 0)}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* Location Cards - MBUTOH first (Main Branch) */}
               {(() => {
                 const sortedLocations = Object.entries(stats?.breakdown || {}).sort(([a], [b]) => {
@@ -335,41 +381,41 @@ export function StockDashboard() {
                   return a.localeCompare(b);
                 });
                 
-                return sortedLocations.map(([location, data]) => {
+                return sortedLocations.map(([location, data], idx) => {
                   const isMbutoh = location.toUpperCase() === 'MBUTOH';
                   
                   return (
                     <Card 
                       key={location} 
-                      className={`overflow-hidden shadow-lg ${
+                      className={`overflow-hidden card-lift animate-fade-up ${idx === 0 ? 'stagger-1' : 'stagger-2'} ${
                         isMbutoh 
-                          ? 'bg-gradient-to-br from-primary/10 via-primary/5 to-background border-primary/30' 
-                          : 'bg-gradient-to-br from-secondary/50 via-secondary/30 to-background border-border'
+                          ? 'bg-gradient-to-br from-primary/[0.12] via-card to-card border-primary/25' 
+                          : 'bg-card border-border/70'
                       }`}
                     >
                       {/* Location Header */}
                       <div className={`px-4 py-3 border-b ${
-                        isMbutoh ? 'bg-primary/10 border-primary/20' : 'bg-muted/50 border-border'
+                        isMbutoh ? 'bg-primary/[0.08] border-primary/15' : 'bg-muted/40 border-border/60'
                       }`}>
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
-                            <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${
-                              isMbutoh ? 'bg-primary text-primary-foreground' : 'bg-muted-foreground/20 text-muted-foreground'
+                            <div className={`h-10 w-10 rounded-xl flex items-center justify-center shadow-sm ${
+                              isMbutoh ? 'bg-gradient-to-br from-primary to-[#a31226] text-primary-foreground shadow-primary/25' : 'bg-muted text-muted-foreground'
                             }`}>
-                              <Package className="h-5 w-5" />
+                              <Package className="h-5 w-5" strokeWidth={2.2} />
                             </div>
                             <div>
                               <div className="flex items-center gap-2">
-                                <h2 className={`text-lg font-bold ${isMbutoh ? 'text-primary' : 'text-foreground'}`}>
+                                <h2 className="text-base font-extrabold tracking-tight">
                                   {location}
                                 </h2>
                                 {isMbutoh && (
-                                  <span className="px-2 py-0.5 text-[10px] font-semibold bg-primary text-primary-foreground rounded-full">
+                                  <span className="px-2 py-0.5 text-[10px] font-bold tracking-wide bg-gradient-to-r from-primary to-[#c22436] text-primary-foreground rounded-full shadow-sm">
                                     UTAMA
                                   </span>
                                 )}
                               </div>
-                              <p className="text-xs text-muted-foreground">
+                              <p className="text-xs text-muted-foreground font-medium">
                                 {isMbutoh ? 'Cabang Utama' : 'Cabang'}
                               </p>
                             </div>
@@ -378,11 +424,11 @@ export function StockDashboard() {
                       </div>
                       
                       {/* Stock Stats Grid */}
-                      <CardContent className="p-4">
-                        <div className="grid grid-cols-3 gap-3">
+                      <CardContent className="p-3 sm:p-4">
+                        <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
                           {/* Stok Pagi - Clickable */}
                           <div 
-                            className="relative p-4 rounded-xl bg-background/60 border border-border/50 cursor-pointer hover:bg-background/80 hover:scale-[1.02] transition-all duration-200"
+                            className="relative p-3 sm:p-4 rounded-2xl bg-background/60 border border-border/60 cursor-pointer card-lift pressable"
                             onClick={() => {
                               const locId = locations?.find(l => l.name === location)?.id;
                               if (locId) {
@@ -392,41 +438,41 @@ export function StockDashboard() {
                               }
                             }}
                           >
-                            <div className="absolute top-2 right-2">
-                              <Sun className="h-4 w-4 text-warning/70" />
+                            <div className="absolute top-2.5 right-2.5">
+                              <Sun className="h-4 w-4 text-[hsl(var(--warning))]/80" />
                             </div>
-                            <p className="text-[11px] text-muted-foreground uppercase tracking-wide mb-1">Pagi</p>
-                            <p className="text-2xl font-bold">{data.morning_stock}</p>
+                            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1 font-semibold">Pagi</p>
+                            <p className="text-2xl font-extrabold tabular">{data.morning_stock}</p>
                           </div>
                           
                           {/* Laku - Clickable */}
                           <div 
-                            className="relative p-4 rounded-xl bg-destructive/10 border border-destructive/20 cursor-pointer hover:bg-destructive/15 hover:scale-[1.02] transition-all duration-200"
+                            className="relative p-3 sm:p-4 rounded-2xl bg-destructive/[0.07] border border-destructive/20 cursor-pointer card-lift pressable"
                             onClick={() => {
                               setQuickFilter('sold');
                               setActiveTab('table');
                             }}
                           >
-                            <div className="absolute top-2 right-2">
+                            <div className="absolute top-2.5 right-2.5">
                               <Tag className="h-4 w-4 text-destructive/70" />
                             </div>
-                            <p className="text-[11px] text-destructive/80 uppercase tracking-wide mb-1">Laku</p>
-                            <p className="text-2xl font-bold text-destructive">{data.sold}</p>
+                            <p className="text-[10px] text-destructive/80 uppercase tracking-wider mb-1 font-semibold">Laku</p>
+                            <p className="text-2xl font-extrabold tabular text-destructive">{data.sold}</p>
                           </div>
                           
                           {/* Stok Malam - Clickable */}
                           <div 
-                            className="relative p-4 rounded-xl bg-background/60 border border-border/50 cursor-pointer hover:bg-background/80 hover:scale-[1.02] transition-all duration-200"
+                            className="relative p-3 sm:p-4 rounded-2xl bg-background/60 border border-border/60 cursor-pointer card-lift pressable"
                             onClick={() => {
                               setQuickFilter(null);
                               setActiveTab('table');
                             }}
                           >
-                            <div className="absolute top-2 right-2">
-                              <Moon className="h-4 w-4 text-info/70" />
+                            <div className="absolute top-2.5 right-2.5">
+                              <Moon className="h-4 w-4 text-[hsl(var(--info))]/80" />
                             </div>
-                            <p className="text-[11px] text-muted-foreground uppercase tracking-wide mb-1">Malam</p>
-                            <p className="text-2xl font-bold">{data.night_stock}</p>
+                            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1 font-semibold">Malam</p>
+                            <p className="text-2xl font-extrabold tabular">{data.night_stock}</p>
                           </div>
                         </div>
                       </CardContent>
@@ -436,20 +482,20 @@ export function StockDashboard() {
               })()}
               
               {/* Summary Row - Quick Stats */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3 animate-fade-up stagger-3">
                 {/* HP Datang */}
                 <Card 
-                  className="bg-success/10 border-success/30 shadow-md cursor-pointer hover:bg-success/15 hover:scale-[1.02] transition-all duration-200"
+                  className="card-lift pressable cursor-pointer border-[hsl(var(--success))]/25 bg-[hsl(var(--success))]/[0.07]"
                   onClick={() => handleCardClick('incoming')}
                 >
                   <CardContent className="p-4">
-                    <div className="flex items-center gap-4">
-                      <div className="h-12 w-12 rounded-xl bg-success/20 flex items-center justify-center">
-                        <Plus className="h-6 w-6 text-success" />
+                    <div className="flex items-center gap-3.5">
+                      <div className="h-12 w-12 rounded-2xl bg-[hsl(var(--success))]/15 flex items-center justify-center shrink-0">
+                        <Plus className="h-6 w-6 text-[hsl(var(--success))]" strokeWidth={2.4} />
                       </div>
-                      <div>
-                        <p className="text-xs text-success/80 uppercase tracking-wide">HP Datang</p>
-                        <p className="text-2xl font-bold text-success">{stats?.totalIncoming ?? 0}</p>
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-semibold text-[hsl(var(--success))]/90 uppercase tracking-wider">HP Datang</p>
+                        <p className="text-2xl font-extrabold tabular text-[hsl(var(--success))]">{stats?.totalIncoming ?? 0}</p>
                       </div>
                     </div>
                   </CardContent>
@@ -457,17 +503,17 @@ export function StockDashboard() {
 
                 {/* Total Laku Hari Ini */}
                 <Card 
-                  className="bg-destructive/10 border-destructive/30 shadow-md cursor-pointer hover:bg-destructive/15 hover:scale-[1.02] transition-all duration-200"
+                  className="card-lift pressable cursor-pointer border-destructive/25 bg-destructive/[0.07]"
                   onClick={() => handleCardClick('sold')}
                 >
                   <CardContent className="p-4">
-                    <div className="flex items-center gap-4">
-                      <div className="h-12 w-12 rounded-xl bg-destructive/20 flex items-center justify-center">
-                        <Tag className="h-6 w-6 text-destructive" />
+                    <div className="flex items-center gap-3.5">
+                      <div className="h-12 w-12 rounded-2xl bg-destructive/15 flex items-center justify-center shrink-0">
+                        <Tag className="h-6 w-6 text-destructive" strokeWidth={2.4} />
                       </div>
-                      <div>
-                        <p className="text-xs text-destructive/80 uppercase tracking-wide">Laku Hari Ini</p>
-                        <p className="text-2xl font-bold text-destructive">{stats?.totalSold ?? 0}</p>
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-semibold text-destructive/90 uppercase tracking-wider">Laku Hari Ini</p>
+                        <p className="text-2xl font-extrabold tabular text-destructive">{stats?.totalSold ?? 0}</p>
                       </div>
                     </div>
                   </CardContent>
@@ -475,32 +521,32 @@ export function StockDashboard() {
               </div>
 
               {/* Transfer & Monthly Stats */}
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-3 gap-3 animate-fade-up stagger-4">
                 {/* Transfer */}
                 <Card 
-                  className="bg-info/10 border-info/30 shadow-sm cursor-pointer hover:bg-info/15 transition-colors"
+                  className="card-lift pressable cursor-pointer border-[hsl(var(--info))]/25 bg-[hsl(var(--info))]/[0.07]"
                   onClick={() => handleCardClick('transfer')}
                 >
-                  <CardContent className="p-3">
+                  <CardContent className="p-3.5">
                     <div className="flex flex-col items-center text-center">
-                      <div className="h-10 w-10 rounded-lg bg-info/20 flex items-center justify-center mb-2">
-                        <ArrowLeftRight className="h-5 w-5 text-info" />
+                      <div className="h-10 w-10 rounded-xl bg-[hsl(var(--info))]/15 flex items-center justify-center mb-2">
+                        <ArrowLeftRight className="h-5 w-5 text-[hsl(var(--info))]" strokeWidth={2.2} />
                       </div>
-                      <p className="text-xl font-bold text-info">{stats?.totalTransfers ?? 0}</p>
-                      <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Transfer</p>
+                      <p className="text-xl font-extrabold tabular text-[hsl(var(--info))]">{stats?.totalTransfers ?? 0}</p>
+                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Transfer</p>
                     </div>
                   </CardContent>
                 </Card>
 
                 {/* Terjual Bulan Ini */}
-                <Card className="bg-card border-border shadow-sm">
-                  <CardContent className="p-3">
+                <Card className="card-lift border-border/70 bg-card">
+                  <CardContent className="p-3.5">
                     <div className="flex flex-col items-center text-center">
-                      <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center mb-2">
-                        <BarChart3 className="h-5 w-5 text-muted-foreground" />
+                      <div className="h-10 w-10 rounded-xl bg-muted flex items-center justify-center mb-2">
+                        <BarChart3 className="h-5 w-5 text-muted-foreground" strokeWidth={2.2} />
                       </div>
-                      <p className="text-xl font-bold">{stats?.totalSoldThisMonth ?? 0}</p>
-                      <p className="text-[10px] text-muted-foreground uppercase tracking-wide">
+                      <p className="text-xl font-extrabold tabular">{stats?.totalSoldThisMonth ?? 0}</p>
+                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
                         {format(date, 'MMM', { locale: id })}
                       </p>
                     </div>
@@ -508,14 +554,14 @@ export function StockDashboard() {
                 </Card>
 
                 {/* Total Stok Malam */}
-                <Card className="bg-card border-border shadow-sm">
-                  <CardContent className="p-3">
+                <Card className="card-lift border-border/70 bg-card">
+                  <CardContent className="p-3.5">
                     <div className="flex flex-col items-center text-center">
-                      <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center mb-2">
-                        <PackageOpen className="h-5 w-5 text-muted-foreground" />
+                      <div className="h-10 w-10 rounded-xl bg-muted flex items-center justify-center mb-2">
+                        <PackageOpen className="h-5 w-5 text-muted-foreground" strokeWidth={2.2} />
                       </div>
-                      <p className="text-xl font-bold">{stats?.totalNightStock ?? 0}</p>
-                      <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Total</p>
+                      <p className="text-xl font-extrabold tabular">{stats?.totalNightStock ?? 0}</p>
+                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Total</p>
                     </div>
                   </CardContent>
                 </Card>

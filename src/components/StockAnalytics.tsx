@@ -332,7 +332,7 @@ export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProp
       {/* Summary Stats - Simplified (no revenue/profit) */}
       <div className="grid grid-cols-2 gap-3">
         {/* Stok Saat Ini */}
-        <Card className="bg-card/50 border-0 shadow-sm">
+        <Card className="glass rounded-[1.2rem] shadow-[var(--shadow-card)]">
           <CardContent className="p-4">
             <div className="flex items-start justify-between">
               <div className="space-y-1">
@@ -358,7 +358,7 @@ export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProp
         </Card>
 
         {/* Penjualan Bulan Ini */}
-        <Card className="bg-card/50 border-0 shadow-sm">
+        <Card className="glass rounded-[1.2rem] shadow-[var(--shadow-card)]">
           <CardContent className="p-4">
             <div className="flex items-start justify-between">
               <div className="space-y-1">
@@ -379,7 +379,7 @@ export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProp
       </div>
 
       {/* Monthly Sales Recap */}
-      <Card className="bg-card/50 border-0 shadow-sm">
+      <Card className="glass rounded-[1.2rem] shadow-[var(--shadow-card)]">
         <CardContent className="p-4">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
@@ -462,7 +462,7 @@ export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProp
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Weekly Trend */}
-        <Card className="bg-card/50 border-0 shadow-sm">
+        <Card className="glass rounded-[1.2rem] shadow-[var(--shadow-card)]">
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-sm">Penjualan 7 Hari Terakhir</h3>
@@ -513,7 +513,7 @@ export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProp
         </Card>
 
         {/* Brand Performance - FIXED with Location Filter */}
-        <Card className="bg-card/50 border-0 shadow-sm">
+        <Card className="glass rounded-[1.2rem] shadow-[var(--shadow-card)]">
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
@@ -592,7 +592,7 @@ export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProp
       {/* Stock by Location & Alerts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Stock Distribution */}
-        <Card className="bg-card/50 border-0 shadow-sm">
+        <Card className="glass rounded-[1.2rem] shadow-[var(--shadow-card)]">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-4">
               <Store className="h-4 w-4 text-muted-foreground" />
@@ -625,7 +625,7 @@ export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProp
         </Card>
 
         {/* Slow Moving Stock Details */}
-        <Card className="bg-card/50 border-0 shadow-sm">
+        <Card className="glass rounded-[1.2rem] shadow-[var(--shadow-card)]">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-4">
               <AlertTriangle className="h-4 w-4 text-warning" />

@@ -521,20 +521,20 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
 
   return (
     <>
-      <div className="space-y-4">
+      <div className="space-y-4 animate-fade-up">
         {/* Compact Filter Bar */}
-        <Card className="border-0 shadow-sm bg-card/50 backdrop-blur">
+        <Card className="glass rounded-[1.2rem] shadow-[var(--shadow-card)]">
           <CardContent className="p-4">
             <div className="flex flex-col gap-3">
               {/* Search + Quick Filter Badge */}
               <div className="flex items-center gap-2">
                 <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                   <Input
                     placeholder="Cari model, IMEI, warna..."
                     value={searchTerm}
                     onChange={(e) => handleSearchChange(e.target.value)}
-                    className="pl-9 h-10 bg-background/80"
+                    className="pl-10 h-11 rounded-xl bg-background/60 border-border/70 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all placeholder:text-muted-foreground/50"
                   />
                 </div>
                 {hasActiveFilters && (
@@ -645,20 +645,22 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
         {isLoading ? (
           <div className="grid gap-3">
             {[...Array(5)].map((_, i) => (
-              <div key={i} className="h-24 bg-muted/50 rounded-xl animate-pulse" />
+              <div key={i} className="h-28 rounded-[1.2rem] bg-gradient-to-r from-muted/40 via-muted/70 to-muted/40 bg-[length:200%_100%] animate-shimmer border border-border/40" style={{ animationDelay: `${i * 0.12}s` }} />
             ))}
           </div>
         ) : stockEntries?.length === 0 ? (
-          <Card className="border-0 shadow-sm">
+          <Card className="glass rounded-[1.4rem]">
             <CardContent className="py-16 text-center">
-              <Package className="w-12 h-12 mx-auto mb-3 text-muted-foreground/30" />
-              <p className="text-muted-foreground font-medium">Tidak ada data stok</p>
-              <p className="text-sm text-muted-foreground/70 mt-1">Coba ubah filter atau tanggal</p>
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-muted/60">
+                <Package className="w-8 h-8 text-muted-foreground/50" strokeWidth={1.8} />
+              </div>
+              <p className="font-bold text-base">Tidak ada data stok</p>
+              <p className="text-sm text-muted-foreground mt-1">Coba ubah filter atau tanggal</p>
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-2">
-            {stockEntries?.map((entry) => {
+          <div className="grid gap-2.5">
+            {stockEntries?.map((entry, idx) => {
               const status = getStockStatus(entry);
               const isSold = entry.sold > 0 || entry.sale_date;
               const undoInfo = isSold ? getSaleUndoInfo(entry) : null;
@@ -667,9 +669,10 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
                 <Card 
                   key={entry.id} 
                   className={cn(
-                    "border-0 shadow-sm hover:shadow-md transition-all overflow-hidden",
-                    isSold && "opacity-70"
+                    "card-lift rounded-[1.2rem] border-border/60 overflow-hidden animate-fade-up",
+                    isSold && "opacity-60"
                   )}
+                  style={{ animationDelay: `${Math.min(idx, 8) * 0.04}s` }}
                 >
                   <CardContent className="p-0">
                     <div className="flex items-stretch">

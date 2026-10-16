@@ -102,7 +102,7 @@ export function StockDetailView({ selectedDate }: StockDetailViewProps) {
     <div className="space-y-4 pb-24">
       {/* Header Stats */}
       <div className="grid grid-cols-3 gap-3">
-        <Card className="bg-card/50 border-0 shadow-sm">
+        <Card className="glass rounded-[1.2rem] shadow-[var(--shadow-card)]">
           <CardContent className="p-3 text-center">
             <Package className="h-5 w-5 text-primary mx-auto mb-1" />
             <p className="text-2xl font-bold">{totalStock}</p>
@@ -110,7 +110,7 @@ export function StockDetailView({ selectedDate }: StockDetailViewProps) {
           </CardContent>
         </Card>
         
-        <Card className="bg-card/50 border-0 shadow-sm">
+        <Card className="glass rounded-[1.2rem] shadow-[var(--shadow-card)]">
           <CardContent className="p-3 text-center">
             <Smartphone className="h-5 w-5 text-info mx-auto mb-1" />
             <p className="text-2xl font-bold">{uniqueModels}</p>
@@ -118,7 +118,7 @@ export function StockDetailView({ selectedDate }: StockDetailViewProps) {
           </CardContent>
         </Card>
         
-        <Card className="bg-card/50 border-0 shadow-sm">
+        <Card className="glass rounded-[1.2rem] shadow-[var(--shadow-card)]">
           <CardContent className="p-3 text-center">
             <Store className="h-5 w-5 text-success mx-auto mb-1" />
             <p className="text-2xl font-bold">{uniqueLocations}</p>
@@ -139,7 +139,7 @@ export function StockDetailView({ selectedDate }: StockDetailViewProps) {
       {stockDetails && stockDetails.length > 0 ? (
         <div className="space-y-4">
           {Object.entries(groupedByBrand).map(([brand, items]) => (
-            <Card key={brand} className="bg-card/50 border-0 shadow-sm overflow-hidden">
+            <Card key={brand} className="glass rounded-[1.2rem] shadow-[var(--shadow-card)] overflow-hidden">
               <CardHeader className="pb-2 pt-3 px-4">
                 <div className="flex items-center justify-between">
                   <Badge variant="secondary" className="text-xs font-semibold">
@@ -201,7 +201,7 @@ export function StockDetailView({ selectedDate }: StockDetailViewProps) {
           ))}
         </div>
       ) : (
-        <Card className="bg-card/50 border-0 shadow-sm">
+        <Card className="glass rounded-[1.2rem] shadow-[var(--shadow-card)]">
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
             <Package className="h-12 w-12 text-muted-foreground/30 mb-3" />
             <h3 className="text-base font-semibold mb-1">Tidak Ada Stok</h3>

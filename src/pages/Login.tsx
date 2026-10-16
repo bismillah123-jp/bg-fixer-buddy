@@ -61,33 +61,44 @@ const Login = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-background">
-      {/* Decorative Background */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 rounded-full bg-primary/10 blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 rounded-full bg-primary/5 blur-3xl" />
+    <div className="flex flex-col min-h-screen bg-background relative overflow-hidden">
+      {/* Decorative Background — animated orbs */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden>
+        <div className="absolute -top-32 -right-32 w-[28rem] h-[28rem] rounded-full bg-primary/15 blur-3xl animate-float-slow" />
+        <div className="absolute -bottom-40 -left-32 w-[24rem] h-[24rem] rounded-full bg-primary/8 blur-3xl animate-float-slow" style={{ animationDelay: "2.5s" }} />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[36rem] h-[36rem] rounded-full bg-primary/[0.04] blur-3xl" />
+        {/* subtle grid */}
+        <div
+          className="absolute inset-0 opacity-[0.13]"
+          style={{
+            backgroundImage: "linear-gradient(hsl(var(--border)) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--border)) 1px, transparent 1px)",
+            backgroundSize: "44px 44px",
+            maskImage: "radial-gradient(ellipse 70% 60% at 50% 40%, black, transparent)",
+            WebkitMaskImage: "radial-gradient(ellipse 70% 60% at 50% 40%, black, transparent)",
+          }}
+        />
       </div>
 
       <div className="flex-1 flex items-center justify-center p-4 relative z-10">
         <div className="w-full max-w-sm">
           {/* Logo & Branding */}
-          <div className="text-center mb-8">
-            <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary/80 shadow-lg shadow-primary/25">
-              <Smartphone className="h-8 w-8 text-primary-foreground" />
+          <div className="text-center mb-8 animate-fade-up">
+            <div className="mx-auto mb-6 flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-[1.4rem] bg-gradient-to-br from-primary via-primary to-[#a31226] shadow-lg shadow-primary/30 glow-primary rotate-3 hover:rotate-0 transition-transform duration-500">
+              <Smartphone className="h-9 w-9 text-primary-foreground" strokeWidth={2.2} />
             </div>
-            <h1 className="text-3xl font-bold tracking-tight text-foreground">
-              Indah Cell
+            <h1 className="text-[2rem] font-extrabold tracking-tight text-foreground">
+              Indah <span className="text-gradient">Cell</span>
             </h1>
-            <p className="mt-2 text-muted-foreground">
-              Pusat Gadget Termurah
+            <p className="mt-1.5 text-sm text-muted-foreground font-medium">
+              Pusat Gadget Termurah • Manajemen Stok
             </p>
           </div>
 
           {/* Login Form */}
-          <div className="bg-card/50 backdrop-blur-sm border border-border/50 rounded-2xl p-6 shadow-lg">
+          <div className="glass rounded-[1.4rem] p-6 sm:p-7 shadow-[var(--shadow-elevated)] animate-fade-up stagger-1">
             <form onSubmit={handleLogin} className="space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-sm font-medium">
+                <Label htmlFor="email" className="text-sm font-semibold">
                   Email
                 </Label>
                 <Input
@@ -97,12 +108,13 @@ const Login = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="h-12 bg-background/50 border-border/50 focus:border-primary transition-colors"
+                  autoComplete="email"
+                  className="h-12 rounded-xl bg-background/60 border-border/70 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all placeholder:text-muted-foreground/50"
                 />
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-sm font-medium">
+                <Label htmlFor="password" className="text-sm font-semibold">
                   Password
                 </Label>
                 <div className="relative">
@@ -113,12 +125,14 @@ const Login = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    className="h-12 pr-12 bg-background/50 border-border/50 focus:border-primary transition-colors"
+                    autoComplete="current-password"
+                    className="h-12 pr-12 rounded-xl bg-background/60 border-border/70 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all placeholder:text-muted-foreground/50"
                   />
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
+                    aria-label={showPassword ? "Sembunyikan password" : "Tampilkan password"}
                     className="absolute right-1 top-1/2 -translate-y-1/2 h-10 w-10 p-0 hover:bg-transparent text-muted-foreground hover:text-foreground transition-colors"
                     onClick={() => setShowPassword(!showPassword)}
                   >
@@ -133,7 +147,7 @@ const Login = () => {
               
               <Button 
                 type="submit" 
-                className="w-full h-12 text-base font-semibold bg-primary hover:bg-primary/90 shadow-lg shadow-primary/25 transition-all duration-200 hover:shadow-xl hover:shadow-primary/30"
+                className="w-full h-12 text-base font-bold rounded-xl bg-gradient-to-r from-primary to-[#c22436] hover:brightness-110 shadow-[var(--shadow-button)] transition-all duration-200 pressable"
                 disabled={isLoading}
               >
                 {isLoading ? (
@@ -149,13 +163,13 @@ const Login = () => {
           </div>
 
           {/* Helper Text */}
-          <p className="mt-6 text-center text-sm text-muted-foreground">
+          <p className="mt-6 text-center text-sm text-muted-foreground animate-fade-up stagger-2">
             Butuh bantuan?{" "}
             <a 
               href="https://wa.me/6283146993017" 
               target="_blank" 
               rel="noopener noreferrer"
-              className="font-medium text-primary hover:underline transition-colors"
+              className="font-semibold text-primary hover:underline transition-colors"
             >
               Hubungi Sir Ihsan
             </a>

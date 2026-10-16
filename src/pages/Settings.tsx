@@ -494,7 +494,7 @@ const Settings = () => {
   return (
     <div className="space-y-4 pb-24">
       {/* Account Section */}
-      <Card className="bg-card/50 border-0 shadow-sm overflow-hidden">
+      <Card className="glass rounded-[1.2rem] shadow-[var(--shadow-card)] overflow-hidden">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -516,7 +516,7 @@ const Settings = () => {
       </Card>
 
       {/* Phone Models Section */}
-      <Card className="bg-card/50 border-0 shadow-sm overflow-hidden">
+      <Card className="glass rounded-[1.2rem] shadow-[var(--shadow-card)] overflow-hidden">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-info/10 flex items-center justify-center">
@@ -614,7 +614,7 @@ const Settings = () => {
       </Card>
 
       {/* Labels Section */}
-      <Card className="bg-card/50 border-0 shadow-sm overflow-hidden">
+      <Card className="glass rounded-[1.2rem] shadow-[var(--shadow-card)] overflow-hidden">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -657,7 +657,7 @@ const Settings = () => {
       </Card>
 
       {/* Phone Colors Section */}
-      <Card className="bg-card/50 border-0 shadow-sm overflow-hidden">
+      <Card className="glass rounded-[1.2rem] shadow-[var(--shadow-card)] overflow-hidden">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -694,7 +694,7 @@ const Settings = () => {
         </CardContent>
       </Card>
 
-      <Card className="bg-card/50 border-0 shadow-sm overflow-hidden">
+      <Card className="glass rounded-[1.2rem] shadow-[var(--shadow-card)] overflow-hidden">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-success/10 flex items-center justify-center">

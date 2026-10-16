@@ -18,22 +18,26 @@ export function MobileNavigation({ activeTab, onTabChange }: MobileNavigationPro
   ];
 
   return (
-    <div className="md:hidden fixed bottom-0 left-0 right-0 bg-background border-t border-border z-40">
-      <div className="flex items-center justify-around py-2">
+    <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 glass border-t border-border/60" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
+      <div className="flex items-center justify-around px-2 py-2">
         {navItems.map((item) => {
           const Icon = item.icon;
+          const isActive = activeTab === item.id;
           return (
             <Button
               key={item.id}
               variant="ghost"
               size="sm"
               onClick={() => onTabChange(item.id)}
-              className={`flex flex-col items-center gap-1 h-auto py-2 px-2 ${
-                activeTab === item.id ? 'text-primary' : 'text-muted-foreground'
+              className={`relative flex flex-col items-center gap-1 h-auto py-2 px-3 rounded-xl pressable ${
+                isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              <Icon className="h-5 w-5" />
-              <span className="text-xs">{item.label}</span>
+              {isActive && (
+                <span className="absolute -top-[9px] h-1 w-8 rounded-full bg-gradient-to-r from-primary to-[#c22436] shadow-[var(--shadow-glow)]" />
+              )}
+              <Icon className="h-5 w-5" strokeWidth={isActive ? 2.4 : 2} />
+              <span className={`text-[10px] ${isActive ? 'font-bold' : 'font-medium'}`}>{item.label}</span>
             </Button>
           );
         })}
