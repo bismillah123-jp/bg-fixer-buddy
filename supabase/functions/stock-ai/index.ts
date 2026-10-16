@@ -6,67 +6,233 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-api-key, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// ===== Allowed columns per table (sanitize AI payload to prevent schema errors) =====
-const TABLE_FIELDS: Record<string, string[]> = {
-  phone_models: ["id", "brand", "model", "storage_capacity", "srp", "color"],
-  stock_locations: ["id", "name", "description"],
-  phone_colors: ["id", "name", "hex_color"],
-  labels: ["id", "name", "color"],
-  stock_entries: [
-    "id", "date", "location_id", "phone_model_id", "imei",
-    "morning_stock", "incoming", "sold", "returns", "adjustment", "night_stock",
-    "notes", "label", "metadata", "cost_price", "selling_price", "sale_date",
-  ],
-};
+// ===== AGENT TOOLS (Shania Agent, 2026-10-17) =====
+// AI TIDAK BOLEH menulis mentah ke tabel stok (event-sourcing: stock_events
+// adalah source of truth, trigger cascade_recalc rebuild stock_entries).
+// Semua aksi stok HARUS lewat tools bisnis di bawah — atomic & aman.
+// Setiap tool: validasi ketat -> eksekusi -> kembalikan hasil + ringkasan manusiawi.
 
-function sanitizeFields(table: string, obj: any) {
-  const allowed = TABLE_FIELDS[table];
-  if (!allowed || !obj || typeof obj !== "object") return { clean: {}, dropped: [] as string[] };
-  const clean: Record<string, any> = {};
-  const dropped: string[] = [];
-  for (const [k, v] of Object.entries(obj)) {
-    if (allowed.includes(k)) clean[k] = v;
-    else dropped.push(k);
+type ToolResult = { ok: true; summary: string; data?: unknown } | { ok: false; error: string };
+
+function req(p: Record<string, any>, name: string, kind: "string" | "number" | "uuid" | "date" = "string"): any {
+  const v = p[name];
+  if (v === undefined || v === null || v === "") throw new Error(`Parameter '${name}' wajib diisi`);
+  if (kind === "number") {
+    const n = Number(v);
+    if (!Number.isFinite(n)) throw new Error(`Parameter '${name}' harus angka`);
+    return n;
   }
-  return { clean, dropped };
+  if (kind === "uuid") {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(v)))
+      throw new Error(`Parameter '${name}' harus UUID valid`);
+    return v;
+  }
+  if (kind === "date") {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(v))) throw new Error(`Parameter '${name}' harus format YYYY-MM-DD`);
+    return v;
+  }
+  return String(v);
+}
+const opt = (p: Record<string, any>, name: string) =>
+  p[name] === undefined || p[name] === null || p[name] === "" ? null : p[name];
+
+const rupiah = (n: number) => "Rp " + Math.round(n).toLocaleString("id-ID");
+
+async function executeTool(supabase: any, tool: string, params: Record<string, any>): Promise<ToolResult> {
+  const p = params || {};
+  try {
+    // ---- JUAL: catat penjualan 1 unit (atomic via RPC) ----
+    if (tool === "jual_hp") {
+      const entryId = req(p, "entry_id", "uuid");
+      const price = req(p, "harga", "number");
+      if (price < 0) throw new Error("Harga jual tidak boleh negatif");
+      const saleDate = opt(p, "tanggal") || new Date(Date.now() + 7 * 3600 * 1000).toISOString().split("T")[0];
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(saleDate)) throw new Error("Parameter 'tanggal' harus format YYYY-MM-DD");
+      // Ambil data entry untuk lengkapi RPC
+      const { data: entry, error: eErr } = await supabase
+        .from("stock_entries").select("id, imei, location_id, phone_model_id").eq("id", entryId).maybeSingle();
+      if (eErr || !entry) throw new Error("Unit tidak ditemukan (entry_id salah)");
+      const srp = Number(opt(p, "srp")) || 0;
+      const cost = Number(opt(p, "modal")) || 0;
+      const { data, error } = await supabase.rpc("record_sale", {
+        p_entry_id: entryId, p_imei: entry.imei || "", p_location_id: entry.location_id,
+        p_phone_model_id: entry.phone_model_id, p_sale_date: saleDate,
+        p_price: price, p_srp: srp, p_cost_price: cost,
+      });
+      if (error) throw new Error(error.message);
+      const profit = data?.profit_loss ?? 0;
+      return { ok: true, summary: `Terjual ${rupiah(price)} (${profit >= 0 ? "laba" : "rugi"} ${rupiah(Math.abs(profit))})`, data };
+    }
+
+    // ---- TRANSFER: pindah unit antar lokasi (atomic via RPC) ----
+    if (tool === "transfer_stok") {
+      const imei = req(p, "imei");
+      const from = req(p, "dari_lokasi_id", "uuid");
+      const to = req(p, "ke_lokasi_id", "uuid");
+      if (from === to) throw new Error("Lokasi asal dan tujuan tidak boleh sama");
+      const modelId = req(p, "model_id", "uuid");
+      const date = opt(p, "tanggal") || new Date(Date.now() + 7 * 3600 * 1000).toISOString().split("T")[0];
+      const { data, error } = await supabase.rpc("transfer_stock_unit", {
+        p_imei: imei, p_source_location_id: from, p_dest_location_id: to,
+        p_phone_model_id: modelId, p_date: date,
+        p_notes: opt(p, "catatan"), p_label: opt(p, "label"), p_metadata: opt(p, "metadata") || {},
+      });
+      if (error) throw new Error(error.message);
+      return { ok: true, summary: `Unit ${imei} dipindah ${data?.from || ""} → ${data?.to || ""}`, data };
+    }
+
+    // ---- HP MASUK: catat barang datang (event -> trigger cascade otomatis) ----
+    if (tool === "hp_masuk") {
+      const imei = req(p, "imei");
+      const modelId = req(p, "model_id", "uuid");
+      const locId = req(p, "lokasi_id", "uuid");
+      const date = req(p, "tanggal", "date");
+      const cost = Number(opt(p, "modal")) || 0;
+      const { data, error } = await supabase.from("stock_events").insert({
+        date, imei, location_id: locId, phone_model_id: modelId,
+        event_type: "masuk", qty: 1, notes: opt(p, "catatan"),
+        metadata: { ...(cost > 0 ? { cost_price: cost } : {}), ...(opt(p, "warna") ? { color: opt(p, "warna") } : {}) },
+      }).select("id").single();
+      if (error) throw new Error(error.message);
+      return { ok: true, summary: `HP masuk tercatat: IMEI ${imei}${cost > 0 ? ` (modal ${rupiah(cost)})` : ""}`, data };
+    }
+
+    // ---- KOREKSI: catat koreksi stok ----
+    if (tool === "koreksi_stok") {
+      const imei = req(p, "imei");
+      const modelId = req(p, "model_id", "uuid");
+      const locId = req(p, "lokasi_id", "uuid");
+      const date = req(p, "tanggal", "date");
+      const qty = req(p, "qty", "number");
+      if (!Number.isInteger(qty) || qty === 0) throw new Error("qty koreksi harus bilangan bulat bukan nol");
+      const { data, error } = await supabase.from("stock_events").insert({
+        date, imei, location_id: locId, phone_model_id: modelId,
+        event_type: "koreksi", qty, notes: opt(p, "catatan") || "Koreksi via Shania",
+        metadata: opt(p, "metadata") || {},
+      }).select("id").single();
+      if (error) throw new Error(error.message);
+      return { ok: true, summary: `Koreksi stok tercatat: ${qty > 0 ? "+" : ""}${qty} unit (IMEI ${imei})`, data };
+    }
+
+    // ---- BATAL JUAL: undo penjualan (atomic via RPC) ----
+    if (tool === "batal_jual") {
+      const { data, error } = await supabase.rpc("undo_sale", {
+        p_event_id: req(p, "event_id", "uuid"), p_entry_id: req(p, "entry_id", "uuid"),
+        p_from_date: req(p, "dari_tanggal", "date"), p_to_date: req(p, "sampai_tanggal", "date"),
+        p_location_id: req(p, "lokasi_id", "uuid"), p_phone_model_id: req(p, "model_id", "uuid"),
+        p_imei: req(p, "imei"),
+      });
+      if (error) throw new Error(error.message);
+      return { ok: true, summary: `Penjualan IMEI ${p.imei} dibatalkan — unit kembali ke stok`, data };
+    }
+
+    // ---- MASTER DATA: model HP ----
+    if (tool === "tambah_model") {
+      const brand = req(p, "brand"), model = req(p, "model");
+      const { data, error } = await supabase.from("phone_models").insert({
+        brand, model, storage_capacity: opt(p, "storage") || null,
+        srp: Number(opt(p, "srp")) || null, color: opt(p, "warna") || null,
+      }).select("id").single();
+      if (error) throw new Error(error.message);
+      return { ok: true, summary: `Model baru: ${brand} ${model}${opt(p, "storage") ? " " + opt(p, "storage") : ""}`, data };
+    }
+    if (tool === "ubah_model") {
+      const id = req(p, "id", "uuid");
+      const patch: Record<string, any> = {};
+      for (const k of ["brand", "model", "storage_capacity", "srp", "color"])
+        if (opt(p, k) !== null) patch[k] = k === "srp" ? Number(p[k]) : p[k];
+      if (!Object.keys(patch).length) throw new Error("Tidak ada field yang diubah");
+      const { error } = await supabase.from("phone_models").update(patch).eq("id", id);
+      if (error) throw new Error(error.message);
+      return { ok: true, summary: `Model HP diperbarui (${Object.keys(patch).join(", ")})` };
+    }
+    if (tool === "hapus_model") {
+      const { error } = await supabase.from("phone_models").delete().eq("id", req(p, "id", "uuid"));
+      if (error) throw new Error(error.message);
+      return { ok: true, summary: "Model HP dihapus" };
+    }
+
+    // ---- MASTER DATA: lokasi ----
+    if (tool === "tambah_lokasi") {
+      const { data, error } = await supabase.from("stock_locations")
+        .insert({ name: req(p, "nama"), description: opt(p, "deskripsi") }).select("id").single();
+      if (error) throw new Error(error.message);
+      return { ok: true, summary: `Lokasi baru: ${p.nama}`, data };
+    }
+    if (tool === "hapus_lokasi") {
+      const { error } = await supabase.from("stock_locations").delete().eq("id", req(p, "id", "uuid"));
+      if (error) throw new Error(error.message);
+      return { ok: true, summary: "Lokasi dihapus" };
+    }
+
+    // ---- MASTER DATA: warna & label ----
+    if (tool === "tambah_warna") {
+      const { error } = await supabase.from("phone_colors")
+        .insert({ name: req(p, "nama"), hex_color: opt(p, "hex") || "#808080" });
+      if (error) throw new Error(error.message);
+      return { ok: true, summary: `Warna baru: ${p.nama}` };
+    }
+    if (tool === "hapus_warna") {
+      const { error } = await supabase.from("phone_colors").delete().eq("id", req(p, "id", "uuid"));
+      if (error) throw new Error(error.message);
+      return { ok: true, summary: "Warna dihapus" };
+    }
+    if (tool === "tambah_label") {
+      const { error } = await supabase.from("labels")
+        .insert({ name: req(p, "nama"), color: opt(p, "warna") || "#808080" });
+      if (error) throw new Error(error.message);
+      return { ok: true, summary: `Label baru: ${p.nama}` };
+    }
+    if (tool === "hapus_label") {
+      const { error } = await supabase.from("labels").delete().eq("id", req(p, "id", "uuid"));
+      if (error) throw new Error(error.message);
+      return { ok: true, summary: "Label dihapus" };
+    }
+
+    throw new Error(`Tool '${tool}' tidak dikenal`);
+  } catch (e: any) {
+    return { ok: false, error: e?.message || String(e) };
+  }
 }
 
-// ===== Action executor (admin powers, only run after user confirms in UI) =====
-async function executeAction(supabase: any, action: any) {
-  const { type, table, payload, where } = action || {};
-  if (!type || !table) throw new Error("Action butuh 'type' dan 'table'");
+// Daftar tool untuk dokumentasi AI (system prompt memakai TOOL_DOCS)
+const TOOL_DOCS = `
+== TOOLS SHANIA (WAJIB dipakai untuk SEMUA aksi — jangan tulis SQL/CRUD mentah) ==
+Format proposal aksi (satu blok per aksi, dalam code fence):
+\`\`\`action
+{"tool":"<nama_tool>","params":{...},"ringkasan":"1 kalimat jelas untuk user","detail":"info tambahan opsional"}
+\`\`\`
 
-  if (!TABLE_FIELDS[table]) throw new Error(`Tabel '${table}' tidak diizinkan`);
+TOOLS TERSEDIA:
+1. jual_hp — catat penjualan 1 unit.
+   params: entry_id(uuid, dari DETAIL STOK TERSEDIA), harga(number, rupiah), tanggal(YYYY-MM-DD, default hari ini), srp(number, opsional), modal(number, opsional)
+2. transfer_stok — pindah unit antar lokasi.
+   params: imei, dari_lokasi_id(uuid), ke_lokasi_id(uuid), model_id(uuid), tanggal(YYYY-MM-DD), catatan(opsional)
+3. hp_masuk — catat HP datang.
+   params: imei, model_id(uuid), lokasi_id(uuid), tanggal(YYYY-MM-DD), modal(number, opsional), warna(opsional), catatan(opsional)
+4. koreksi_stok — koreksi selisih stok fisik.
+   params: imei, model_id(uuid), lokasi_id(uuid), tanggal(YYYY-MM-DD), qty(integer bukan nol, +tambah/-kurang), catatan
+5. batal_jual — batalkan penjualan (kembalikan ke stok).
+   params: event_id(uuid), entry_id(uuid), dari_tanggal, sampai_tanggal, lokasi_id(uuid), model_id(uuid), imei
+6. tambah_model — model HP baru.
+   params: brand, model, storage(opsional, mis. "8/256"), srp(number, opsional), warna(opsional)
+7. ubah_model — ubah data model. params: id(uuid), lalu field yang mau diubah saja
+8. hapus_model — params: id(uuid)
+9. tambah_lokasi — params: nama, deskripsi(opsional)
+10. hapus_lokasi — params: id(uuid)
+11. tambah_warna — params: nama, hex(opsional)
+12. hapus_warna — params: id(uuid)
+13. tambah_label — params: nama, warna(opsional)
+14. hapus_label — params: id(uuid)
 
-  const { clean: cleanPayload, dropped: droppedPayload } = sanitizeFields(table, payload);
-  const { clean: cleanWhere, dropped: droppedWhere } = sanitizeFields(table, where);
-  const warnings: string[] = [];
-  if (droppedPayload.length) warnings.push(`payload drop: ${droppedPayload.join(", ")}`);
-  if (droppedWhere.length) warnings.push(`where drop: ${droppedWhere.join(", ")}`);
-
-  if (type === "insert") {
-    const { data, error } = await supabase.from(table).insert(cleanPayload).select();
-    if (error) throw error;
-    return { ok: true, data, warnings };
-  }
-  if (type === "update") {
-    if (!cleanWhere || Object.keys(cleanWhere).length === 0) throw new Error("Update butuh 'where' yang valid");
-    let q = supabase.from(table).update(cleanPayload);
-    for (const [k, v] of Object.entries(cleanWhere)) q = q.eq(k, v as any);
-    const { data, error } = await q.select();
-    if (error) throw error;
-    return { ok: true, data, warnings };
-  }
-  if (type === "delete") {
-    if (!cleanWhere || Object.keys(cleanWhere).length === 0) throw new Error("Delete butuh 'where' yang valid");
-    let q = supabase.from(table).delete();
-    for (const [k, v] of Object.entries(cleanWhere)) q = q.eq(k, v as any);
-    const { data, error } = await q.select();
-    if (error) throw error;
-    return { ok: true, data, warnings };
-  }
-  throw new Error(`Tipe aksi '${type}' tidak dikenal`);
-}
+ATURAN AKSI (keras):
+- JANGAN PERNAH eksekusi sendiri. Keluarkan blok \`\`\`action, user klik "Setujui" di UI.
+- Selalu jelaskan dulu dengan bahasa manusia apa yang akan dilakukan, lalu blok action.
+- Untuk jual_hp/transfer/batal_jual: WAJIB ambil id dari data (DETAIL STOK TERSEDIA / REFERENSI ID). JANGAN tebak UUID.
+- Kalau data ambigu ("jual vivo yang biru" tapi ada 3), TANYA dulu spesifik IMEI-nya, jangan asal pilih.
+- Satu balasan boleh beberapa blok action (mis. tambah 3 model sekaligus).
+- Harga 0 DITOLAK sistem — kalau user bilang gratis, konfirmasi ulang.
+`; // end TOOL_DOCS (dipakai di systemPrompt)
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -90,18 +256,13 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // === Mode: execute confirmed action ===
+    // === Mode: execute confirmed action (via business tools, bukan CRUD mentah) ===
     if (body.mode === "execute") {
-      try {
-        const result = await executeAction(supabase, body.action);
-        return new Response(JSON.stringify(result), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      } catch (e: any) {
-        return new Response(JSON.stringify({ ok: false, error: e.message || String(e) }), {
-          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+      const result = await executeTool(supabase, body.tool, body.params);
+      const status = result.ok ? 200 : 400;
+      return new Response(JSON.stringify(result), {
+        status, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // === Mode: chat (default) — streaming dengan status realtime ===
@@ -383,46 +544,30 @@ Contoh: "Boleh hubungi Ihsan langsung di sini: [Click here](https://wa.me/628314
 
 
 
-== KEMAMPUAN AKSI ADMIN ==
-Kamu BOLEH mengusulkan aksi pada tabel: phone_models, stock_locations, phone_colors, labels, stock_entries.
-Tipe aksi: insert, update, delete.
+${TOOL_DOCS}
 
-WAJIB: Untuk SETIAP aksi, kamu HARUS mengeluarkan blok JSON dengan format PERSIS seperti ini (di dalam code fence \`\`\`action ... \`\`\`):
-
-\`\`\`action
-{
-  "type": "insert" | "update" | "delete",
-  "table": "phone_models" | "stock_locations" | "phone_colors" | "labels" | "stock_entries",
-  "payload": { ...field: value },     // untuk insert/update
-  "where": { ...field: value },        // untuk update/delete (WAJIB, jangan kosong)
-  "summary": "Penjelasan singkat 1 kalimat untuk user"
-}
-\`\`\`
-
-Aturan aksi:
-- JANGAN PERNAH eksekusi sendiri. Aksi hanya USULAN — user akan klik "Setujui" di UI untuk eksekusi.
-- Selalu jelaskan dulu apa yang akan kamu lakukan, lalu keluarkan blok \`\`\`action\`\`\`.
-- Untuk update/delete, gunakan id (dari REFERENSI ID di atas) di "where" — JANGAN tebak.
-- Bisa keluarkan beberapa blok \`\`\`action\`\`\` dalam satu balasan jika user minta beberapa hal sekaligus.
-- Jika user minta sesuatu yang ambigu (misal "hapus iPhone"), TANYA dulu spesifik mana, jangan langsung bikin aksi.
-- Jika data tidak cukup (id tidak ada di REFERENSI), katakan dan minta user menyebut lebih spesifik.
-
-== SKEMA KOLOM (WAJIB DIPATUHI — jangan pakai field di luar daftar ini) ==
+== SKEMA REFERENSI (untuk isi params) ==
 - phone_models: brand, model, storage_capacity, srp, color
 - stock_locations: name, description
 - phone_colors: name, hex_color
 - labels: name, color
-- stock_entries: date, location_id, phone_model_id, imei, morning_stock, incoming, sold, returns, adjustment, night_stock, notes, label, metadata, cost_price, selling_price, sale_date
-  PENTING: stock_entries TIDAK punya kolom 'color' / 'brand' / 'model'. Warna unit disimpan di metadata.color (JSON).
-  Contoh ubah warna unit: {"type":"update","table":"stock_entries","payload":{"metadata":{"color":"Hitam"}},"where":{"id":"<uuid>"}}
+- stock_entries TIDAK punya kolom 'color'/'brand'/'model' — warna unit ada di metadata.color
 
 Contoh:
-User: "tambah merk baru Xiaomi Redmi 13 4/128 SRP 2.300.000"
+User: "tambah model Xiaomi Redmi 13 4/128 SRP 2.300.000"
 Kamu: "Oke, saya akan menambahkan model HP baru:
 \`\`\`action
-{"type":"insert","table":"phone_models","payload":{"brand":"Xiaomi","model":"Redmi 13","storage_capacity":"4/128","srp":2300000},"summary":"Tambah model Xiaomi Redmi 13 4/128 dengan SRP Rp 2.300.000"}
+{"tool":"tambah_model","params":{"brand":"Xiaomi","model":"Redmi 13","storage":"4/128","srp":2300000},"ringkasan":"Tambah model Xiaomi Redmi 13 4/128, SRP Rp 2.300.000"}
 \`\`\`
 Klik Setujui untuk menyimpan."
+
+User: "jual vivo y36 imei 123456789012345 harga 2,5jt"
+Kamu: cari unit itu di DETAIL STOK TERSEDIA, cocokkan IMEI, lalu:
+"Saya akan mencatat penjualan:
+\`\`\`action
+{"tool":"jual_hp","params":{"entry_id":"<uuid dari data>","harga":2500000,"tanggal":"2026-10-17"},"ringkasan":"Jual Vivo Y36 (IMEI 123456789012345) seharga Rp 2.500.000","detail":"Modal: Rp 2.200.000, estimasi laba Rp 300.000"}
+\`\`\`
+Klik Setujui untuk mencatat."
 
 ${contextData}`;
 

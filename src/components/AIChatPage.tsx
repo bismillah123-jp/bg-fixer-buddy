@@ -23,6 +23,14 @@ import {
   Timer,
   MapPin,
   MessageCircle,
+  ShoppingCart,
+  ArrowLeftRight,
+  PackagePlus,
+  ClipboardEdit,
+  Undo2,
+  Smartphone,
+  Palette,
+  Tag,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -32,11 +40,10 @@ import { cn } from "@/lib/utils";
 
 interface ActionProposal {
   id: string;
-  type: "insert" | "update" | "delete";
-  table: string;
-  payload?: Record<string, unknown>;
-  where?: Record<string, unknown>;
-  summary?: string;
+  tool: string;
+  params?: Record<string, unknown>;
+  ringkasan?: string;
+  detail?: string;
   status: "pending" | "approved" | "rejected" | "executing" | "done" | "error";
   resultMessage?: string;
 }
@@ -60,33 +67,30 @@ const QUICK_PROMPTS = [
   { icon: MessageCircle, text: "Hai Shania, apa kabar?", desc: "Sekedar ngobrol" },
 ];
 
-const TABLE_LABELS: Record<string, string> = {
-  phone_models: "Model HP",
-  stock_locations: "Lokasi Stok",
-  phone_colors: "Warna",
-  labels: "Label",
-  stock_entries: "Entri Stok",
+const TOOL_META: Record<
+  string,
+  { label: string; cls: string; Icon: typeof Plus; destructive?: boolean }
+> = {
+  jual_hp: { label: "Jual HP", cls: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30", Icon: ShoppingCart },
+  transfer_stok: { label: "Transfer", cls: "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/30", Icon: ArrowLeftRight },
+  hp_masuk: { label: "HP Masuk", cls: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30", Icon: PackagePlus },
+  koreksi_stok: { label: "Koreksi", cls: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30", Icon: ClipboardEdit },
+  batal_jual: { label: "Batal Jual", cls: "bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-500/30", Icon: Undo2 },
+  tambah_model: { label: "Tambah Model", cls: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30", Icon: Smartphone },
+  ubah_model: { label: "Ubah Model", cls: "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/30", Icon: Pencil },
+  hapus_model: { label: "Hapus Model", cls: "bg-destructive/10 text-destructive border-destructive/30", Icon: Trash, destructive: true },
+  tambah_lokasi: { label: "Tambah Lokasi", cls: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30", Icon: MapPin },
+  hapus_lokasi: { label: "Hapus Lokasi", cls: "bg-destructive/10 text-destructive border-destructive/30", Icon: Trash, destructive: true },
+  tambah_warna: { label: "Tambah Warna", cls: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30", Icon: Palette },
+  hapus_warna: { label: "Hapus Warna", cls: "bg-destructive/10 text-destructive border-destructive/30", Icon: Trash, destructive: true },
+  tambah_label: { label: "Tambah Label", cls: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30", Icon: Tag },
+  hapus_label: { label: "Hapus Label", cls: "bg-destructive/10 text-destructive border-destructive/30", Icon: Trash, destructive: true },
 };
 
-const TYPE_META: Record<
-  string,
-  { label: string; cls: string; Icon: typeof Plus }
-> = {
-  insert: {
-    label: "Tambah",
-    cls: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30",
-    Icon: Plus,
-  },
-  update: {
-    label: "Ubah",
-    cls: "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/30",
-    Icon: Pencil,
-  },
-  delete: {
-    label: "Hapus",
-    cls: "bg-destructive/10 text-destructive border-destructive/30",
-    Icon: Trash,
-  },
+const FALLBACK_TOOL_META: { label: string; cls: string; Icon: typeof Plus; destructive?: boolean } = {
+  label: "Aksi",
+  cls: "bg-primary/10 text-primary border-primary/30",
+  Icon: Plus,
 };
 
 function TypingIndicator({ status }: { status?: string }) {
@@ -115,13 +119,13 @@ function parseActions(content: string): { cleaned: string; actions: ActionPropos
     const raw = match[1].trim();
     try {
       const parsed = JSON.parse(raw);
+      if (!parsed.tool) continue; // format lama diabaikan
       actions.push({
         id: `${Date.now()}-${idx++}`,
-        type: parsed.type,
-        table: parsed.table,
-        payload: parsed.payload,
-        where: parsed.where,
-        summary: parsed.summary,
+        tool: parsed.tool,
+        params: parsed.params,
+        ringkasan: parsed.ringkasan,
+        detail: parsed.detail,
         status: "pending",
       });
     } catch {
@@ -141,9 +145,8 @@ function ActionCard({
   onApprove: () => void;
   onReject: () => void;
 }) {
-  const meta = TYPE_META[action.type] || TYPE_META.insert;
-  const tableLabel = TABLE_LABELS[action.table] || action.table;
-  const isDestructive = action.type === "delete";
+  const meta = TOOL_META[action.tool] || FALLBACK_TOOL_META;
+  const isDestructive = !!meta.destructive;
   const Icon = meta.Icon;
 
   return (
@@ -162,7 +165,7 @@ function ActionCard({
           <Icon className="h-3 w-3" />
           {meta.label}
         </span>
-        <span className="text-xs font-semibold text-foreground/90">{tableLabel}</span>
+        <span className="text-xs font-semibold text-foreground/90">{meta.label}</span>
         {action.status === "done" && (
           <Badge className="text-[10px] h-5 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0 gap-1">
             <CheckCheck className="h-3 w-3" /> Selesai
@@ -172,15 +175,16 @@ function ActionCard({
         {action.status === "error" && <Badge variant="destructive" className="text-[10px] h-5">Gagal</Badge>}
       </div>
 
-      {action.summary && <p className="text-xs text-foreground/80 leading-relaxed">{action.summary}</p>}
+      {action.ringkasan && <p className="text-xs text-foreground/80 leading-relaxed">{action.ringkasan}</p>}
+      {action.detail && <p className="text-[11px] text-muted-foreground leading-relaxed">{action.detail}</p>}
 
       <details className="text-[11px] group">
         <summary className="cursor-pointer text-muted-foreground hover:text-foreground inline-flex items-center gap-1 select-none">
           <ChevronDown className="h-3 w-3 transition-transform group-open:rotate-180" />
-          Lihat detail data
+          Lihat detail teknis
         </summary>
         <pre className="mt-1.5 p-2 rounded-md bg-background/70 border border-border/40 overflow-x-auto text-[10px] leading-relaxed font-mono">
-{JSON.stringify({ payload: action.payload, where: action.where }, null, 2)}
+{JSON.stringify({ tool: action.tool, params: action.params }, null, 2)}
         </pre>
       </details>
 
@@ -435,7 +439,8 @@ export function AIChatPage() {
         },
         body: JSON.stringify({
           mode: "execute",
-          action: { type: action.type, table: action.table, payload: action.payload, where: action.where },
+          tool: action.tool,
+          params: action.params,
         }),
       });
       const json = await resp.json();
@@ -445,11 +450,11 @@ export function AIChatPage() {
         toast.error(msg);
         return false;
       }
-      const count = Array.isArray(json.data) ? json.data.length : 1;
       updateAction(msgIdx, action.id, {
         status: "done",
-        resultMessage: `Berhasil — ${count} baris terdampak.`,
+        resultMessage: json.summary || "Berhasil dijalankan.",
       });
+      toast.success(json.summary || "Aksi berhasil dijalankan");
       return true;
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Error tidak diketahui";
