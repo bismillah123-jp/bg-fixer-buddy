@@ -87,7 +87,10 @@ interface SlowMovingItem {
 }
 
 export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProps) {
-  const today = selectedDate.toISOString().split('T')[0];
+  // FIX (bug hunt 16 Okt): toISOString() = UTC. Untuk WIB (UTC+7), jam 00:00-07:00
+  // akan menghasilkan tanggal KEMARIN. Pakai format lokal agar konsisten dengan
+  // dashboard & tabel yang memakai format(date, 'yyyy-MM-dd').
+  const today = format(selectedDate, 'yyyy-MM-dd');
   const [selectedLocation, setSelectedLocation] = useState<string>("all");
 
   // Fetch locations for filter
@@ -147,7 +150,7 @@ export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProp
       const monthEnd = endOfMonth(selectedDate);
       const startOfMonthStr = format(monthStart, 'yyyy-MM-dd');
       const endOfMonthStr = format(monthEnd, 'yyyy-MM-dd');
-      const yesterday = subDays(selectedDate, 1).toISOString().split('T')[0];
+      const yesterday = format(subDays(selectedDate, 1), 'yyyy-MM-dd');
 
       const [
         { data: todayStock },

@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { format } from "date-fns";
 import type { Database, Json } from "@/integrations/supabase/types";
 
 type PhoneModelRow = Database["public"]["Tables"]["phone_models"]["Row"];
@@ -186,7 +187,7 @@ const Settings = () => {
         escapeChar: '"',
         skipEmptyLines: false
       });
-      const filename = `stock_export_${new Date().toISOString().split('T')[0]}.csv`;
+      const filename = `stock_export_${format(new Date(), 'yyyy-MM-dd')}.csv`;
       downloadCSV(csv, filename);
       toast({ title: "Ekspor Berhasil", description: `${data.length} baris data stok telah diekspor.` });
     } catch (error) {

@@ -15,7 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Search, RotateCcw, Edit2, ArrowRightLeft, Trash2, CheckCircle, Package, X, Undo2 } from "lucide-react";
+import { Search, RotateCcw, Edit2, ArrowRightLeft, Trash2, CheckCircle, Package, X, Undo2, MapPin, Palette, Hash } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { EditStockDialog } from "./EditStockDialog";
@@ -438,33 +438,18 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
       const undoInfo = getSaleUndoInfo(entry);
       if (!undoInfo) throw new Error('Waktu undo sudah habis (maks 1 jam)');
 
-      // 1. Delete the laku event
-      const { error: deleteError } = await supabase
-        .from('stock_events')
-        .delete()
-        .eq('id', undoInfo.eventId);
-      if (deleteError) throw new Error(`Gagal menghapus event laku: ${deleteError.message}`);
-
-      // 2. Reset sale fields on stock_entries
-      const { error: updateError } = await supabase
-        .from('stock_entries')
-        .update({
-          sold: 0,
-          selling_price: 0,
-          sale_date: null,
-          profit_loss: 0,
-        })
-        .eq('id', entry.id);
-      if (updateError) throw new Error(`Gagal mereset data penjualan: ${updateError.message}`);
-
-      // 3. Cascade recalc
-      await supabase.rpc('cascade_recalc_stock_with_imei', {
+      // FIX (bug hunt 16 Okt): undo atomic via RPC — hapus event + reset entry +
+      // cascade recalc dalam SATU transaksi. Tidak ada lagi state setengah jalan.
+      const { error } = await supabase.rpc('undo_sale', {
+        p_event_id: undoInfo.eventId,
+        p_entry_id: entry.id,
         p_from_date: entry.date,
         p_to_date: format(new Date(), 'yyyy-MM-dd'),
         p_location_id: entry.stock_locations.id,
         p_phone_model_id: entry.phone_models.id,
-        p_imei: entry.imei
+        p_imei: entry.imei || '',
       });
+      if (error) throw new Error(`Gagal membatalkan penjualan: ${error.message}`);
     },
     onSuccess: () => {
       toast({ title: "Sukses", description: "Penjualan berhasil dibatalkan." });
@@ -631,7 +616,17 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
                 {quickFilter && (
                   <Badge variant="secondary" className="h-9 px-3 flex items-center gap-2">
                     {quickFilter === 'incoming' ? 'HP Datang' : quickFilter === 'sold' ? 'Laku' : 'Transfer'}
-                    <button onClick={onFilterChange} className="hover:text-destructive">
+                    <button
+                      onClick={() => {
+                        // FIX (bug hunt 16 Okt): klik X harus benar-benar membersihkan
+                        // filter — sebelumnya statusFilter (tersedia/terjual) tetap
+                        // menempel walau badge sudah hilang.
+                        handleStatusFilterChange('all');
+                        onFilterChange();
+                      }}
+                      className="hover:text-destructive"
+                      aria-label="Hapus filter cepat"
+                    >
                       <X className="h-3 w-3" />
                     </button>
                   </Badge>
@@ -697,15 +692,19 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
                             </div>
 
                             {/* Details Row */}
-                            <div className="flex items-center gap-3 text-sm text-muted-foreground flex-wrap">
+                            <div className="flex items-center gap-3 text-[13px] text-muted-foreground flex-wrap">
                               {/* Location */}
-                              <span className="font-medium text-foreground">
-                                📍 {entry.stock_locations?.name}
+                              <span className="inline-flex items-center gap-1 font-semibold text-foreground">
+                                <MapPin className="h-3.5 w-3.5 text-primary" />
+                                {entry.stock_locations?.name}
                               </span>
                               
                               {/* Color */}
                               {(entry.metadata?.color || entry.phone_models?.color) && (
-                                <span>🎨 {entry.metadata?.color || entry.phone_models?.color}</span>
+                                <span className="inline-flex items-center gap-1">
+                                  <Palette className="h-3.5 w-3.5" />
+                                  {entry.metadata?.color || entry.phone_models?.color}
+                                </span>
                               )}
                               
                               {/* Label */}
@@ -722,11 +721,12 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
                                   {entry.label}
                                 </span>
                               )}
-                            </div>
 
-                            {/* IMEI */}
-                            <div className="font-mono text-xs text-muted-foreground">
-                              IMEI: {entry.imei || "—"}
+                              {/* IMEI */}
+                              <span className="inline-flex items-center gap-1 font-mono text-xs">
+                                <Hash className="h-3.5 w-3.5" />
+                                {entry.imei || "—"}
+                              </span>
                             </div>
                           </div>
 

@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { Plus, Truck, TrendingUp, AlertTriangle, Package, BarChart3, LogOut, Calendar as CalendarIcon, PackageOpen, ArrowLeftRight, Settings as SettingsIcon, Sun, Tag, Moon, ListTree, Sparkles } from "lucide-react";
+import { Truck, TrendingUp, AlertTriangle, Package, BarChart3, LogOut, Calendar as CalendarIcon, ArrowLeftRight, Settings as SettingsIcon, Sun, Tag, Moon, ListTree, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 const StockTable = lazy(() => import("./StockTable").then(m => ({ default: m.StockTable })));
@@ -157,16 +157,16 @@ export function StockDashboard() {
       
       if (error) throw error;
 
-      // Calculate totals from all entries (both aggregated and individual IMEI entries)
-      // First try to use aggregated entries (imei = null), otherwise sum all entries
-      const aggregatedEntries = data.filter(entry => entry.imei === null);
-      const useAggregated = aggregatedEntries.length > 0;
-      const entriesToSum = useAggregated ? aggregatedEntries : data;
-      
-      const totalMorningStock = entriesToSum.reduce((sum, entry) => sum + entry.morning_stock, 0);
-      const totalNightStock = entriesToSum.reduce((sum, entry) => sum + entry.night_stock, 0);
-      const totalSold = entriesToSum.reduce((sum, entry) => sum + entry.sold, 0);
-      const totalIncoming = entriesToSum.reduce((sum, entry) => sum + entry.incoming, 0);
+      // Calculate totals from all entries.
+      // FIX (bug hunt 16 Okt): setiap baris stock_entries bersifat disjoint per
+      // (date, location, model, imei) — baris imei=null BUKAN rollup dari baris
+      // ber-IMEI, melainkan stok bulk tanpa IMEI. Jadi SEMUA baris harus dijumlah.
+      // Logika lama ("prefer aggregated") malah membuang seluruh stok ber-IMEI
+      // begitu ada satu saja baris bulk — total jadi undercount parah.
+      const totalMorningStock = data.reduce((sum, entry) => sum + (entry.morning_stock || 0), 0);
+      const totalNightStock = data.reduce((sum, entry) => sum + (entry.night_stock || 0), 0);
+      const totalSold = data.reduce((sum, entry) => sum + (entry.sold || 0), 0);
+      const totalIncoming = data.reduce((sum, entry) => sum + (entry.incoming || 0), 0);
       const totalFinalStock = totalNightStock;
 
       const breakdown: { [location: string]: LocationData } = {};
@@ -357,18 +357,27 @@ export function StockDashboard() {
                     Ringkasan <span className="text-gradient">Hari Ini</span>
                   </h2>
                   <div className="mt-4 grid grid-cols-3 gap-3">
-                    <div className="rounded-2xl bg-background/50 border border-border/50 p-3 sm:p-4 backdrop-blur-sm">
+                    <button
+                      onClick={() => { setQuickFilter(null); setActiveTab('table'); }}
+                      className="rounded-2xl bg-background/50 border border-border/50 p-3 sm:p-4 backdrop-blur-sm text-left card-lift pressable"
+                    >
                       <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Stok Akhir</p>
                       <p className="mt-1 text-xl sm:text-3xl font-extrabold tabular">{statsLoading ? "–" : (stats?.totalNightStock ?? 0)}</p>
-                    </div>
-                    <div className="rounded-2xl bg-background/50 border border-border/50 p-3 sm:p-4 backdrop-blur-sm">
+                    </button>
+                    <button
+                      onClick={() => handleCardClick('sold')}
+                      className="rounded-2xl bg-background/50 border border-border/50 p-3 sm:p-4 backdrop-blur-sm text-left card-lift pressable"
+                    >
                       <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Laku</p>
                       <p className="mt-1 text-xl sm:text-3xl font-extrabold tabular text-destructive">{statsLoading ? "–" : (stats?.totalSold ?? 0)}</p>
-                    </div>
-                    <div className="rounded-2xl bg-background/50 border border-border/50 p-3 sm:p-4 backdrop-blur-sm">
+                    </button>
+                    <button
+                      onClick={() => handleCardClick('incoming')}
+                      className="rounded-2xl bg-background/50 border border-border/50 p-3 sm:p-4 backdrop-blur-sm text-left card-lift pressable"
+                    >
                       <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Datang</p>
                       <p className="mt-1 text-xl sm:text-3xl font-extrabold tabular text-[hsl(var(--success))]">{statsLoading ? "–" : (stats?.totalIncoming ?? 0)}</p>
-                    </div>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -481,87 +490,39 @@ export function StockDashboard() {
                 });
               })()}
               
-              {/* Summary Row - Quick Stats */}
-              <div className="grid grid-cols-2 gap-3 animate-fade-up stagger-3">
-                {/* HP Datang */}
-                <Card 
-                  className="card-lift pressable cursor-pointer border-[hsl(var(--success))]/25 bg-[hsl(var(--success))]/[0.07]"
-                  onClick={() => handleCardClick('incoming')}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-3.5">
-                      <div className="h-12 w-12 rounded-2xl bg-[hsl(var(--success))]/15 flex items-center justify-center shrink-0">
-                        <Plus className="h-6 w-6 text-[hsl(var(--success))]" strokeWidth={2.4} />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-[11px] font-semibold text-[hsl(var(--success))]/90 uppercase tracking-wider">HP Datang</p>
-                        <p className="text-2xl font-extrabold tabular text-[hsl(var(--success))]">{stats?.totalIncoming ?? 0}</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Total Laku Hari Ini */}
-                <Card 
-                  className="card-lift pressable cursor-pointer border-destructive/25 bg-destructive/[0.07]"
-                  onClick={() => handleCardClick('sold')}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-3.5">
-                      <div className="h-12 w-12 rounded-2xl bg-destructive/15 flex items-center justify-center shrink-0">
-                        <Tag className="h-6 w-6 text-destructive" strokeWidth={2.4} />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-[11px] font-semibold text-destructive/90 uppercase tracking-wider">Laku Hari Ini</p>
-                        <p className="text-2xl font-extrabold tabular text-destructive">{stats?.totalSold ?? 0}</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Transfer & Monthly Stats */}
-              <div className="grid grid-cols-3 gap-3 animate-fade-up stagger-4">
+              {/* Mini stats — transfer & bulanan (hero sudah cover harian) */}
+              <div className="grid grid-cols-2 gap-3 animate-fade-up stagger-4">
                 {/* Transfer */}
                 <Card 
                   className="card-lift pressable cursor-pointer border-[hsl(var(--info))]/25 bg-[hsl(var(--info))]/[0.07]"
                   onClick={() => handleCardClick('transfer')}
                 >
-                  <CardContent className="p-3.5">
-                    <div className="flex flex-col items-center text-center">
-                      <div className="h-10 w-10 rounded-xl bg-[hsl(var(--info))]/15 flex items-center justify-center mb-2">
-                        <ArrowLeftRight className="h-5 w-5 text-[hsl(var(--info))]" strokeWidth={2.2} />
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3.5">
+                      <div className="h-12 w-12 rounded-2xl bg-[hsl(var(--info))]/15 flex items-center justify-center shrink-0">
+                        <ArrowLeftRight className="h-6 w-6 text-[hsl(var(--info))]" strokeWidth={2.4} />
                       </div>
-                      <p className="text-xl font-extrabold tabular text-[hsl(var(--info))]">{stats?.totalTransfers ?? 0}</p>
-                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Transfer</p>
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-semibold text-[hsl(var(--info))]/90 uppercase tracking-wider">Transfer</p>
+                        <p className="text-2xl font-extrabold tabular text-[hsl(var(--info))]">{stats?.totalTransfers ?? 0}</p>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
 
                 {/* Terjual Bulan Ini */}
                 <Card className="card-lift border-border/70 bg-card">
-                  <CardContent className="p-3.5">
-                    <div className="flex flex-col items-center text-center">
-                      <div className="h-10 w-10 rounded-xl bg-muted flex items-center justify-center mb-2">
-                        <BarChart3 className="h-5 w-5 text-muted-foreground" strokeWidth={2.2} />
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3.5">
+                      <div className="h-12 w-12 rounded-2xl bg-muted flex items-center justify-center shrink-0">
+                        <BarChart3 className="h-6 w-6 text-muted-foreground" strokeWidth={2.4} />
                       </div>
-                      <p className="text-xl font-extrabold tabular">{stats?.totalSoldThisMonth ?? 0}</p>
-                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                        {format(date, 'MMM', { locale: id })}
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Total Stok Malam */}
-                <Card className="card-lift border-border/70 bg-card">
-                  <CardContent className="p-3.5">
-                    <div className="flex flex-col items-center text-center">
-                      <div className="h-10 w-10 rounded-xl bg-muted flex items-center justify-center mb-2">
-                        <PackageOpen className="h-5 w-5 text-muted-foreground" strokeWidth={2.2} />
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                          Laku {format(date, 'MMM', { locale: id })}
+                        </p>
+                        <p className="text-2xl font-extrabold tabular">{stats?.totalSoldThisMonth ?? 0}</p>
                       </div>
-                      <p className="text-xl font-extrabold tabular">{stats?.totalNightStock ?? 0}</p>
-                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Total</p>
                     </div>
                   </CardContent>
                 </Card>
