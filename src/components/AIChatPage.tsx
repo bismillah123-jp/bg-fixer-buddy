@@ -31,6 +31,11 @@ import {
   Smartphone,
   Palette,
   Tag,
+  Database,
+  History,
+  SunMoon,
+  BrainCircuit,
+  PenLine,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -106,6 +111,51 @@ function TypingIndicator({ status }: { status?: string }) {
         <span className="w-1.5 h-1.5 rounded-full bg-primary/70 animate-[bounce_1.4s_ease-in-out_0.15s_infinite]" />
         <span className="w-1.5 h-1.5 rounded-full bg-primary/70 animate-[bounce_1.4s_ease-in-out_0.3s_infinite]" />
       </div>
+    </div>
+  );
+}
+
+// Peta label status backend -> icon. Label yang tidak dikenal pakai Sparkles.
+const STATUS_ICONS: { match: RegExp; Icon: typeof Sparkles }[] = [
+  { match: /stok hari ini/i, Icon: Database },
+  { match: /riwayat transaksi/i, Icon: History },
+  { match: /pagi & malam/i, Icon: SunMoon },
+  { match: /menganalisis|merangkum/i, Icon: BrainCircuit },
+  { match: /berpikir/i, Icon: Sparkles },
+  { match: /menyusun/i, Icon: PenLine },
+];
+
+function statusIcon(label: string) {
+  return STATUS_ICONS.find((s) => s.match.test(label))?.Icon ?? Sparkles;
+}
+
+// Timeline aktivitas live Shania — kayak status kerja Mica:
+// langkah selesai = centang, langkah berjalan = spinner.
+function ActivityTimeline({ steps, current }: { steps: string[]; current?: string | null }) {
+  const items = current && !steps.includes(current) ? [...steps, current] : steps;
+  if (items.length === 0) return <TypingIndicator />;
+  return (
+    <div className="bg-card border border-border/50 rounded-2xl rounded-bl-sm px-3.5 py-2.5 shadow-sm min-w-[220px] max-w-[300px] space-y-1.5">
+      {items.map((label, i) => {
+        const isLast = i === items.length - 1;
+        const isActive = isLast && !!current;
+        const Icon = statusIcon(label);
+        return (
+          <div key={`${label}-${i}`} className="flex items-center gap-2 animate-fade-in">
+            {isActive ? (
+              <Loader2 className="h-3.5 w-3.5 text-primary animate-spin shrink-0" />
+            ) : (
+              <span className="h-3.5 w-3.5 rounded-full bg-emerald-500/15 flex items-center justify-center shrink-0">
+                <Check className="h-2.5 w-2.5 text-emerald-600 dark:text-emerald-400" />
+              </span>
+            )}
+            <Icon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            <span className={cn("text-xs truncate", isActive ? "text-foreground font-medium" : "text-muted-foreground")}>
+              {label.replace(/\.\.\.$/, "")}
+            </span>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -252,13 +302,13 @@ function MessageBubble({
           <Sparkles className="h-4 w-4 text-primary-foreground" />
         </div>
       )}
-      <div className={cn("flex flex-col gap-1 max-w-[85%] md:max-w-[75%]", isUser && "items-end")}>
+      <div className={cn("flex flex-col gap-1", isUser ? "max-w-[85%] md:max-w-[70%] items-end" : "max-w-[96%] md:max-w-[85%]")}>
         <div
           className={cn(
-            "rounded-2xl px-4 py-2.5 text-sm leading-relaxed break-words shadow-sm border",
+            "rounded-2xl px-4 py-3 text-sm leading-relaxed break-words",
             isUser
-              ? "bg-primary text-primary-foreground border-primary/20 rounded-br-sm"
-              : "bg-card border-border/50 rounded-bl-sm",
+              ? "bg-gradient-to-br from-primary to-primary/85 text-primary-foreground rounded-br-md shadow-md shadow-primary/20"
+              : "bg-card/80 border border-border/40 rounded-bl-md shadow-sm",
           )}
         >
           {isUser ? (
@@ -287,21 +337,21 @@ function MessageBubble({
                         );
                       },
                       table: ({ children }) => (
-                        <div className="my-2 w-full overflow-x-auto rounded-lg border border-border/60 shadow-sm">
-                          <table className="w-full border-collapse text-xs">{children}</table>
+                        <div className="my-3 w-full overflow-x-auto rounded-xl border border-border/60 shadow-sm bg-card">
+                          <table className="w-full border-collapse text-[13px]">{children}</table>
                         </div>
                       ),
                       thead: ({ children }) => (
-                        <thead className="bg-primary/10 border-b border-border/60">{children}</thead>
+                        <thead className="bg-muted/70 border-b border-border/70">{children}</thead>
                       ),
                       th: ({ children }) => (
-                        <th className="px-3 py-2 text-left font-semibold text-foreground whitespace-nowrap">{children}</th>
+                        <th className="px-3.5 py-2.5 text-left font-semibold text-foreground whitespace-nowrap text-xs uppercase tracking-wide">{children}</th>
                       ),
                       td: ({ children }) => (
-                        <td className="px-3 py-1.5 border-t border-border/40 align-top">{children}</td>
+                        <td className="px-3.5 py-2 border-t border-border/40 align-middle whitespace-nowrap tabular-nums">{children}</td>
                       ),
                       tr: ({ children }) => (
-                        <tr className="even:bg-muted/40 hover:bg-muted/60 transition-colors">{children}</tr>
+                        <tr className="even:bg-muted/30 hover:bg-primary/[0.04] transition-colors">{children}</tr>
                       ),
                     }}
                   >
@@ -373,6 +423,19 @@ export function AIChatPage() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [statusText, setStatusText] = useState<string | null>(null);
+  const [statusSteps, setStatusSteps] = useState<string[]>([]);
+
+  const pushStatusStep = useCallback((label: string | null) => {
+    setStatusText(label);
+    if (label) {
+      setStatusSteps((prev) => (prev.includes(label) ? prev : [...prev, label]));
+    }
+  }, []);
+
+  const resetStatus = useCallback(() => {
+    setStatusText(null);
+    setStatusSteps([]);
+  }, []);
   const [showScrollDown, setShowScrollDown] = useState(false);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -502,7 +565,8 @@ export function AIChatPage() {
     setMessages(newMessages);
     setInput("");
     setIsLoading(true);
-    setStatusText("📡 Menghubungi Shania...");
+    resetStatus();
+    pushStatusStep("Menghubungi Shania");
     // keep the caret in the box so the user can keep typing right away
     requestAnimationFrame(() => inputRef.current?.focus());
 
@@ -540,7 +604,7 @@ export function AIChatPage() {
         const err = await resp.json().catch(() => ({ error: "Gagal menghubungi AI" }));
         upsertAssistant(`${err.error || "Terjadi kesalahan"}`);
         setIsLoading(false);
-        setStatusText(null);
+        resetStatus();
         return;
       }
       if (!resp.body) throw new Error("No response body");
@@ -576,7 +640,7 @@ export function AIChatPage() {
             const parsed = JSON.parse(jsonStr);
             if (pendingEvent === "status") {
               pendingEvent = "";
-              setStatusText(parsed.label ?? null);
+              pushStatusStep(parsed.label ?? null);
               continue;
             }
             if (pendingEvent === "error") {
@@ -622,7 +686,7 @@ export function AIChatPage() {
     }
 
     setIsLoading(false);
-    setStatusText(null);
+    resetStatus();
     abortRef.current = null;
     requestAnimationFrame(() => inputRef.current?.focus());
   };
@@ -630,7 +694,7 @@ export function AIChatPage() {
   const stopGenerating = () => {
     abortRef.current?.abort();
     setIsLoading(false);
-    setStatusText(null);
+    resetStatus();
   };
 
   const clearChat = () => {
@@ -645,23 +709,23 @@ export function AIChatPage() {
   return (
     <div className="relative flex flex-col h-[calc(100vh-9rem)] md:h-[calc(100vh-7rem)] pb-16 md:pb-0 overflow-hidden bg-gradient-to-b from-background via-background to-muted/10">
       {/* Header */}
-      <div className="shrink-0 border-b border-border/60 bg-background/70 backdrop-blur-xl px-4 md:px-6 py-3 flex items-center justify-between">
+      <div className="shrink-0 border-b border-border/50 bg-background/80 backdrop-blur-xl px-4 md:px-6 py-2.5 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="relative">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-primary via-primary to-primary/60 flex items-center justify-center shadow-lg shadow-primary/30">
-              <Sparkles className="h-5 w-5 text-primary-foreground" />
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary via-primary to-primary/60 flex items-center justify-center shadow-md shadow-primary/25">
+              <Sparkles className="h-4 w-4 text-primary-foreground" />
             </div>
-            <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-background" />
+            <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-background ${isLoading ? "bg-amber-400 animate-pulse" : "bg-emerald-500"}`} />
           </div>
           <div className="leading-tight">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <h1 className="text-sm font-bold">Shania</h1>
-              <Badge variant="secondary" className="text-[9px] h-4 px-1.5 gap-0.5">
+              <Badge variant="secondary" className="text-[9px] h-4 px-1.5 gap-0.5 font-medium">
                 <Shield className="h-2.5 w-2.5" /> Admin
               </Badge>
             </div>
-            <p className="text-[11px] text-muted-foreground truncate max-w-[200px] md:max-w-xs">
-              {isLoading ? (statusText || "Sedang mengetik...") : "Asisten AI · by Ihsan"}
+            <p className="text-[11px] text-muted-foreground truncate max-w-[220px] md:max-w-xs">
+              {isLoading ? (statusText?.replace(/\.\.\.$/, "") || "Bekerja...") : "Online · siap membantu"}
             </p>
           </div>
         </div>
@@ -687,42 +751,37 @@ export function AIChatPage() {
         className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain px-3 md:px-6 py-5 space-y-4 scroll-smooth [scrollbar-gutter:stable]"
       >
         {messages.length === 0 && (
-          <div className="flex flex-col items-center justify-center min-h-full text-center space-y-7 animate-fade-in py-8">
-            <div className="relative">
-              <div className="absolute inset-0 bg-primary/30 blur-3xl rounded-full animate-pulse" />
-              <div className="relative w-24 h-24 rounded-3xl bg-gradient-to-br from-primary via-primary to-primary/50 flex items-center justify-center shadow-2xl shadow-primary/40 rotate-3 hover:rotate-0 transition-transform duration-500">
-                <Sparkles className="h-12 w-12 text-primary-foreground" />
+          <div className="flex flex-col items-center justify-center min-h-full text-center px-4 py-10 animate-fade-in">
+            <div className="relative mb-6">
+              <div className="absolute inset-0 bg-primary/25 blur-2xl rounded-full scale-125" />
+              <div className="relative w-20 h-20 rounded-[1.75rem] bg-gradient-to-br from-primary via-primary to-primary/60 flex items-center justify-center shadow-xl shadow-primary/30">
+                <Sparkles className="h-9 w-9 text-primary-foreground" />
               </div>
+              <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-emerald-500 border-[3px] border-background" />
             </div>
-            <div className="space-y-2 max-w-md">
-              <h2 className="text-2xl font-bold tracking-tight">
-                Hai, aku <span className="bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">Shania</span>
-              </h2>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                Asisten AI cerdas buat manajemen stok HP — sekaligus temen ngobrol kalau kamu mau curhat.
-                <br />
-                Diciptakan oleh <span className="font-semibold text-foreground">Ihsan</span> 💙
-              </p>
-              <div className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground bg-muted/60 px-3 py-1.5 rounded-full border border-border/50">
-                <Shield className="h-3 w-3 text-primary" /> Mode Admin · semua aksi minta konfirmasi
-              </div>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-2xl">
+            <h2 className="text-xl md:text-2xl font-bold tracking-tight mb-2">
+              Hai, aku <span className="bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">Shania</span>
+            </h2>
+            <p className="text-sm text-muted-foreground leading-relaxed max-w-sm mb-5">
+              Asisten AI buat stok HP Indah Cell — tanya data, suruh kerjain sesuatu, atau sekedar ngobrol.
+            </p>
+            <div className="flex flex-wrap justify-center gap-2 max-w-2xl">
               {QUICK_PROMPTS.map((p) => (
                 <button
                   key={p.text}
                   onClick={() => sendMessage(p.text)}
-                  className="group text-left p-3.5 rounded-2xl glass card-lift pressable text-left"
+                  className="group inline-flex items-center gap-2 pl-2 pr-3.5 py-2 rounded-full bg-card border border-border/60 text-xs font-medium shadow-sm hover:shadow-md hover:border-primary/40 hover:-translate-y-px transition-all pressable"
                 >
-                  <div className="flex items-start gap-2.5">
-                    <span className="shrink-0 mt-0.5 h-7 w-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center group-hover:scale-110 transition-transform"><p.icon className="h-4 w-4" /></span>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium leading-tight">{p.text}</p>
-                      <p className="text-[11px] text-muted-foreground mt-0.5">{p.desc}</p>
-                    </div>
-                  </div>
+                  <span className="h-7 w-7 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                    <p.icon className="h-3.5 w-3.5" />
+                  </span>
+                  {p.text}
                 </button>
               ))}
+            </div>
+            <div className="mt-6 inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <Shield className="h-3 w-3 text-primary" />
+              Mode Admin · setiap aksi minta persetujuanmu dulu
             </div>
           </div>
         )}
@@ -749,7 +808,7 @@ export function AIChatPage() {
             <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shrink-0 shadow-md shadow-primary/20">
               <Sparkles className="h-4 w-4 text-primary-foreground" />
             </div>
-            <TypingIndicator status={statusText ?? undefined} />
+            <ActivityTimeline steps={statusSteps} current={statusText} />
           </div>
         )}
 
