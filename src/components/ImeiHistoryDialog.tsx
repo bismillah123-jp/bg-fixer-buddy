@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, ScanBarcode, Loader2, Truck, ShoppingBag, ArrowRightLeft, RotateCcw, Wrench, History, MapPin } from 'lucide-react';
+import { Search, ScanBarcode, Loader2, Truck, ShoppingBag, ArrowRightLeft, RotateCcw, Wrench, History, MapPin, AlertCircle, Clock3 } from 'lucide-react';
 import { BarcodeScanner } from './BarcodeScanner';
 import { cn } from '@/lib/utils';
 
@@ -49,12 +49,23 @@ export function ImeiHistoryDialog({ open, onOpenChange, initialImei }: Props) {
   const [searched, setSearched] = useState(false);
   const [events, setEvents] = useState<HistoryEvent[]>([]);
   const [modelInfo, setModelInfo] = useState<string>('');
+  const [searchError, setSearchError] = useState<string | null>(null);
 
   const search = async (value?: string) => {
-    const q = (value ?? imei).trim();
-    if (!q) return;
+    const q = (value ?? imei).replace(/\D/g, '');
+    setImei(q);
+    setSearchError(null);
+    if (q.length !== 15) {
+      setSearched(false);
+      setEvents([]);
+      setModelInfo('');
+      setSearchError('IMEI harus terdiri dari 15 angka.');
+      return;
+    }
     setLoading(true);
     setSearched(true);
+    setEvents([]);
+    setModelInfo('');
     try {
       const { data, error } = await supabase
         .from('stock_events')
@@ -73,16 +84,26 @@ export function ImeiHistoryDialog({ open, onOpenChange, initialImei }: Props) {
     } catch {
       setEvents([]);
       setModelInfo('');
+      setSearched(false);
+      setSearchError('Riwayat belum bisa dimuat. Periksa koneksi lalu coba lagi.');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleImeiChange = (value: string) => {
+    setImei(value);
+    setEvents([]);
+    setModelInfo('');
+    setSearchError(null);
+    setSearched(false);
   };
 
   const lastEvent = events[0];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[85vh] flex flex-col">
+      <DialogContent className="max-w-xl max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <History className="h-5 w-5 text-primary" />
@@ -94,30 +115,51 @@ export function ImeiHistoryDialog({ open, onOpenChange, initialImei }: Props) {
         <div className="flex gap-2">
           <Input
             value={imei}
-            onChange={e => setImei(e.target.value)}
+            onChange={e => handleImeiChange(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && search()}
-            placeholder="Ketik atau scan IMEI..."
+            placeholder="Masukkan 15 digit IMEI"
             className="font-mono"
+            inputMode="numeric"
+            maxLength={20}
             autoFocus
+            aria-label="IMEI yang ingin dicari"
           />
           <Button variant="outline" size="icon" onClick={() => setScanning(true)} aria-label="Scan IMEI">
             <ScanBarcode className="h-4 w-4" />
           </Button>
-          <Button onClick={() => search()} disabled={loading || !imei.trim()}>
+          <Button onClick={() => search()} disabled={loading || !imei.trim()} aria-label="Cari riwayat IMEI">
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+            <span className="ml-2">{loading ? 'Mencari' : 'Cari'}</span>
           </Button>
         </div>
 
         <div className="flex-1 overflow-y-auto -mx-1 px-1">
+          {searchError && (
+            <div role="alert" className="mt-3 flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>{searchError}</span>
+            </div>
+          )}
+
+          {loading && (
+            <div role="status" className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> Memuat riwayat IMEI...
+            </div>
+          )}
+
           {searched && !loading && events.length === 0 && (
-            <div className="py-10 text-center text-sm text-muted-foreground">
-              IMEI <span className="font-mono font-semibold">{imei}</span> tidak ditemukan di riwayat manapun.
+            <div className="py-10 text-center">
+              <History className="mx-auto h-8 w-8 text-muted-foreground/50" />
+              <p className="mt-3 text-sm font-medium">Riwayat belum ditemukan</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Tidak ada catatan untuk IMEI <span className="font-mono font-semibold">{imei}</span>.
+              </p>
             </div>
           )}
 
           {events.length > 0 && (
             <div className="space-y-4 pt-2">
-              <div className="rounded-xl border border-border/60 bg-muted/30 p-3">
+              <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
                 <div className="text-sm font-semibold">{modelInfo || 'Model tidak diketahui'}</div>
                 <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                   <span className="font-mono">{imei.trim()}</span>
@@ -128,6 +170,12 @@ export function ImeiHistoryDialog({ open, onOpenChange, initialImei }: Props) {
                     </Badge>
                   )}
                 </div>
+                {lastEvent && (
+                  <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Clock3 className="h-3.5 w-3.5" />
+                    Terakhir diperbarui {fmtDate(lastEvent.date)} pukul {fmtTime(lastEvent.created_at)}
+                  </div>
+                )}
               </div>
 
               <div className="relative space-y-0 pl-6">
@@ -142,9 +190,9 @@ export function ImeiHistoryDialog({ open, onOpenChange, initialImei }: Props) {
                         <Icon className="h-3.5 w-3.5" />
                       </span>
                       <div className="rounded-lg border border-border/50 bg-card p-3">
-                        <div className="flex items-center justify-between gap-2">
+                        <div className="flex flex-wrap items-start justify-between gap-x-2 gap-y-1">
                           <span className="text-sm font-semibold">{meta.label}</span>
-                          <span className="text-[11px] text-muted-foreground whitespace-nowrap">
+                          <span className="text-[11px] text-muted-foreground">
                             {fmtDate(ev.date)} · {fmtTime(ev.created_at)}
                           </span>
                         </div>
@@ -157,7 +205,7 @@ export function ImeiHistoryDialog({ open, onOpenChange, initialImei }: Props) {
                           {ev.label && <Badge variant="outline" className="text-[10px] px-1.5 py-0">{ev.label}</Badge>}
                           {color && <span>Warna: {color}</span>}
                         </div>
-                        {ev.notes && <p className="mt-1 text-xs text-muted-foreground italic">{ev.notes}</p>}
+                        {ev.notes && <p className="mt-1 break-words text-xs text-muted-foreground italic">{ev.notes}</p>}
                       </div>
                     </div>
                   );
