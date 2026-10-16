@@ -10,7 +10,8 @@ import {
   Store,
   Smartphone,
   Calendar,
-  MapPin
+  MapPin,
+  TrendingUp
 } from "lucide-react";
 import { 
   BarChart, 
@@ -328,50 +329,68 @@ export function StockAnalytics({ selectedDate = new Date() }: StockAnalyticsProp
   }
 
   return (
-    <div className="space-y-4 pb-20">
+    <div className="space-y-5 pb-20 animate-fade-up">
+      {/* Hero */}
+      <div className="relative overflow-hidden rounded-[1.4rem] border border-primary/20 bg-gradient-to-br from-primary/[0.14] via-card to-card p-5 sm:p-6">
+        <div className="absolute -top-16 -right-16 w-56 h-56 rounded-full bg-primary/20 blur-3xl pointer-events-none" />
+        <div className="relative flex items-center gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-[#a31226] shadow-md shadow-primary/25">
+            <TrendingUp className="h-6 w-6 text-primary-foreground" strokeWidth={2.2} />
+          </div>
+          <div>
+            <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight">
+              Statistik <span className="text-gradient">Penjualan</span>
+            </h2>
+            <p className="text-sm text-muted-foreground font-medium">
+              {format(selectedDate, "MMMM yyyy", { locale: id })} • Update real-time
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Summary Stats - Simplified (no revenue/profit) */}
       <div className="grid grid-cols-2 gap-3">
         {/* Stok Saat Ini */}
-        <Card className="glass rounded-[1.2rem] shadow-[var(--shadow-card)]">
+        <Card className="glass rounded-[1.2rem] shadow-[var(--shadow-card)] card-lift animate-fade-up stagger-1">
           <CardContent className="p-4">
-            <div className="flex items-start justify-between">
-              <div className="space-y-1">
-                <p className="text-xs text-muted-foreground font-medium">Stok Tersedia</p>
-                <p className="text-2xl font-bold">{stats?.currentStock || 0}</p>
+            <div className="flex items-start justify-between gap-2">
+              <div className="space-y-1 min-w-0">
+                <p className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider">Stok Tersedia</p>
+                <p className="text-2xl sm:text-3xl font-extrabold tabular">{stats?.currentStock || 0}</p>
                 <div className={cn(
-                  "flex items-center gap-1 text-xs",
-                  (stats?.stockChange || 0) >= 0 ? "text-success" : "text-destructive"
+                  "flex items-center gap-1 text-xs font-semibold",
+                  (stats?.stockChange || 0) >= 0 ? "text-[hsl(var(--success))]" : "text-destructive"
                 )}>
                   {(stats?.stockChange || 0) >= 0 ? (
-                    <ArrowUpRight className="h-3 w-3" />
+                    <ArrowUpRight className="h-3.5 w-3.5" />
                   ) : (
-                    <ArrowDownRight className="h-3 w-3" />
+                    <ArrowDownRight className="h-3.5 w-3.5" />
                   )}
                   <span>{Math.abs(stats?.stockChange || 0).toFixed(1)}%</span>
                 </div>
               </div>
-              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Package className="h-5 w-5 text-primary" />
+              <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center shrink-0">
+                <Package className="h-5 w-5 text-primary" strokeWidth={2.2} />
               </div>
             </div>
           </CardContent>
         </Card>
 
         {/* Penjualan Bulan Ini */}
-        <Card className="glass rounded-[1.2rem] shadow-[var(--shadow-card)]">
+        <Card className="glass rounded-[1.2rem] shadow-[var(--shadow-card)] card-lift animate-fade-up stagger-2">
           <CardContent className="p-4">
-            <div className="flex items-start justify-between">
-              <div className="space-y-1">
-                <p className="text-xs text-muted-foreground font-medium">
-                  Terjual ({format(selectedDate, 'MMMM', { locale: id })})
+            <div className="flex items-start justify-between gap-2">
+              <div className="space-y-1 min-w-0">
+                <p className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider">
+                  Terjual ({format(selectedDate, 'MMM', { locale: id })})
                 </p>
-                <p className="text-2xl font-bold">{stats?.monthlySold || 0}</p>
-                <p className="text-xs text-muted-foreground">
-                  Hari ini: {stats?.todaySold || 0} unit
+                <p className="text-2xl sm:text-3xl font-extrabold tabular">{stats?.monthlySold || 0}</p>
+                <p className="text-xs text-muted-foreground font-medium">
+                  Hari ini: <span className="font-bold text-foreground">{stats?.todaySold || 0}</span> unit
                 </p>
               </div>
-              <div className="h-10 w-10 rounded-lg bg-success/10 flex items-center justify-center">
-                <ShoppingCart className="h-5 w-5 text-success" />
+              <div className="h-11 w-11 rounded-2xl bg-[hsl(var(--success))]/15 flex items-center justify-center shrink-0">
+                <ShoppingCart className="h-5 w-5 text-[hsl(var(--success))]" strokeWidth={2.2} />
               </div>
             </div>
           </CardContent>

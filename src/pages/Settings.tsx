@@ -21,7 +21,8 @@ import {
   AlertTriangle,
   User,
   Smartphone,
-  Database
+  Database,
+  Settings as SettingsIcon
 } from "lucide-react";
 import { 
   AlertDialog, 
@@ -492,22 +493,40 @@ const Settings = () => {
   }, {} as Record<string, typeof phoneModels>) || {};
 
   return (
-    <div className="space-y-4 pb-24">
+    <div className="space-y-5 pb-24 animate-fade-up">
+      {/* Hero */}
+      <div className="relative overflow-hidden rounded-[1.4rem] border border-primary/20 bg-gradient-to-br from-primary/[0.14] via-card to-card p-5 sm:p-6">
+        <div className="absolute -top-16 -right-16 w-56 h-56 rounded-full bg-primary/20 blur-3xl pointer-events-none" />
+        <div className="relative flex items-center gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-[#a31226] shadow-md shadow-primary/25">
+            <SettingsIcon className="h-6 w-6 text-primary-foreground" strokeWidth={2.2} />
+          </div>
+          <div>
+            <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight">
+              Penga<span className="text-gradient">turan</span>
+            </h2>
+            <p className="text-sm text-muted-foreground font-medium">
+              Kelola akun, model HP, lokasi & label
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Account Section */}
-      <Card className="glass rounded-[1.2rem] shadow-[var(--shadow-card)] overflow-hidden">
+      <Card className="glass rounded-[1.2rem] shadow-[var(--shadow-card)] overflow-hidden card-lift animate-fade-up stagger-1">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-              <User className="h-5 w-5 text-primary" />
+            <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+              <User className="h-5 w-5 text-primary" strokeWidth={2.2} />
             </div>
-            <CardTitle className="text-base">Akun</CardTitle>
+            <CardTitle className="text-base font-extrabold">Akun</CardTitle>
           </div>
         </CardHeader>
         <CardContent className="pt-0">
           <Button 
             variant="outline" 
             onClick={handleLogout}
-            className="w-full justify-start gap-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+            className="w-full justify-start gap-2 h-11 rounded-xl text-destructive hover:text-destructive hover:bg-destructive/10 hover:border-destructive/30 font-semibold"
           >
             <LogOut className="h-4 w-4" />
             Keluar dari Akun

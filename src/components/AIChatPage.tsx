@@ -707,7 +707,7 @@ export function AIChatPage() {
                 <button
                   key={p.text}
                   onClick={() => sendMessage(p.text)}
-                  className="group text-left p-3 rounded-xl border border-border/50 bg-card/50 hover:bg-card hover:border-primary/40 hover:shadow-md hover:shadow-primary/5 transition-all"
+                  className="group text-left p-3.5 rounded-2xl glass card-lift pressable text-left"
                 >
                   <div className="flex items-start gap-2.5">
                     <span className="shrink-0 mt-0.5 h-7 w-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center group-hover:scale-110 transition-transform"><p.icon className="h-4 w-4" /></span>
@@ -764,9 +764,9 @@ export function AIChatPage() {
       )}
 
       {/* Input */}
-      <div className="shrink-0 border-t border-border/60 bg-background/80 backdrop-blur-xl px-3 md:px-6 py-3">
+      <div className="shrink-0 px-3 md:px-6 pb-3 pt-1">
         <div className="max-w-3xl mx-auto">
-          <div className="relative flex items-end gap-2 rounded-2xl border border-border/60 bg-muted/30 focus-within:bg-background focus-within:border-primary/40 focus-within:shadow-lg focus-within:shadow-primary/5 transition-all p-1.5">
+          <div className="relative flex items-end gap-2 rounded-[1.4rem] glass shadow-[var(--shadow-elevated)] focus-within:border-primary/50 focus-within:glow-primary transition-all p-2">
             <Textarea
               ref={inputRef}
               placeholder="Tanya atau suruh Shania lakukan sesuatu..."

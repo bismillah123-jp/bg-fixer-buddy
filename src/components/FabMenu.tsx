@@ -142,7 +142,7 @@ export function FabMenu() {
             : 'translate-y-6 opacity-0 pointer-events-none'
         )}
       >
-        <div className="mx-auto sm:mx-0 max-w-md rounded-t-3xl sm:rounded-2xl border border-border/60 bg-card shadow-2xl shadow-primary/10 overflow-hidden">
+        <div className="mx-auto sm:mx-0 max-w-md rounded-t-[1.6rem] sm:rounded-[1.4rem] glass shadow-[var(--shadow-elevated)] overflow-hidden">
           {/* Drag handle (mobile) */}
           <div className="sm:hidden flex justify-center pt-3 pb-1">
             <div className="h-1.5 w-12 rounded-full bg-muted-foreground/30" />
@@ -150,13 +150,13 @@ export function FabMenu() {
 
           <div className="flex items-center justify-between px-5 pt-3 pb-2">
             <div>
-              <h3 className="text-base font-semibold">Aksi Cepat</h3>
-              <p className="text-xs text-muted-foreground">Pilih operasi yang ingin dilakukan</p>
+              <h3 className="text-base font-extrabold tracking-tight">Aksi Cepat</h3>
+              <p className="text-xs text-muted-foreground font-medium">Pilih operasi yang ingin dilakukan</p>
             </div>
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 rounded-full"
+              className="h-8 w-8 rounded-full hover:bg-destructive/10 hover:text-destructive"
               onClick={() => setOpen(false)}
               aria-label="Tutup"
             >
@@ -172,8 +172,7 @@ export function FabMenu() {
                   key={action.dialog}
                   onClick={() => handleActionClick(action.dialog)}
                   className={cn(
-                    'group relative flex flex-col items-start gap-2 rounded-xl border border-border/40 bg-background/40 p-3 text-left transition-all',
-                    'hover:border-primary/40 hover:bg-accent/40 hover:-translate-y-0.5 hover:shadow-md',
+                    'group relative flex flex-col items-start gap-2.5 rounded-2xl border border-border/50 bg-background/50 p-3.5 text-left card-lift pressable',
                     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                     open && 'animate-in fade-in slide-in-from-bottom-2'
                   )}
@@ -181,14 +180,14 @@ export function FabMenu() {
                 >
                   <span
                     className={cn(
-                      'flex h-9 w-9 items-center justify-center rounded-lg transition-transform group-hover:scale-110',
+                      'flex h-10 w-10 items-center justify-center rounded-xl transition-transform group-hover:scale-110 shadow-sm',
                       toneClasses[action.tone]
                     )}
                   >
-                    <Icon className="h-5 w-5" />
+                    <Icon className="h-5 w-5" strokeWidth={2.2} />
                   </span>
                   <div className="min-w-0">
-                    <div className="text-sm font-semibold leading-tight">{action.label}</div>
+                    <div className="text-sm font-bold leading-tight">{action.label}</div>
                     <div className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">
                       {action.description}
                     </div>
