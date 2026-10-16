@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { Truck, PackagePlus, X, FileText, History } from 'lucide-react';
+import { Plus, Truck, PackagePlus, X, FileText, History } from 'lucide-react';
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { cn } from '@/lib/utils';
 const IncomingStockDialog = lazy(() => import('./IncomingStockDialog').then(m => ({ default: m.IncomingStockDialog })));
