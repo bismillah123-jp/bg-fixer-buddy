@@ -1,0 +1,900 @@
+import { useState, useEffect, useCallback } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { format } from "date-fns";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Search, RotateCcw, Edit2, ArrowRightLeft, Trash2, CheckCircle, Package, X, Undo2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { EditStockDialog } from "./EditStockDialog";
+import { TransferStockDialog } from "./TransferStockDialog";
+import { SaleConfirmationDialog } from "./SaleConfirmationDialog";
+import { cn } from "@/lib/utils";
+import { useLabels } from "@/hooks/useLabels";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+interface StockTableProps {
+  selectedDate: Date;
+  quickFilter?: 'incoming' | 'sold' | 'transfer' | null;
+  onFilterChange?: () => void;
+}
+
+export interface StockEntry {
+  id: string;
+  date: string;
+  imei: string | null;
+  morning_stock: number;
+  night_stock: number;
+  incoming: number;
+  add_stock: number;
+  returns: number;
+  sold: number;
+  adjustment: number;
+  notes: string | null;
+  selling_price: number;
+  sale_date: string | null;
+  profit_loss: number;
+  cost_price: number;
+  metadata?: Record<string, unknown> | null;
+  label?: string | null;
+  stock_locations: {
+    id: string;
+    name: string;
+  };
+  phone_models: {
+    id: string;
+    brand: string;
+    model: string;
+    storage_capacity: string | null;
+    color: string | null;
+    srp: number;
+  };
+}
+
+export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockTableProps) {
+  const { data: labelsData } = useLabels();
+  const labelColorMap = new Map(labelsData?.map(l => [l.name, l.color]) || []);
+  // Load filters from localStorage
+  const [searchTerm, setSearchTerm] = useState(() => {
+    return localStorage.getItem('stockTableSearchTerm') || "";
+  });
+  const [brandFilter, setBrandFilter] = useState(() => {
+    return localStorage.getItem('stockTableBrandFilter') || "all";
+  });
+  const [locationFilter, setLocationFilter] = useState(() => {
+    return localStorage.getItem('stockTableLocationFilter') || "all";
+  });
+  const [statusFilter, setStatusFilter] = useState(() => {
+    return localStorage.getItem('stockTableStatusFilter') || "all";
+  });
+  const [labelFilter, setLabelFilter] = useState(() => {
+    return localStorage.getItem('stockTableLabelFilter') || "all";
+  });
+
+  // Apply quick filter from dashboard
+  useEffect(() => {
+    if (quickFilter) {
+      if (quickFilter === 'incoming') {
+        setStatusFilter('tersedia');
+      } else if (quickFilter === 'sold') {
+        setStatusFilter('terjual');
+      } else if (quickFilter === 'transfer') {
+        setStatusFilter('tersedia');
+      }
+    }
+  }, [quickFilter]);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isSaleConfirmDialogOpen, setIsSaleConfirmDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isTransferDialogOpen, setIsTransferDialogOpen] = useState(false);
+  const [isUndoDialogOpen, setIsUndoDialogOpen] = useState(false);
+  const [selectedEntry, setSelectedEntry] = useState<StockEntry | null>(null);
+  const [, setTick] = useState(0); // for re-rendering countdown
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  // Re-render every 30s to update undo countdown timers
+  useEffect(() => {
+    const interval = setInterval(() => setTick(t => t + 1), 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Save search term to localStorage when it changes
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value);
+    localStorage.setItem('stockTableSearchTerm', value);
+  };
+
+  // Save brand filter to localStorage when it changes
+  const handleBrandFilterChange = (value: string) => {
+    setBrandFilter(value);
+    localStorage.setItem('stockTableBrandFilter', value);
+  };
+
+  // Save location filter to localStorage when it changes
+  const handleLocationFilterChange = (value: string) => {
+    setLocationFilter(value);
+    localStorage.setItem('stockTableLocationFilter', value);
+  };
+
+  // Save status filter to localStorage when it changes
+  const handleStatusFilterChange = (value: string) => {
+    setStatusFilter(value);
+    localStorage.setItem('stockTableStatusFilter', value);
+  };
+
+  // Save label filter to localStorage when it changes
+  const handleLabelFilterChange = (value: string) => {
+    setLabelFilter(value);
+    localStorage.setItem('stockTableLabelFilter', value);
+  };
+
+  // Reset filters on component unmount or page refresh
+  useEffect(() => {
+    return () => {
+      // Clear all filters when leaving the component
+      localStorage.removeItem('stockTableSearchTerm');
+      localStorage.removeItem('stockTableBrandFilter');
+      localStorage.removeItem('stockTableLocationFilter');
+      localStorage.removeItem('stockTableStatusFilter');
+      localStorage.removeItem('stockTableLabelFilter');
+    };
+  }, []);
+
+  const { data: stockEntries, isLoading } = useQuery({
+    queryKey: ['stock-entries', searchTerm, brandFilter, locationFilter, statusFilter, labelFilter, selectedDate],
+    queryFn: async (): Promise<StockEntry[]> => {
+      const date = format(selectedDate, "yyyy-MM-dd");
+
+      const { data, error } = await supabase
+        .from('stock_entries')
+        .select(`
+          *,
+          stock_locations(id, name),
+          phone_models(id, brand, model, storage_capacity, color, srp)
+        `)
+        .eq('date', date)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+
+      let filtered = data || [];
+
+      // Only show entries with IMEI (individual items)
+      // This ensures each row represents a unique phone
+      filtered = filtered.filter(entry => entry.imei && entry.imei.trim() !== '');
+
+      // Quick filter logic
+      if (quickFilter === 'incoming') {
+        filtered = filtered.filter(entry => entry.incoming > 0);
+      } else if (quickFilter === 'sold') {
+        filtered = filtered.filter(entry => entry.sold > 0);
+      } else if (quickFilter === 'transfer') {
+        filtered = filtered.filter(entry => entry.adjustment !== 0);
+      }
+
+      // Apply search filter
+      if (searchTerm) {
+        filtered = filtered.filter(entry => 
+          entry.phone_models?.brand?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          entry.phone_models?.model?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          entry.imei?.includes(searchTerm) ||
+          entry.phone_models?.color?.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+      }
+
+      // Apply brand filter
+      if (brandFilter !== 'all') {
+        filtered = filtered.filter(entry => 
+          entry.phone_models?.brand === brandFilter
+        );
+      }
+
+      // Apply location filter
+      if (locationFilter !== 'all') {
+        filtered = filtered.filter(entry => 
+          entry.stock_locations?.name === locationFilter
+        );
+      }
+
+      // Apply label filter
+      if (labelFilter !== 'all') {
+        if (labelFilter === '__none__') {
+          filtered = filtered.filter(entry => !entry.label);
+        } else {
+          filtered = filtered.filter(entry => entry.label === labelFilter);
+        }
+      }
+
+      // Apply status filter
+      // IMPORTANT: Items with sale_date should NEVER appear as "tersedia"
+      // This ensures sold phones from previous days don't show up in today's available stock
+      if (statusFilter === 'tersedia') {
+        filtered = filtered.filter(entry => entry.night_stock > 0 && !entry.sale_date);
+      } else if (statusFilter === 'terjual') {
+        filtered = filtered.filter(entry => entry.sold > 0 || entry.sale_date);
+      } else if (statusFilter === 'all') {
+        // For "all" status, still exclude items that have been sold (have sale_date) 
+        // unless they were sold today (sold > 0)
+        filtered = filtered.filter(entry => {
+          // Keep if it has stock
+          if (entry.night_stock > 0 && !entry.sale_date) return true;
+          // Keep if it was sold today
+          if (entry.sold > 0) return true;
+          // Exclude everything else (ghost entries from rollover that were sold previously)
+          return false;
+        });
+      }
+
+      return filtered;
+    }
+  });
+
+  const { data: brands } = useQuery({
+    queryKey: ['phone-brands'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('phone_models')
+        .select('brand')
+        .order('brand');
+      
+      if (error) throw error;
+      
+      const uniqueBrands = [...new Set(data?.map(item => item.brand) || [])];
+      return uniqueBrands;
+    }
+  });
+
+  const { data: locations } = useQuery({
+    queryKey: ['stock-locations-names'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('stock_locations')
+        .select('name')
+        .order('name');
+      
+      if (error) throw error;
+      
+      return data?.map(item => item.name) || [];
+    }
+  });
+
+  const getStockStatus = (entry: StockEntry) => {
+    // Check if item was sold (either sold on this date OR has a sale_date set)
+    if (entry.sold > 0 || entry.sale_date) return { label: "Terjual", variant: "destructive" as const };
+    // Check current stock level
+    if (entry.night_stock > 0) return { label: "Tersedia", variant: "success" as const };
+    // If no stock and not sold, might be transferred or other
+    return { label: "Tersedia", variant: "success" as const };
+  };
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      // Get the stock entry details first
+      const { data: stockEntry, error: fetchError } = await supabase
+        .from('stock_entries')
+        .select('imei, date, location_id, phone_model_id')
+        .eq('id', id)
+        .single();
+
+      if (fetchError) throw new Error(`Gagal mengambil data stok: ${fetchError.message}`);
+      if (!stockEntry) throw new Error('Data stok tidak ditemukan');
+
+      // Delete from stock_events first (event-sourcing source of truth)
+      const { error: eventError } = await supabase
+        .from('stock_events')
+        .delete()
+        .eq('imei', stockEntry.imei)
+        .eq('date', stockEntry.date)
+        .eq('location_id', stockEntry.location_id)
+        .eq('phone_model_id', stockEntry.phone_model_id);
+
+      if (eventError) throw new Error(`Gagal menghapus event: ${eventError.message}`);
+
+      // Delete from stock_entries
+      const { error: entryError } = await supabase
+        .from('stock_entries')
+        .delete()
+        .eq('id', id);
+
+      if (entryError) throw new Error(`Gagal menghapus entri stok: ${entryError.message}`);
+
+      // Cascade recalculation to update morning_stock and night_stock for future dates
+      const { error: recalcError } = await supabase.rpc('cascade_recalc_stock_with_imei', {
+        p_from_date: stockEntry.date,
+        p_to_date: format(new Date(), 'yyyy-MM-dd'),
+        p_location_id: stockEntry.location_id,
+        p_phone_model_id: stockEntry.phone_model_id,
+        p_imei: stockEntry.imei
+      });
+
+      if (recalcError) {
+        console.warn('Warning: Recalculation failed but delete succeeded:', recalcError);
+      }
+    },
+    onSuccess: () => {
+      toast({ title: "Sukses", description: "Entri stok telah berhasil dihapus." });
+      queryClient.invalidateQueries({ queryKey: ['stock-entries'] });
+    },
+    onError: (error) => {
+      toast({ title: "Error", description: `Gagal menghapus entri: ${error.message}`, variant: "destructive" });
+    },
+    onSettled: () => {
+      setIsDeleteDialogOpen(false);
+      setSelectedEntry(null);
+    }
+  });
+
+  const markAsSoldMutation = useMutation({
+    mutationFn: async ({ entry, saleData }: { 
+      entry: StockEntry; 
+      saleData: { price: number; date: Date; srp: number; costPrice: number } 
+    }) => {
+      // FIX (bug bounty #7 + #8): satu RPC atomic — guard anti double-sell
+      // (termasuk event 'koreksi'), insert event 'laku', dan update entry
+      // berjalan dalam SATU transaksi Postgres. Tidak ada lagi state setengah
+      // ke-rekam, tidak ada lagi race TOCTOU antar cek & tulis.
+      const { data, error } = await supabase.rpc('record_sale', {
+        p_entry_id: entry.id,
+        p_imei: entry.imei || '',
+        p_location_id: entry.stock_locations.id,
+        p_phone_model_id: entry.phone_models.id,
+        p_sale_date: format(saleData.date, 'yyyy-MM-dd'),
+        p_price: saleData.price,
+        p_srp: saleData.srp,
+        p_cost_price: saleData.costPrice,
+      });
+
+      if (error) throw new Error(`Gagal mencatat penjualan: ${error.message}`);
+      return data;
+
+      // 3. Cascade recalculation happens automatically via database trigger
+      // stock_entries will be updated automatically
+    },
+    onSuccess: (_, { saleData }) => {
+      const costBasis = saleData.costPrice > 0 ? saleData.costPrice : saleData.srp;
+      const profitLoss = saleData.price - costBasis;
+      const message = profitLoss >= 0 
+        ? `Stok terjual! Laba: Rp ${profitLoss.toLocaleString('id-ID')}` 
+        : `Stok terjual. Rugi: Rp ${Math.abs(profitLoss).toLocaleString('id-ID')}`;
+      
+      toast({ 
+        title: "Sukses", 
+        description: message,
+        variant: profitLoss >= 0 ? "default" : "destructive"
+      });
+      queryClient.invalidateQueries({ queryKey: ['stock-entries'] });
+      queryClient.invalidateQueries({ queryKey: ['stock-events'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+    },
+    onError: (error) => {
+      toast({ title: "Error", description: `Gagal menandai sebagai terjual: ${error.message}`, variant: "destructive" });
+    },
+    onSettled: () => {
+      setIsSaleConfirmDialogOpen(false);
+      setSelectedEntry(null);
+    }
+  });
+
+  // Query to get sale event timestamps for undo eligibility.
+  // Ambil event 'laku' 2 hari terakhir (bukan cuma tanggal yang sedang dilihat)
+  // supaya tombol Batal Laku tetap muncul walau tanggal penjualan beda dengan
+  // tanggal yang sedang dibuka, dan walau ada IMEI duplikat (repack).
+  const { data: saleEvents } = useQuery({
+    queryKey: ['sale-events-timestamps'],
+    queryFn: async () => {
+      const since = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
+      const { data, error } = await supabase
+        .from('stock_events')
+        .select('id, imei, created_at, location_id, phone_model_id')
+        .eq('event_type', 'laku')
+        .gte('created_at', since)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    }
+  });
+
+  const getSaleUndoInfo = useCallback((entry: StockEntry) => {
+    if (!entry.sale_date || !saleEvents) return null;
+    // Ambil event PALING BARU yang cocok (saleEvents sudah terurut terbaru dulu),
+    // supaya IMEI duplikat (repack) tidak tertukar dengan penjualan lama.
+    const event = saleEvents.find(e =>
+      e.imei === (entry.imei || '') &&
+      e.location_id === entry.stock_locations?.id &&
+      e.phone_model_id === entry.phone_models?.id
+    );
+    if (!event) return null;
+    const createdAt = new Date(event.created_at).getTime();
+    const now = Date.now();
+    const elapsed = now - createdAt;
+    const oneHour = 60 * 60 * 1000;
+    if (elapsed >= oneHour) return null;
+    const remaining = oneHour - elapsed;
+    const mins = Math.ceil(remaining / 60000);
+    return { eventId: event.id, remainingMinutes: mins };
+  }, [saleEvents]);
+
+  const undoSaleMutation = useMutation({
+    mutationFn: async (entry: StockEntry) => {
+      const undoInfo = getSaleUndoInfo(entry);
+      if (!undoInfo) throw new Error('Waktu undo sudah habis (maks 1 jam)');
+
+      // 1. Delete the laku event
+      const { error: deleteError } = await supabase
+        .from('stock_events')
+        .delete()
+        .eq('id', undoInfo.eventId);
+      if (deleteError) throw new Error(`Gagal menghapus event laku: ${deleteError.message}`);
+
+      // 2. Reset sale fields on stock_entries
+      const { error: updateError } = await supabase
+        .from('stock_entries')
+        .update({
+          sold: 0,
+          selling_price: 0,
+          sale_date: null,
+          profit_loss: 0,
+        })
+        .eq('id', entry.id);
+      if (updateError) throw new Error(`Gagal mereset data penjualan: ${updateError.message}`);
+
+      // 3. Cascade recalc
+      await supabase.rpc('cascade_recalc_stock_with_imei', {
+        p_from_date: entry.date,
+        p_to_date: format(new Date(), 'yyyy-MM-dd'),
+        p_location_id: entry.stock_locations.id,
+        p_phone_model_id: entry.phone_models.id,
+        p_imei: entry.imei
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "Sukses", description: "Penjualan berhasil dibatalkan." });
+      queryClient.invalidateQueries({ queryKey: ['stock-entries'] });
+      queryClient.invalidateQueries({ queryKey: ['stock-events'] });
+      queryClient.invalidateQueries({ queryKey: ['sale-events-timestamps'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+    },
+    onError: (error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+    onSettled: () => {
+      setIsUndoDialogOpen(false);
+      setSelectedEntry(null);
+    }
+  });
+
+  const handleDeleteClick = (entry: StockEntry) => {
+    setSelectedEntry(entry);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleMarkAsSoldClick = (entry: StockEntry) => {
+    if (markAsSoldMutation.isPending) {
+      toast({ title: "Sedang diproses", description: "Penjualan sebelumnya masih dikirim, tunggu sebentar ya." });
+      return;
+    }
+    setSelectedEntry(entry);
+    setIsSaleConfirmDialogOpen(true);
+  };
+
+  const handleSaleConfirm = (saleData: { price: number; date: Date; srp: number; costPrice: number }) => {
+    // Kunci: abaikan klik kedua selama proses penjualan masih berjalan
+    if (!selectedEntry || markAsSoldMutation.isPending) return;
+    markAsSoldMutation.mutate({ entry: selectedEntry, saleData });
+  };
+
+  const handleEditClick = (entry: StockEntry) => {
+    setSelectedEntry(entry);
+    setIsEditDialogOpen(true);
+  };
+
+  const handleTransferClick = (entry: StockEntry) => {
+    setSelectedEntry(entry);
+    setIsTransferDialogOpen(true);
+  };
+
+  const handleUndoSaleClick = (entry: StockEntry) => {
+    setSelectedEntry(entry);
+    setIsUndoDialogOpen(true);
+  };
+
+  const hasActiveFilters = searchTerm || brandFilter !== 'all' || locationFilter !== 'all' || statusFilter !== 'all' || labelFilter !== 'all';
+
+  return (
+    <>
+      <div className="space-y-4">
+        {/* Compact Filter Bar */}
+        <Card className="border-0 shadow-sm bg-card/50 backdrop-blur">
+          <CardContent className="p-4">
+            <div className="flex flex-col gap-3">
+              {/* Search + Quick Filter Badge */}
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Cari model, IMEI, warna..."
+                    value={searchTerm}
+                    onChange={(e) => handleSearchChange(e.target.value)}
+                    className="pl-9 h-10 bg-background/80"
+                  />
+                </div>
+                {hasActiveFilters && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setSearchTerm("");
+                      setBrandFilter("all");
+                      setLocationFilter("all");
+                      setStatusFilter("all");
+                      setLabelFilter("all");
+                      localStorage.removeItem('stockTableSearchTerm');
+                      localStorage.removeItem('stockTableBrandFilter');
+                      localStorage.removeItem('stockTableLocationFilter');
+                      localStorage.removeItem('stockTableStatusFilter');
+                      localStorage.removeItem('stockTableLabelFilter');
+                    }}
+                    className="h-10 px-3 text-muted-foreground hover:text-foreground"
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+
+              {/* Filter Dropdowns */}
+              <div className="flex flex-wrap gap-2">
+                <Select value={brandFilter} onValueChange={handleBrandFilterChange}>
+                  <SelectTrigger className="w-[140px] h-9 text-sm">
+                    <SelectValue placeholder="Semua Merk" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Semua Merk</SelectItem>
+                    {brands?.map(brand => (
+                      <SelectItem key={brand} value={brand}>{brand}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={locationFilter} onValueChange={handleLocationFilterChange}>
+                  <SelectTrigger className="w-[140px] h-9 text-sm">
+                    <SelectValue placeholder="Semua Lokasi" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Semua Lokasi</SelectItem>
+                    {locations?.map(location => (
+                      <SelectItem key={location} value={location}>{location}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
+                  <SelectTrigger className="w-[130px] h-9 text-sm">
+                    <SelectValue placeholder="Semua Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Semua Status</SelectItem>
+                    <SelectItem value="tersedia">Tersedia</SelectItem>
+                    <SelectItem value="terjual">Terjual</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={labelFilter} onValueChange={handleLabelFilterChange}>
+                  <SelectTrigger className="w-[140px] h-9 text-sm">
+                    <SelectValue placeholder="Semua Label">
+                      {labelFilter === 'all' ? 'Semua Label' : labelFilter === '__none__' ? 'Tanpa Label' : (
+                        <span className="flex items-center gap-1.5">
+                          <span
+                            className="h-2.5 w-2.5 rounded-full shrink-0"
+                            style={{ backgroundColor: labelColorMap.get(labelFilter) || '#6B7280' }}
+                          />
+                          {labelFilter}
+                        </span>
+                      )}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Semua Label</SelectItem>
+                    <SelectItem value="__none__">Tanpa Label</SelectItem>
+                    {labelsData?.map((label) => (
+                      <SelectItem key={label.id} value={label.name}>
+                        <span className="flex items-center gap-1.5">
+                          <span
+                            className="h-2.5 w-2.5 rounded-full shrink-0"
+                            style={{ backgroundColor: label.color }}
+                          />
+                          {label.name}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {quickFilter && (
+                  <Badge variant="secondary" className="h-9 px-3 flex items-center gap-2">
+                    {quickFilter === 'incoming' ? 'HP Datang' : quickFilter === 'sold' ? 'Laku' : 'Transfer'}
+                    <button onClick={onFilterChange} className="hover:text-destructive">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Stock Items */}
+        {isLoading ? (
+          <div className="grid gap-3">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="h-24 bg-muted/50 rounded-xl animate-pulse" />
+            ))}
+          </div>
+        ) : stockEntries?.length === 0 ? (
+          <Card className="border-0 shadow-sm">
+            <CardContent className="py-16 text-center">
+              <Package className="w-12 h-12 mx-auto mb-3 text-muted-foreground/30" />
+              <p className="text-muted-foreground font-medium">Tidak ada data stok</p>
+              <p className="text-sm text-muted-foreground/70 mt-1">Coba ubah filter atau tanggal</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-2">
+            {stockEntries?.map((entry) => {
+              const status = getStockStatus(entry);
+              const isSold = entry.sold > 0 || entry.sale_date;
+              const undoInfo = isSold ? getSaleUndoInfo(entry) : null;
+              
+              return (
+                <Card 
+                  key={entry.id} 
+                  className={cn(
+                    "border-0 shadow-sm hover:shadow-md transition-all overflow-hidden",
+                    isSold && "opacity-70"
+                  )}
+                >
+                  <CardContent className="p-0">
+                    <div className="flex items-stretch">
+                      {/* Main Content */}
+                      <div className="flex-1 p-4">
+                        <div className="flex items-start justify-between gap-4">
+                          {/* Left: Product Info */}
+                          <div className="space-y-2 min-w-0 flex-1">
+                            {/* Brand & Model */}
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Badge variant="secondary" className="font-semibold text-xs">
+                                {entry.phone_models?.brand}
+                              </Badge>
+                              <span className="font-medium text-sm truncate">
+                                {entry.phone_models?.model}
+                              </span>
+                              {entry.phone_models?.storage_capacity && (
+                                <Badge variant="outline" className="text-xs font-normal">
+                                  {entry.phone_models?.storage_capacity}
+                                </Badge>
+                              )}
+                            </div>
+
+                            {/* Details Row */}
+                            <div className="flex items-center gap-3 text-sm text-muted-foreground flex-wrap">
+                              {/* Location */}
+                              <span className="font-medium text-foreground">
+                                📍 {entry.stock_locations?.name}
+                              </span>
+                              
+                              {/* Color */}
+                              {(entry.metadata?.color || entry.phone_models?.color) && (
+                                <span>🎨 {entry.metadata?.color || entry.phone_models?.color}</span>
+                              )}
+                              
+                              {/* Label */}
+                              {entry.label && (
+                                <span
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
+                                  style={{
+                                    backgroundColor: `${labelColorMap.get(entry.label) || '#6B7280'}20`,
+                                    color: labelColorMap.get(entry.label) || '#6B7280',
+                                    border: `1px solid ${labelColorMap.get(entry.label) || '#6B7280'}40`,
+                                  }}
+                                >
+                                  <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: labelColorMap.get(entry.label) || '#6B7280' }} />
+                                  {entry.label}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* IMEI */}
+                            <div className="font-mono text-xs text-muted-foreground">
+                              IMEI: {entry.imei || "—"}
+                            </div>
+                          </div>
+
+                          {/* Right: Stock & Status */}
+                          <div className="flex flex-col items-end gap-2 shrink-0">
+                            <Badge 
+                              variant={status.variant}
+                              className="text-xs"
+                            >
+                              {status.label}
+                            </Badge>
+                            {undoInfo && (
+                              <span className="text-[10px] text-orange-500 font-medium inline-flex items-center gap-0.5">
+                                <Undo2 className="h-3 w-3" /> {undoInfo.remainingMinutes}m
+                              </span>
+                            )}
+                            <div className="flex items-center gap-2 text-sm">
+                              <span className="text-muted-foreground">{entry.morning_stock}</span>
+                              <span className="text-muted-foreground">→</span>
+                              <span className={cn(
+                                "font-bold text-base",
+                                entry.night_stock > 0 ? "text-primary" : "text-muted-foreground"
+                              )}>
+                                {entry.night_stock}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Action Buttons - Side Strip */}
+                      <div className="flex flex-col border-l bg-muted/30">
+                        {isSold && undoInfo ? (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-10 w-10 rounded-none hover:bg-orange-500/10 hover:text-orange-500"
+                            onClick={() => handleUndoSaleClick(entry)}
+                            title={`Batalkan Laku (${undoInfo.remainingMinutes} menit lagi)`}
+                          >
+                            <Undo2 className="h-4 w-4" />
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className={cn(
+                              "h-10 w-10 rounded-none",
+                              entry.night_stock > 0 && "hover:bg-success/10 hover:text-success"
+                            )}
+                            onClick={() => handleMarkAsSoldClick(entry)}
+                            disabled={entry.night_stock === 0}
+                            title="Tandai Terjual"
+                          >
+                            <CheckCircle className="h-4 w-4" />
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className={cn(
+                            "h-10 w-10 rounded-none",
+                            entry.night_stock > 0 && "hover:bg-primary/10 hover:text-primary"
+                          )}
+                          onClick={() => handleTransferClick(entry)}
+                          disabled={entry.night_stock === 0}
+                          title="Transfer"
+                        >
+                          <ArrowRightLeft className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-10 w-10 rounded-none hover:bg-warning/10 hover:text-warning"
+                          onClick={() => handleEditClick(entry)}
+                          title="Edit"
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-10 w-10 rounded-none hover:bg-destructive/10 hover:text-destructive"
+                          onClick={() => handleDeleteClick(entry)}
+                          title="Hapus"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Results Count */}
+        {stockEntries && stockEntries.length > 0 && (
+          <p className="text-center text-sm text-muted-foreground">
+            Menampilkan {stockEntries.length} item
+          </p>
+        )}
+      </div>
+
+      {/* Dialogs */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hapus Stok?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Data stok ini akan dihapus permanen dan tidak bisa dikembalikan.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => selectedEntry && deleteMutation.mutate(selectedEntry.id)}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Hapus
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog open={isUndoDialogOpen} onOpenChange={setIsUndoDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Batalkan Penjualan?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {selectedEntry && (() => {
+                const info = getSaleUndoInfo(selectedEntry);
+                return info 
+                  ? `Penjualan ${selectedEntry.phone_models?.brand} ${selectedEntry.phone_models?.model} akan dibatalkan. Sisa waktu undo: ${info.remainingMinutes} menit.`
+                  : 'Waktu undo sudah habis.';
+              })()}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Tidak</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => selectedEntry && undoSaleMutation.mutate(selectedEntry)}
+              className="bg-orange-500 hover:bg-orange-600"
+            >
+              Ya, Batalkan Laku
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <SaleConfirmationDialog
+        open={isSaleConfirmDialogOpen}
+        onOpenChange={setIsSaleConfirmDialogOpen}
+        onConfirm={handleSaleConfirm}
+        suggestedPrice={selectedEntry?.phone_models?.srp || 0}
+        itemName={selectedEntry ? `${selectedEntry.phone_models?.brand} ${selectedEntry.phone_models?.model}` : ''}
+        srp={selectedEntry?.phone_models?.srp || 0}
+        costPrice={selectedEntry?.cost_price || 0}
+      />
+
+      <EditStockDialog
+        open={isEditDialogOpen}
+        onOpenChange={setIsEditDialogOpen}
+        stockEntry={selectedEntry}
+      />
+
+      <TransferStockDialog
+        open={isTransferDialogOpen}
+        onOpenChange={setIsTransferDialogOpen}
+        stockEntry={selectedEntry}
+      />
+    </>
+  );
+}

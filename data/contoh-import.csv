@@ -1,0 +1,4 @@
+Tanggal,Lokasi,Merk,Model,Penyimpanan,IMEI,Catatan,Stok Pagi,Masuk,Tambah Stok,Return,Terjual,Penyesuaian,Stok Malam
+2024-01-15,SOKO,Samsung,Galaxy A54,128GB,123456789012345,Stok baru,1,0,0,0,0,0,1
+2024-01-15,MBUTOH,iPhone,iPhone 14,256GB,987654321098765,Transfer dari gudang,0,1,0,0,0,0,1
+2024-01-16,SOKO,Xiaomi,Redmi Note 12,64GB,555666777888999,Penjualan,1,0,0,0,1,0,0
