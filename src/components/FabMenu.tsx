@@ -1,26 +1,16 @@
 import { Button } from '@/components/ui/button';
-import { Plus, Truck, Smartphone, MapPin, Tags, PackagePlus, Layers, X, FileText, History } from 'lucide-react';
+import { Truck, PackagePlus, X, FileText, History } from 'lucide-react';
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { cn } from '@/lib/utils';
-const AddStockDialog = lazy(() => import('./AddStockDialog').then(m => ({ default: m.AddStockDialog })));
 const IncomingStockDialog = lazy(() => import('./IncomingStockDialog').then(m => ({ default: m.IncomingStockDialog })));
 const BulkIncomingStockDialog = lazy(() => import('./BulkIncomingStockDialog').then(m => ({ default: m.BulkIncomingStockDialog })));
 const TextImportIncomingDialog = lazy(() => import('./TextImportIncomingDialog').then(m => ({ default: m.TextImportIncomingDialog })));
-const AddPhoneModelDialog = lazy(() => import('./AddPhoneModelDialog').then(m => ({ default: m.AddPhoneModelDialog })));
-const BulkAddPhoneModelDialog = lazy(() => import('./BulkAddPhoneModelDialog').then(m => ({ default: m.BulkAddPhoneModelDialog })));
-const ManageBrandsDialog = lazy(() => import('./ManageBrandsDialog').then(m => ({ default: m.ManageBrandsDialog })));
-const AddLocationDialog = lazy(() => import('./AddLocationDialog').then(m => ({ default: m.AddLocationDialog })));
 const ImeiHistoryDialog = lazy(() => import('./ImeiHistoryDialog').then(m => ({ default: m.ImeiHistoryDialog })));
 
 type DialogKey =
-  | 'addStock'
   | 'incomingStock'
   | 'bulkIncoming'
   | 'textImportIncoming'
-  | 'addPhoneModel'
-  | 'bulkAddPhoneModel'
-  | 'manageBrands'
-  | 'addLocation'
   | 'imeiHistory';
 
 interface ActionItem {
@@ -52,34 +42,6 @@ const actions: ActionItem[] = [
     icon: FileText,
     dialog: 'textImportIncoming',
     tone: 'accent',
-  },
-  {
-    label: 'Tambah Model HP',
-    description: 'Daftarkan model baru',
-    icon: Smartphone,
-    dialog: 'addPhoneModel',
-    tone: 'primary',
-  },
-  {
-    label: 'Tambah Model Massal',
-    description: 'Banyak model via form / CSV',
-    icon: Layers,
-    dialog: 'bulkAddPhoneModel',
-    tone: 'primary',
-  },
-  {
-    label: 'Kelola Merk',
-    description: 'Edit / hapus merk HP',
-    icon: Tags,
-    dialog: 'manageBrands',
-    tone: 'warning',
-  },
-  {
-    label: 'Tambah Lokasi',
-    description: 'Buat cabang / gudang baru',
-    icon: MapPin,
-    dialog: 'addLocation',
-    tone: 'info',
   },
   {
     label: 'Riwayat IMEI',
@@ -226,14 +188,9 @@ export function FabMenu() {
       </div>
 
       <Suspense fallback={null}>
-      {dialog === 'addStock' && <AddStockDialog open={true} onOpenChange={() => setDialog(null)} />}
       {dialog === 'incomingStock' && <IncomingStockDialog open={true} onOpenChange={() => setDialog(null)} />}
       {dialog === 'bulkIncoming' && <BulkIncomingStockDialog open={true} onOpenChange={() => setDialog(null)} />}
       {dialog === 'textImportIncoming' && <TextImportIncomingDialog open={true} onOpenChange={() => setDialog(null)} />}
-      {dialog === 'addPhoneModel' && <AddPhoneModelDialog open={true} onOpenChange={() => setDialog(null)} />}
-      {dialog === 'bulkAddPhoneModel' && <BulkAddPhoneModelDialog open={true} onOpenChange={() => setDialog(null)} />}
-      {dialog === 'manageBrands' && <ManageBrandsDialog open={true} onOpenChange={() => setDialog(null)} />}
-      {dialog === 'addLocation' && <AddLocationDialog open={true} onOpenChange={() => setDialog(null)} />}
       {dialog === 'imeiHistory' && <ImeiHistoryDialog open={true} onOpenChange={() => setDialog(null)} />}
       </Suspense>
     </>

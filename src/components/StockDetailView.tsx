@@ -2,9 +2,9 @@ import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Package, MapPin, Smartphone, Calendar, Store, ListTree } from "lucide-react";
+import { Package, MapPin, Smartphone, Calendar, Store, ListTree, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface StockDetailViewProps {
@@ -151,70 +151,65 @@ export function StockDetailView({ selectedDate }: StockDetailViewProps) {
         </Card>
       </div>
 
-      {/* Stock List by Brand */}
+      {/* Stock List by Brand — collapsible agar ringkas */}
       {stockDetails && stockDetails.length > 0 ? (
-        <div className="space-y-4">
-          {Object.entries(groupedByBrand).map(([brand, items], bIdx) => (
-            <Card key={brand} className="glass rounded-[1.2rem] shadow-[var(--shadow-card)] overflow-hidden animate-fade-up" style={{ animationDelay: `${Math.min(bIdx, 6) * 0.06}s` }}>
-              <CardHeader className="pb-2 pt-3.5 px-4">
-                <div className="flex items-center justify-between">
-                  <Badge variant="secondary" className="text-xs font-bold px-3 py-1">
+        <div className="space-y-2.5">
+          {Object.entries(groupedByBrand).map(([brand, items], bIdx) => {
+            const totalUnits = items.reduce((sum, i) => sum + i.count, 0);
+            return (
+            <details
+              key={brand}
+              open={bIdx === 0}
+              className="group glass rounded-[1.2rem] shadow-[var(--shadow-card)] overflow-hidden animate-fade-up"
+              style={{ animationDelay: `${Math.min(bIdx, 6) * 0.06}s` }}
+            >
+              <summary className="flex items-center justify-between p-3.5 cursor-pointer list-none hover:bg-muted/30 transition-colors">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <Badge variant="secondary" className="text-xs font-bold px-3 py-1 shrink-0">
                     {brand}
                   </Badge>
-                  <span className="text-xs text-muted-foreground font-semibold tabular">
-                    {items.reduce((sum, i) => sum + i.count, 0)} unit
+                  <span className="text-xs text-muted-foreground font-medium">
+                    {items.length} model
                   </span>
                 </div>
-              </CardHeader>
-              <CardContent className="p-2 pt-0">
-                <div className="space-y-1.5">
-                  {items.map((item, index) => (
-                    <div 
-                      key={index}
-                      className="flex items-center justify-between p-2.5 rounded-xl bg-muted/30 hover:bg-muted/50 border border-transparent hover:border-border/60 transition-all"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold truncate">
-                          {item.model}
-                        </p>
-                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                          <span className="text-xs text-muted-foreground">
-                            {item.storage_capacity}
-                          </span>
-                          {item.color !== '-' && (
-                            <>
-                              <span className="text-muted-foreground text-xs">•</span>
-                              <span className="text-xs text-muted-foreground">
-                                {item.color}
-                              </span>
-                            </>
-                          )}
-                          <span className="text-muted-foreground text-xs">•</span>
-                          <div className="flex items-center gap-0.5">
-                            <MapPin className="h-3 w-3 text-muted-foreground" />
-                            <span className="text-xs text-muted-foreground">
-                              {item.location}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      <Badge 
-                        variant="default" 
-                        className={cn(
-                          "text-sm font-extrabold min-w-[38px] justify-center tabular pressable",
-                          item.count >= 5 ? "bg-[hsl(var(--success))] hover:bg-[hsl(var(--success))]" : 
-                          item.count >= 2 ? "bg-[hsl(var(--warning))] hover:bg-[hsl(var(--warning))] text-white" : 
-                          "bg-destructive hover:bg-destructive"
-                        )}
-                      >
-                        {item.count}
-                      </Badge>
-                    </div>
-                  ))}
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-sm font-extrabold tabular">{totalUnits} unit</span>
+                  <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
                 </div>
-              </CardContent>
-            </Card>
-          ))}
+              </summary>
+              <div className="px-2 pb-2 space-y-1.5">
+                {items.map((item, index) => (
+                  <div 
+                    key={index}
+                    className="flex items-center justify-between p-2.5 rounded-xl bg-muted/30 border border-transparent hover:border-border/60 transition-all"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold truncate">
+                        {item.model}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {item.storage_capacity}
+                        {item.color !== '-' ? ` • ${item.color}` : ''}
+                        {` • ${item.location}`}
+                      </p>
+                    </div>
+                    <Badge 
+                      variant="default" 
+                      className={cn(
+                        "text-sm font-extrabold min-w-[38px] justify-center tabular shrink-0",
+                        item.count >= 5 ? "bg-[hsl(var(--success))] hover:bg-[hsl(var(--success))]" : 
+                        item.count >= 2 ? "bg-[hsl(var(--warning))] hover:bg-[hsl(var(--warning))] text-white" : 
+                        "bg-destructive hover:bg-destructive"
+                      )}
+                    >
+                      {item.count}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            </details>
+            );
+          })}
         </div>
       ) : (
         <Card className="glass rounded-[1.4rem] shadow-[var(--shadow-card)]">

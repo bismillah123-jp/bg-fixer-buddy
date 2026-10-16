@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, lazy, Suspense } from "react";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,7 +23,12 @@ import {
   User,
   Smartphone,
   Database,
-  Settings as SettingsIcon
+  Settings as SettingsIcon,
+  Plus,
+  Layers,
+  Tags,
+  ChevronDown,
+  MapPin
 } from "lucide-react";
 import { 
   AlertDialog, 
@@ -38,6 +43,10 @@ import {
 import { EditPhoneModelDialog } from "@/components/EditPhoneModelDialog";
 import { ManageLabelsDialog } from "@/components/ManageLabelsDialog";
 import { ManageColorsDialog } from "@/components/ManageColorsDialog";
+const AddPhoneModelDialog = lazy(() => import("@/components/AddPhoneModelDialog").then(m => ({ default: m.AddPhoneModelDialog })));
+const BulkAddPhoneModelDialog = lazy(() => import("@/components/BulkAddPhoneModelDialog").then(m => ({ default: m.BulkAddPhoneModelDialog })));
+const ManageBrandsDialog = lazy(() => import("@/components/ManageBrandsDialog").then(m => ({ default: m.ManageBrandsDialog })));
+const AddLocationDialog = lazy(() => import("@/components/AddLocationDialog").then(m => ({ default: m.AddLocationDialog })));
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -63,6 +72,10 @@ const Settings = () => {
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
   const [isLabelsDialogOpen, setIsLabelsDialogOpen] = useState(false);
   const [isColorsDialogOpen, setIsColorsDialogOpen] = useState(false);
+  const [isAddModelOpen, setIsAddModelOpen] = useState(false);
+  const [isBulkAddModelOpen, setIsBulkAddModelOpen] = useState(false);
+  const [isBrandsDialogOpen, setIsBrandsDialogOpen] = useState(false);
+  const [isAddLocationOpen, setIsAddLocationOpen] = useState(false);
 
   // Fetch labels for display
   const { data: labelsData } = useQuery({
@@ -536,70 +549,78 @@ const Settings = () => {
       </Card>
 
       {/* Phone Models Section */}
-      <Card className="glass rounded-[1.2rem] shadow-[var(--shadow-card)] overflow-hidden">
+      <Card className="glass rounded-[1.2rem] shadow-[var(--shadow-card)] overflow-hidden card-lift animate-fade-up stagger-2">
         <CardHeader className="pb-3">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-info/10 flex items-center justify-center">
-              <Smartphone className="h-5 w-5 text-info" />
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-[hsl(var(--info))]/20 to-[hsl(var(--info))]/5 flex items-center justify-center shrink-0">
+                <Smartphone className="h-5 w-5 text-[hsl(var(--info))]" strokeWidth={2.2} />
+              </div>
+              <div className="min-w-0">
+                <CardTitle className="text-base font-extrabold">Model HP & SRP</CardTitle>
+                <p className="text-xs text-muted-foreground mt-0.5 font-medium">
+                  {phoneModels?.length || 0} model terdaftar
+                </p>
+              </div>
             </div>
-            <div>
-              <CardTitle className="text-base">Model HP & SRP</CardTitle>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {phoneModels?.length || 0} model terdaftar
-              </p>
+            <div className="flex gap-1.5 shrink-0">
+              <Button size="sm" variant="outline" className="h-9 rounded-xl" onClick={() => setIsAddModelOpen(true)}>
+                <Plus className="h-3.5 w-3.5 sm:mr-1" />
+                <span className="hidden sm:inline">Tambah</span>
+              </Button>
+              <Button size="sm" variant="ghost" className="h-9 w-9 rounded-xl p-0" onClick={() => setIsBulkAddModelOpen(true)} title="Tambah massal">
+                <Layers className="h-4 w-4" />
+              </Button>
+              <Button size="sm" variant="ghost" className="h-9 w-9 rounded-xl p-0" onClick={() => setIsBrandsDialogOpen(true)} title="Kelola merk">
+                <Tags className="h-4 w-4" />
+              </Button>
             </div>
           </div>
         </CardHeader>
         <CardContent className="pt-0">
-          <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+          <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1 overscroll-contain">
             {Object.entries(groupedModels).map(([brand, models]) => (
-              <div key={brand} className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary" className="text-xs font-semibold">
-                    {brand}
-                  </Badge>
-                  <span className="text-xs text-muted-foreground">
-                    {(models ?? []).length} model
-                  </span>
-                </div>
-                <div className="grid gap-2">
+              <details key={brand} className="group rounded-xl border border-border/50 bg-muted/20 overflow-hidden">
+                <summary className="flex items-center justify-between p-3 cursor-pointer list-none hover:bg-muted/40 transition-colors">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Badge variant="secondary" className="text-xs font-bold shrink-0">
+                      {brand}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground font-medium tabular">
+                      {(models ?? []).length} model
+                    </span>
+                  </div>
+                  <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0 transition-transform group-open:rotate-180" />
+                </summary>
+                <div className="px-2 pb-2 space-y-1.5">
                   {(models ?? []).map((model) => (
                     <div 
                       key={model.id}
-                      className="flex items-center justify-between p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
+                      className="flex items-center justify-between p-2.5 rounded-lg bg-background/60 border border-border/40"
                     >
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">
+                        <p className="text-sm font-semibold truncate">
                           {model.model}
                         </p>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className="text-xs text-muted-foreground">
-                            {model.storage_capacity || '-'}
-                          </span>
-                          {model.color && (
-                            <>
-                              <span className="text-muted-foreground">•</span>
-                              <span className="text-xs text-muted-foreground">
-                                {model.color}
-                              </span>
-                            </>
-                          )}
-                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {model.storage_capacity || '-'}
+                          {model.color ? ` • ${model.color}` : ''}
+                        </p>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1 shrink-0">
                         <span className={cn(
-                          "text-sm font-semibold",
-                          model.srp > 0 ? "text-success" : "text-muted-foreground"
+                          "text-sm font-bold tabular mr-1",
+                          model.srp > 0 ? "text-[hsl(var(--success))]" : "text-muted-foreground"
                         )}>
                           {model.srp > 0 
-                            ? `Rp ${model.srp.toLocaleString('id-ID')}`
+                            ? `Rp ${(model.srp/1000000).toFixed(model.srp % 1000000 === 0 ? 0 : 1)}jt`
                             : '-'
                           }
                         </span>
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8"
+                          className="h-8 w-8 rounded-lg"
                           onClick={() => {
                             setEditingModel(model);
                             setIsEditDialogOpen(true);
@@ -610,7 +631,7 @@ const Settings = () => {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          className="h-8 w-8 rounded-lg text-destructive hover:text-destructive hover:bg-destructive/10"
                           onClick={() => {
                             setDeletingModel(model);
                             setIsDeleteDialogOpen(true);
@@ -622,7 +643,7 @@ const Settings = () => {
                     </div>
                   ))}
                 </div>
-              </div>
+              </details>
             ))}
             {(!phoneModels || phoneModels.length === 0) && (
               <div className="text-center py-8 text-muted-foreground text-sm">
@@ -633,27 +654,32 @@ const Settings = () => {
         </CardContent>
       </Card>
 
-      {/* Labels Section */}
-      <Card className="glass rounded-[1.2rem] shadow-[var(--shadow-card)] overflow-hidden">
+      {/* Labels & Colors Section (digabung agar ringkas) */}
+      <Card className="glass rounded-[1.2rem] shadow-[var(--shadow-card)] overflow-hidden card-lift animate-fade-up stagger-3">
         <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-accent/50 flex items-center justify-center">
-                <Tag className="h-5 w-5 text-primary" />
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center shrink-0">
+                <Tag className="h-5 w-5 text-primary" strokeWidth={2.2} />
               </div>
-              <div>
-                <CardTitle className="text-base">Label Stok</CardTitle>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {labelsData?.length || 0} label terdaftar
+              <div className="min-w-0">
+                <CardTitle className="text-base font-extrabold">Label & Warna</CardTitle>
+                <p className="text-xs text-muted-foreground mt-0.5 font-medium">
+                  {labelsData?.length || 0} label • {colorsData?.length || 0} warna
                 </p>
               </div>
             </div>
-            <Button size="sm" variant="outline" onClick={() => setIsLabelsDialogOpen(true)}>
-              Kelola
-            </Button>
+            <div className="flex gap-1.5 shrink-0">
+              <Button size="sm" variant="outline" className="h-9 rounded-xl" onClick={() => setIsLabelsDialogOpen(true)}>
+                Label
+              </Button>
+              <Button size="sm" variant="outline" className="h-9 rounded-xl" onClick={() => setIsColorsDialogOpen(true)}>
+                Warna
+              </Button>
+            </div>
           </div>
         </CardHeader>
-        <CardContent className="pt-0">
+        <CardContent className="pt-0 space-y-3">
           <div className="flex flex-wrap gap-2">
             {labelsData?.map((label) => (
               <span
@@ -670,45 +696,21 @@ const Settings = () => {
               </span>
             ))}
             {(!labelsData || labelsData.length === 0) && (
-              <p className="text-sm text-muted-foreground">Belum ada label. Klik "Kelola" untuk menambahkan.</p>
+              <p className="text-sm text-muted-foreground">Belum ada label.</p>
             )}
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Phone Colors Section */}
-      <Card className="glass rounded-[1.2rem] shadow-[var(--shadow-card)] overflow-hidden">
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-accent/50 flex items-center justify-center">
-                <Palette className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <CardTitle className="text-base">Warna HP</CardTitle>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {colorsData?.length || 0} warna terdaftar
-                </p>
-              </div>
-            </div>
-            <Button size="sm" variant="outline" onClick={() => setIsColorsDialogOpen(true)}>
-              Kelola
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="pt-0">
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 pt-1 border-t border-border/50">
             {colorsData?.map((color: PhoneColorRow) => (
               <span
                 key={color.id}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-muted/50 text-foreground border"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-muted/50 text-foreground border mt-2"
               >
                 <span className="h-3 w-3 rounded-full border border-border" style={{ backgroundColor: color.hex_color }} />
                 {color.name}
               </span>
             ))}
             {(!colorsData || colorsData.length === 0) && (
-              <p className="text-sm text-muted-foreground">Belum ada warna. Klik "Kelola" untuk menambahkan.</p>
+              <p className="text-sm text-muted-foreground mt-2">Belum ada warna.</p>
             )}
           </div>
         </CardContent>
@@ -724,6 +726,28 @@ const Settings = () => {
           </div>
         </CardHeader>
         <CardContent className="pt-0 space-y-3">
+          {/* Tambah Lokasi (dipindah dari Aksi Cepat) */}
+          <div className="p-3 rounded-xl bg-muted/30 border border-border/40">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-3 min-w-0">
+                <MapPin className="h-4 w-4 text-[hsl(var(--info))] shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold">Lokasi / Cabang</p>
+                  <p className="text-xs text-muted-foreground">Buat cabang atau gudang baru</p>
+                </div>
+              </div>
+              <Button 
+                size="sm" 
+                variant="secondary"
+                className="rounded-xl shrink-0"
+                onClick={() => setIsAddLocationOpen(true)}
+              >
+                <Plus className="h-3.5 w-3.5 mr-1" />
+                Tambah
+              </Button>
+            </div>
+          </div>
+
           {/* Export */}
           <div className="p-3 rounded-lg bg-muted/30">
             <div className="flex items-center justify-between">
@@ -834,6 +858,21 @@ const Settings = () => {
         open={isColorsDialogOpen}
         onOpenChange={setIsColorsDialogOpen}
       />
+      {/* Add Model Dialog (dipindah dari Aksi Cepat) */}
+      <Suspense fallback={null}>
+        {isAddModelOpen && (
+          <AddPhoneModelDialog open={isAddModelOpen} onOpenChange={setIsAddModelOpen} />
+        )}
+        {isBulkAddModelOpen && (
+          <BulkAddPhoneModelDialog open={isBulkAddModelOpen} onOpenChange={setIsBulkAddModelOpen} />
+        )}
+        {isBrandsDialogOpen && (
+          <ManageBrandsDialog open={isBrandsDialogOpen} onOpenChange={setIsBrandsDialogOpen} />
+        )}
+        {isAddLocationOpen && (
+          <AddLocationDialog open={isAddLocationOpen} onOpenChange={setIsAddLocationOpen} />
+        )}
+      </Suspense>
       {/* Delete Model Dialog */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
