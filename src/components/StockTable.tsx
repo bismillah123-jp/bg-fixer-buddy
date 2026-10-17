@@ -15,7 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Search, RotateCcw, Edit2, ArrowRightLeft, Trash2, CheckCircle, Package, X, Undo2, MapPin, Palette, Hash } from "lucide-react";
+import { Search, RotateCcw, Edit2, ArrowRightLeft, Trash2, CheckCircle, Package, X, Undo2, MapPin, Palette, Hash, PackageCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { EditStockDialog } from "./EditStockDialog";
@@ -768,6 +768,14 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange, lockedCo
                                 >
                                   <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: labelColorMap.get(entry.label) || '#6B7280' }} />
                                   {entry.label}
+                                </span>
+                              )}
+
+                              {/* Kelengkapan (HP second) */}
+                              {typeof entry.metadata?.kelengkapan === 'string' && entry.metadata.kelengkapan && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-[hsl(var(--info))]/10 text-[hsl(var(--info))] border border-[hsl(var(--info))]/25">
+                                  <PackageCheck className="h-3 w-3" />
+                                  {entry.metadata.kelengkapan}
                                 </span>
                               )}
 

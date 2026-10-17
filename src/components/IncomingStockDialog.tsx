@@ -17,6 +17,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 const BarcodeScanner = lazy(() => import("@/components/BarcodeScanner").then(m => ({ default: m.BarcodeScanner })));
 import { LabelSelect } from "@/components/LabelSelect";
+import { KelengkapanSelect } from "@/components/KelengkapanSelect";
 import { AddPhoneModelDialog } from "@/components/AddPhoneModelDialog";
 import { ColorSelect } from "@/components/ColorSelect";
 
@@ -29,6 +30,7 @@ interface ImeiEntry {
   imei: string;
   color: string;
   label: string;
+  kelengkapan: string;
 }
 
 export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogProps) {
@@ -38,7 +40,7 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
   const [selectedModel, setSelectedModel] = useState<string>("");
   const [showAddModel, setShowAddModel] = useState(false);
   const [condition, setCondition] = useState<"baru" | "second">("baru");
-  const [imeiList, setImeiList] = useState<ImeiEntry[]>([{ imei: "", color: "", label: "" }]);
+  const [imeiList, setImeiList] = useState<ImeiEntry[]>([{ imei: "", color: "", label: "", kelengkapan: "" }]);
   const [scanningIndex, setScanningIndex] = useState<number | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -167,7 +169,10 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
         event_type: 'masuk',
         qty: 1,
         notes: null,
-        metadata: { color: entry.color.trim() },
+        metadata: {
+          color: entry.color.trim(),
+          ...(entry.kelengkapan ? { kelengkapan: entry.kelengkapan } : {}),
+        },
         label: entry.label.trim() || null,
         condition: condition
       }));
@@ -194,7 +199,7 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
       setSelectedBrand("");
       setSelectedModel("");
       setCondition("baru");
-      setImeiList([{ imei: "", color: "", label: "" }]);
+      setImeiList([{ imei: "", color: "", label: "", kelengkapan: "" }]);
     },
     onError: (error: Error) => {
       toast({
@@ -328,7 +333,7 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => setImeiList([...imeiList, { imei: "", color: "", label: "" }])}
+                onClick={() => setImeiList([...imeiList, { imei: "", color: "", label: "", kelengkapan: "" }])}
               >
                 <Plus className="h-4 w-4 mr-1" />
                 Tambah Unit
@@ -347,7 +352,7 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
                         size="sm"
                         onClick={() => {
                           const newList = imeiList.filter((_, i) => i !== index);
-                          setImeiList(newList.length === 0 ? [{ imei: "", color: "", label: "" }] : newList);
+                          setImeiList(newList.length === 0 ? [{ imei: "", color: "", label: "", kelengkapan: "" }] : newList);
                         }}
                       >
                         <X className="h-4 w-4" />

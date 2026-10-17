@@ -93,7 +93,7 @@ async function executeTool(supabase: any, tool: string, params: Record<string, a
       const { data, error } = await supabase.from("stock_events").insert({
         date, imei, location_id: locId, phone_model_id: modelId,
         event_type: "masuk", qty: 1, notes: opt(p, "catatan"), condition: kondisi,
-        metadata: { ...(cost > 0 ? { cost_price: cost } : {}), ...(opt(p, "warna") ? { color: opt(p, "warna") } : {}) },
+        metadata: { ...(cost > 0 ? { cost_price: cost } : {}), ...(opt(p, "warna") ? { color: opt(p, "warna") } : {}), ...(opt(p, "kelengkapan") ? { kelengkapan: opt(p, "kelengkapan") } : {}) },
       }).select("id").single();
       if (error) throw new Error(error.message);
       return { ok: true, summary: `HP ${kondisi} masuk tercatat: IMEI ${imei}${cost > 0 ? ` (modal ${rupiah(cost)})` : ""}`, data };
@@ -211,7 +211,7 @@ TOOLS TERSEDIA:
 2. transfer_stok — pindah unit antar lokasi.
    params: imei, dari_lokasi_id(uuid), ke_lokasi_id(uuid), model_id(uuid), tanggal(YYYY-MM-DD), catatan(opsional)
 3. hp_masuk — catat HP datang.
-   params: imei, model_id(uuid), lokasi_id(uuid), tanggal(YYYY-MM-DD), kondisi("baru"|"second", default "baru"), modal(number, opsional), warna(opsional), catatan(opsional)
+   params: imei, model_id(uuid), lokasi_id(uuid), tanggal(YYYY-MM-DD), kondisi("baru"|"second", default "baru"), kelengkapan("Hp Only"|"Fullset"|"Hp Ces", opsional, hanya untuk second), modal(number, opsional), warna(opsional), catatan(opsional)
 4. koreksi_stok — koreksi selisih stok fisik.
    params: imei, model_id(uuid), lokasi_id(uuid), tanggal(YYYY-MM-DD), qty(integer bukan nol, +tambah/-kurang), catatan
 5. batal_jual — batalkan penjualan (kembalikan ke stok).
@@ -519,7 +519,7 @@ Contoh: "Boleh hubungi Ihsan langsung di sini: [Click here](https://wa.me/628314
 - Setiap unit HP punya kondisi: "baru" atau "second". Kondisi ditentukan saat HP masuk dan tidak berubah (unit second tetap second walau pindah lokasi).
 - Kalau user bilang "HP second", "bekas", "seken", maksudnya condition=second. Kalau "HP baru" maksudnya condition=baru.
 - Saat lapor stok, pisahkan angkanya: sebut total baru dan total second secara terpisah kalau relevan.
-- Tool hp_masuk punya param "kondisi" ("baru"|"second", default "baru") — isi sesuai permintaan user. Kalau user tidak menyebut kondisi, tanya dulu atau default "baru" sambil sebutkan asumsi itu.
+- Tool hp_masuk punya param "kondisi" ("baru"|"second", default "baru") — isi sesuai permintaan user. Kalau user tidak menyebut kondisi, tanya dulu atau default "baru" sambil sebutkan asumsi itu. Untuk HP second ada param "kelengkapan" ("Hp Only"|"Fullset"|"Hp Ces") — tanyakan ke user kalau tidak disebut.
 
 == ATURAN DASAR ==
 - Jawab dalam Bahasa Indonesia natural & enak dibaca, gunakan markdown secukupnya.

@@ -16,6 +16,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 const BarcodeScanner = lazy(() => import("@/components/BarcodeScanner").then(m => ({ default: m.BarcodeScanner })));
 import { LabelSelect } from "@/components/LabelSelect";
+import { KelengkapanSelect } from "@/components/KelengkapanSelect";
 import { ColorSelect } from "@/components/ColorSelect";
 import { AddPhoneModelDialog } from "@/components/AddPhoneModelDialog";
 
@@ -30,13 +31,14 @@ interface BulkEntry {
   imei: string;
   color: string;
   label: string;
+  kelengkapan: string;
 }
 
 export function BulkIncomingStockDialog({ open, onOpenChange }: BulkIncomingStockDialogProps) {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedLocation, setSelectedLocation] = useState<string>("");
   const [condition, setCondition] = useState<"baru" | "second">("baru");
-  const [entries, setEntries] = useState<BulkEntry[]>([{ brand: "", model: "", imei: "", color: "", label: "" }]);
+  const [entries, setEntries] = useState<BulkEntry[]>([{ brand: "", model: "", imei: "", color: "", label: "", kelengkapan: "" }]);
   const [showAddModel, setShowAddModel] = useState(false);
   const [addModelRow, setAddModelRow] = useState<number | null>(null);
   const [scanningIndex, setScanningIndex] = useState<number | null>(null);
@@ -89,12 +91,12 @@ export function BulkIncomingStockDialog({ open, onOpenChange }: BulkIncomingStoc
   const addEntry = () => {
     // Pre-fill brand/model from last entry for convenience
     const last = entries[entries.length - 1];
-    setEntries([...entries, { brand: last.brand, model: last.model, imei: "", color: "", label: last.label }]);
+    setEntries([...entries, { brand: last.brand, model: last.model, imei: "", color: "", label: last.label, kelengkapan: "" }]);
   };
 
   const removeEntry = (index: number) => {
     const newEntries = entries.filter((_, i) => i !== index);
-    setEntries(newEntries.length === 0 ? [{ brand: "", model: "", imei: "", color: "", label: "" }] : newEntries);
+    setEntries(newEntries.length === 0 ? [{ brand: "", model: "", imei: "", color: "", label: "", kelengkapan: "" }] : newEntries);
   };
 
   const bulkMutation = useMutation({
@@ -139,7 +141,10 @@ export function BulkIncomingStockDialog({ open, onOpenChange }: BulkIncomingStoc
         event_type: 'masuk',
         qty: 1,
         notes: null,
-        metadata: { color: e.color.trim() },
+        metadata: {
+          color: e.color.trim(),
+          ...(e.kelengkapan ? { kelengkapan: e.kelengkapan } : {}),
+        },
         label: e.label.trim() || null,
         condition: condition,
       }));
@@ -156,7 +161,7 @@ export function BulkIncomingStockDialog({ open, onOpenChange }: BulkIncomingStoc
       setSelectedDate(new Date());
       setSelectedLocation("");
       setCondition("baru");
-      setEntries([{ brand: "", model: "", imei: "", color: "", label: "" }]);
+      setEntries([{ brand: "", model: "", imei: "", color: "", label: "", kelengkapan: "" }]);
     },
     onError: (error: Error) => {
       toast({ title: "Gagal", description: error.message, variant: "destructive" });
@@ -321,6 +326,13 @@ export function BulkIncomingStockDialog({ open, onOpenChange }: BulkIncomingStoc
                       onValueChange={(v) => updateEntry(idx, 'label', v)}
                       className="h-9 text-xs"
                     />
+                    {condition === "second" && (
+                      <KelengkapanSelect
+                        value={entry.kelengkapan}
+                        onValueChange={(v) => updateEntry(idx, 'kelengkapan', v)}
+                        className="col-span-2"
+                      />
+                    )}
                   </div>
                 </div>
               ))}
