@@ -88,13 +88,15 @@ async function executeTool(supabase: any, tool: string, params: Record<string, a
       const locId = req(p, "lokasi_id", "uuid");
       const date = req(p, "tanggal", "date");
       const cost = Number(opt(p, "modal")) || 0;
+      const kondisi = opt(p, "kondisi") || "baru";
+      if (!["baru", "second"].includes(kondisi)) throw new Error("Parameter 'kondisi' harus 'baru' atau 'second'");
       const { data, error } = await supabase.from("stock_events").insert({
         date, imei, location_id: locId, phone_model_id: modelId,
-        event_type: "masuk", qty: 1, notes: opt(p, "catatan"),
+        event_type: "masuk", qty: 1, notes: opt(p, "catatan"), condition: kondisi,
         metadata: { ...(cost > 0 ? { cost_price: cost } : {}), ...(opt(p, "warna") ? { color: opt(p, "warna") } : {}) },
       }).select("id").single();
       if (error) throw new Error(error.message);
-      return { ok: true, summary: `HP masuk tercatat: IMEI ${imei}${cost > 0 ? ` (modal ${rupiah(cost)})` : ""}`, data };
+      return { ok: true, summary: `HP ${kondisi} masuk tercatat: IMEI ${imei}${cost > 0 ? ` (modal ${rupiah(cost)})` : ""}`, data };
     }
 
     // ---- KOREKSI: catat koreksi stok ----
@@ -209,7 +211,7 @@ TOOLS TERSEDIA:
 2. transfer_stok — pindah unit antar lokasi.
    params: imei, dari_lokasi_id(uuid), ke_lokasi_id(uuid), model_id(uuid), tanggal(YYYY-MM-DD), catatan(opsional)
 3. hp_masuk — catat HP datang.
-   params: imei, model_id(uuid), lokasi_id(uuid), tanggal(YYYY-MM-DD), modal(number, opsional), warna(opsional), catatan(opsional)
+   params: imei, model_id(uuid), lokasi_id(uuid), tanggal(YYYY-MM-DD), kondisi("baru"|"second", default "baru"), modal(number, opsional), warna(opsional), catatan(opsional)
 4. koreksi_stok — koreksi selisih stok fisik.
    params: imei, model_id(uuid), lokasi_id(uuid), tanggal(YYYY-MM-DD), qty(integer bukan nol, +tambah/-kurang), catatan
 5. batal_jual — batalkan penjualan (kembalikan ke stok).
@@ -321,7 +323,7 @@ async function runChat(
     const { data: stockData } = await supabase
       .from("stock_entries")
       .select(`
-        id, date, morning_stock, incoming, sold, returns, adjustment, night_stock, imei, label, metadata, cost_price, selling_price, sale_date,
+        id, date, morning_stock, incoming, sold, returns, adjustment, night_stock, imei, label, condition, metadata, cost_price, selling_price, sale_date,
         phone_model:phone_models(id, brand, model, storage_capacity),
         location:stock_locations(id, name)
       `)
@@ -488,7 +490,7 @@ ${slowMoving.slice(0, 20).map((e: any) =>
 === DETAIL STOK TERSEDIA ===
 ${availableStock.slice(0, 120).map((e: any) => {
   const color = e.metadata?.color || "-";
-  return `- id:${e.id} | ${e.phone_model?.brand} ${e.phone_model?.model} ${e.phone_model?.storage_capacity || ""} | Warna: ${color} | IMEI: ${e.imei} | Lokasi: ${e.location?.name} | Label: ${e.label || "-"}`;
+  return `- id:${e.id} | ${e.phone_model?.brand} ${e.phone_model?.model} ${e.phone_model?.storage_capacity || ""} | Kondisi: ${e.condition || "baru"} | Warna: ${color} | IMEI: ${e.imei} | Lokasi: ${e.location?.name} | Label: ${e.label || "-"}`;
 }).join("\n") || "Tidak ada data"}
 
 === REFERENSI ID (untuk aksi) ===
@@ -512,6 +514,12 @@ Kalau user nanya nomor WhatsApp / kontak / cara hubungi Ihsan / admin / owner, J
 [Click here](https://wa.me/6283146993017)
 
 Contoh: "Boleh hubungi Ihsan langsung di sini: [Click here](https://wa.me/6283146993017)"
+
+== KONDISI BARU vs SECOND ==
+- Setiap unit HP punya kondisi: "baru" atau "second". Kondisi ditentukan saat HP masuk dan tidak berubah (unit second tetap second walau pindah lokasi).
+- Kalau user bilang "HP second", "bekas", "seken", maksudnya condition=second. Kalau "HP baru" maksudnya condition=baru.
+- Saat lapor stok, pisahkan angkanya: sebut total baru dan total second secara terpisah kalau relevan.
+- Tool hp_masuk punya param "kondisi" ("baru"|"second", default "baru") — isi sesuai permintaan user. Kalau user tidak menyebut kondisi, tanya dulu atau default "baru" sambil sebutkan asumsi itu.
 
 == ATURAN DASAR ==
 - Jawab dalam Bahasa Indonesia natural & enak dibaca, gunakan markdown secukupnya.

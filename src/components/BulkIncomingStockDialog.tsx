@@ -34,6 +34,7 @@ interface BulkEntry {
 export function BulkIncomingStockDialog({ open, onOpenChange }: BulkIncomingStockDialogProps) {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedLocation, setSelectedLocation] = useState<string>("");
+  const [condition, setCondition] = useState<"baru" | "second">("baru");
   const [entries, setEntries] = useState<BulkEntry[]>([{ brand: "", model: "", imei: "", color: "", label: "" }]);
   const [scanningIndex, setScanningIndex] = useState<number | null>(null);
   const { toast } = useToast();
@@ -137,6 +138,7 @@ export function BulkIncomingStockDialog({ open, onOpenChange }: BulkIncomingStoc
         notes: null,
         metadata: { color: e.color.trim() },
         label: e.label.trim() || null,
+        condition: condition,
       }));
 
       const { error } = await supabase.from('stock_events').insert(eventsToInsert);
@@ -150,6 +152,7 @@ export function BulkIncomingStockDialog({ open, onOpenChange }: BulkIncomingStoc
       onOpenChange(false);
       setSelectedDate(new Date());
       setSelectedLocation("");
+      setCondition("baru");
       setEntries([{ brand: "", model: "", imei: "", color: "", label: "" }]);
     },
     onError: (error: Error) => {
@@ -209,6 +212,20 @@ export function BulkIncomingStockDialog({ open, onOpenChange }: BulkIncomingStoc
                 {locations?.map(loc => (
                   <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Condition */}
+          <div className="space-y-2">
+            <Label>Kondisi</Label>
+            <Select value={condition} onValueChange={(v) => setCondition(v as "baru" | "second")}>
+              <SelectTrigger>
+                <SelectValue placeholder="Pilih kondisi" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="baru">Baru</SelectItem>
+                <SelectItem value="second">Second</SelectItem>
               </SelectContent>
             </Select>
           </div>

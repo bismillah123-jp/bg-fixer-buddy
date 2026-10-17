@@ -34,6 +34,8 @@ interface DashboardStats {
   totalTransfers: number;
   totalFinalStock: number;
   totalSoldThisMonth: number;
+  baruStock: number;
+  secondStock: number;
   breakdown: {
     [location: string]: LocationData;
   };
@@ -157,21 +159,29 @@ export function StockDashboard() {
       
       if (error) throw error;
 
+      // Kolom 'condition' ada di DB setelah migrasi 20261017000003,
+      // tapi belum ada di generated types — akses via cast aman.
+      const rows = (data || []) as unknown as { night_stock?: number | null; condition?: string | null; morning_stock?: number | null; incoming?: number | null; sold?: number | null; stock_locations?: { name?: string } | null }[];
+
       // Calculate totals from all entries.
       // FIX (bug hunt 16 Okt): setiap baris stock_entries bersifat disjoint per
       // (date, location, model, imei) — baris imei=null BUKAN rollup dari baris
       // ber-IMEI, melainkan stok bulk tanpa IMEI. Jadi SEMUA baris harus dijumlah.
       // Logika lama ("prefer aggregated") malah membuang seluruh stok ber-IMEI
       // begitu ada satu saja baris bulk — total jadi undercount parah.
-      const totalMorningStock = data.reduce((sum, entry) => sum + (entry.morning_stock || 0), 0);
-      const totalNightStock = data.reduce((sum, entry) => sum + (entry.night_stock || 0), 0);
-      const totalSold = data.reduce((sum, entry) => sum + (entry.sold || 0), 0);
-      const totalIncoming = data.reduce((sum, entry) => sum + (entry.incoming || 0), 0);
+      const totalMorningStock = rows.reduce((sum, entry) => sum + (entry.morning_stock || 0), 0);
+      const totalNightStock = rows.reduce((sum, entry) => sum + (entry.night_stock || 0), 0);
+      const totalSold = rows.reduce((sum, entry) => sum + (entry.sold || 0), 0);
+      const totalIncoming = rows.reduce((sum, entry) => sum + (entry.incoming || 0), 0);
       const totalFinalStock = totalNightStock;
+
+      // Pisahan Baru vs Second (berdasarkan kolom condition)
+      const baruStock = rows.reduce((sum, entry) => sum + ((entry.condition || 'baru') === 'baru' ? (entry.night_stock || 0) : 0), 0);
+      const secondStock = rows.reduce((sum, entry) => sum + (entry.condition === 'second' ? (entry.night_stock || 0) : 0), 0);
 
       const breakdown: { [location: string]: LocationData } = {};
       
-      for (const entry of data) {
+      for (const entry of rows) {
         const loc = entry.stock_locations?.name || 'Unknown';
         if (!breakdown[loc]) {
           breakdown[loc] = { morning_stock: 0, night_stock: 0, sold: 0 };
@@ -226,6 +236,8 @@ export function StockDashboard() {
         totalTransfers,
         totalFinalStock: totalFinalStock,
         totalSoldThisMonth,
+        baruStock,
+        secondStock,
         breakdown: breakdown,
         transferBreakdown: { toSoko, toMbutoh }
       };
@@ -363,6 +375,13 @@ export function StockDashboard() {
                     >
                       <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Stok Akhir</p>
                       <p className="mt-1 text-xl sm:text-3xl font-extrabold tabular">{statsLoading ? "–" : (stats?.totalNightStock ?? 0)}</p>
+                      {!statsLoading && (
+                        <p className="mt-1 text-[10px] sm:text-[11px] text-muted-foreground tabular">
+                          <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{stats?.baruStock ?? 0} baru</span>
+                          {" · "}
+                          <span className="text-amber-600 dark:text-amber-400 font-semibold">{stats?.secondStock ?? 0} second</span>
+                        </p>
+                      )}
                     </button>
                     <button
                       onClick={() => handleCardClick('sold')}

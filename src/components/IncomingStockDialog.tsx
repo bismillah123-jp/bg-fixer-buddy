@@ -35,6 +35,7 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
   const [selectedLocation, setSelectedLocation] = useState<string>("");
   const [selectedBrand, setSelectedBrand] = useState<string>("");
   const [selectedModel, setSelectedModel] = useState<string>("");
+  const [condition, setCondition] = useState<"baru" | "second">("baru");
   const [imeiList, setImeiList] = useState<ImeiEntry[]>([{ imei: "", color: "", label: "" }]);
   const [scanningIndex, setScanningIndex] = useState<number | null>(null);
   const { toast } = useToast();
@@ -165,7 +166,8 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
         qty: 1,
         notes: null,
         metadata: { color: entry.color.trim() },
-        label: entry.label.trim() || null
+        label: entry.label.trim() || null,
+        condition: condition
       }));
 
       const { error: eventError } = await supabase
@@ -189,6 +191,7 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
       setSelectedLocation("");
       setSelectedBrand("");
       setSelectedModel("");
+      setCondition("baru");
       setImeiList([{ imei: "", color: "", label: "" }]);
     },
     onError: (error: Error) => {
@@ -286,6 +289,19 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
                     {model.model} {model.storage_capacity && `- ${model.storage_capacity}`}
                   </SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Kondisi</Label>
+            <Select value={condition} onValueChange={(v) => setCondition(v as "baru" | "second")}>
+              <SelectTrigger>
+                <SelectValue placeholder="Pilih kondisi" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="baru">Baru</SelectItem>
+                <SelectItem value="second">Second</SelectItem>
               </SelectContent>
             </Select>
           </div>

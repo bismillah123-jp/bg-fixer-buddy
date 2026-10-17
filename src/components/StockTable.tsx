@@ -55,6 +55,7 @@ export interface StockEntry {
   cost_price: number;
   metadata?: Record<string, unknown> | null;
   label?: string | null;
+  condition?: string | null;
   stock_locations: {
     id: string;
     name: string;
@@ -87,6 +88,9 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
   });
   const [labelFilter, setLabelFilter] = useState(() => {
     return localStorage.getItem('stockTableLabelFilter') || "all";
+  });
+  const [conditionFilter, setConditionFilter] = useState(() => {
+    return localStorage.getItem('stockTableConditionFilter') || "all";
   });
 
   // Apply quick filter from dashboard
@@ -147,6 +151,12 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
     localStorage.setItem('stockTableLabelFilter', value);
   };
 
+  // Save condition filter to localStorage when it changes
+  const handleConditionFilterChange = (value: string) => {
+    setConditionFilter(value);
+    localStorage.setItem('stockTableConditionFilter', value);
+  };
+
   // Reset filters on component unmount or page refresh
   useEffect(() => {
     return () => {
@@ -160,7 +170,7 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
   }, []);
 
   const { data: stockEntries, isLoading } = useQuery({
-    queryKey: ['stock-entries', searchTerm, brandFilter, locationFilter, statusFilter, labelFilter, selectedDate],
+    queryKey: ['stock-entries', searchTerm, brandFilter, locationFilter, statusFilter, labelFilter, conditionFilter, selectedDate],
     queryFn: async (): Promise<StockEntry[]> => {
       const date = format(selectedDate, "yyyy-MM-dd");
 
@@ -176,7 +186,9 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
       
       if (error) throw error;
 
-      let filtered = data || [];
+      // Cast ke StockEntry: kolom 'condition' ada di DB setelah migrasi
+      // 20261017000003, tapi belum ada di generated types.
+      let filtered: StockEntry[] = (data || []) as unknown as StockEntry[];
 
       // Only show entries with IMEI (individual items)
       // This ensures each row represents a unique phone
@@ -222,6 +234,11 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
         } else {
           filtered = filtered.filter(entry => entry.label === labelFilter);
         }
+      }
+
+      // Apply condition filter (Baru vs Second)
+      if (conditionFilter !== 'all') {
+        filtered = filtered.filter(entry => (entry.condition || 'baru') === conditionFilter);
       }
 
       // Apply status filter
@@ -502,7 +519,7 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
     setIsUndoDialogOpen(true);
   };
 
-  const hasActiveFilters = searchTerm || brandFilter !== 'all' || locationFilter !== 'all' || statusFilter !== 'all' || labelFilter !== 'all';
+  const hasActiveFilters = searchTerm || brandFilter !== 'all' || locationFilter !== 'all' || statusFilter !== 'all' || labelFilter !== 'all' || conditionFilter !== 'all';
 
   return (
     <>
@@ -532,11 +549,13 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
                       setLocationFilter("all");
                       setStatusFilter("all");
                       setLabelFilter("all");
+                      setConditionFilter("all");
                       localStorage.removeItem('stockTableSearchTerm');
                       localStorage.removeItem('stockTableBrandFilter');
                       localStorage.removeItem('stockTableLocationFilter');
                       localStorage.removeItem('stockTableStatusFilter');
                       localStorage.removeItem('stockTableLabelFilter');
+                      localStorage.removeItem('stockTableConditionFilter');
                     }}
                     className="h-10 px-3 text-muted-foreground hover:text-foreground"
                   >
@@ -610,6 +629,17 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
                         </span>
                       </SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={conditionFilter} onValueChange={handleConditionFilterChange}>
+                  <SelectTrigger className="w-[130px] h-9 text-sm">
+                    <SelectValue placeholder="Semua Kondisi" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Semua Kondisi</SelectItem>
+                    <SelectItem value="baru">Baru</SelectItem>
+                    <SelectItem value="second">Second</SelectItem>
                   </SelectContent>
                 </Select>
 
@@ -689,6 +719,17 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
                                   {entry.phone_models?.storage_capacity}
                                 </Badge>
                               )}
+                              <Badge
+                                variant="outline"
+                                className={cn(
+                                  "text-[10px] font-semibold",
+                                  (entry.condition || "baru") === "second"
+                                    ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30"
+                                    : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
+                                )}
+                              >
+                                {(entry.condition || "baru") === "second" ? "Second" : "Baru"}
+                              </Badge>
                             </div>
 
                             {/* Details Row */}
