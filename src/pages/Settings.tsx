@@ -463,6 +463,27 @@ const Settings = () => {
 
   const deleteModelMutation = useMutation({
     mutationFn: async (modelId: string) => {
+      // Cek dulu: model masih dipakai di riwayat stok?
+      const { count: entryCount, error: entryErr } = await supabase
+        .from('stock_entries')
+        .select('id', { count: 'exact', head: true })
+        .eq('phone_model_id', modelId);
+      if (entryErr) throw entryErr;
+
+      const { count: eventCount, error: eventErr } = await supabase
+        .from('stock_events')
+        .select('id', { count: 'exact', head: true })
+        .eq('phone_model_id', modelId);
+      if (eventErr) throw eventErr;
+
+      const total = (entryCount || 0) + (eventCount || 0);
+      if (total > 0) {
+        throw new Error(
+          `Model tidak bisa dihapus karena masih ada ${total} riwayat stok yang menggunakannya. ` +
+          `Hapus dulu semua data stok model ini bila benar-benar ingin menghapus modelnya.`
+        );
+      }
+
       const { error } = await supabase
         .from('phone_models')
         .delete()
@@ -479,10 +500,13 @@ const Settings = () => {
       setDeletingModel(null);
     },
     onError: (error: Error) => {
-      toast({ 
-        title: "Gagal Menghapus", 
-        description: error.message, 
-        variant: "destructive" 
+      const msg = /foreign key|violates/i.test(error.message)
+        ? "Model tidak bisa dihapus karena masih dipakai di data stok. Hapus dulu stok yang memakai model ini."
+        : error.message;
+      toast({
+        title: "Gagal Menghapus",
+        description: msg,
+        variant: "destructive"
       });
     },
   });
