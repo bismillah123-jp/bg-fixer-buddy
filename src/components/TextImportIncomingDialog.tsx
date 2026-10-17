@@ -37,26 +37,30 @@ const EXAMPLE = `23/08/2026,VIVO,Y05,4/64,REPACK,123456789101112,BLUE
 
 function parseDate(s: string): string | undefined {
   const t = s.trim();
+  let d: string, mo: string, y: string;
   let m = t.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
   if (m) {
-    const [, d, mo, y] = m;
-    return `${y}-${mo.padStart(2, "0")}-${d.padStart(2, "0")}`;
+    [, d, mo, y] = m;
+  } else {
+    m = t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if (!m) return undefined;
+    [, y, mo, d] = m;
   }
-  m = t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-  if (m) {
-    const [, y, mo, d] = m;
-    return `${y}-${mo.padStart(2, "0")}-${d.padStart(2, "0")}`;
-  }
-  return undefined;
+  // Validasi tanggal beneran (tolak 32/13/2026, 31/02/2026, dll)
+  const dd = parseInt(d, 10), mm = parseInt(mo, 10), yy = parseInt(y, 10);
+  if (mm < 1 || mm > 12 || dd < 1 || dd > 31 || yy < 2000 || yy > 2100) return undefined;
+  const dt = new Date(yy, mm - 1, dd);
+  if (dt.getFullYear() !== yy || dt.getMonth() !== mm - 1 || dt.getDate() !== dd) return undefined;
+  return `${y}-${mo.padStart(2, "0")}-${d.padStart(2, "0")}`;
 }
 
-// Normalize storage to RAM/ROM (e.g. "4/64", "6/128"). Accept "128GB" -> "" (drop).
-function normalizeStorage(s: string): string {
+// RAM/ROM wajib format ketat: angka/angka (mis. "4/64", "8/128")
+function normalizeStorage(s: string): string | undefined {
   const t = s.trim();
-  if (!t) return "";
+  if (!t) return undefined;
   const m = t.match(/^(\d+)\s*\/\s*(\d+)$/);
-  if (m) return `${m[1]}/${m[2]}`;
-  return t;
+  if (!m) return undefined;
+  return `${m[1]}/${m[2]}`;
 }
 
 export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
@@ -74,6 +78,17 @@ export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
       return data;
     },
   });
+
+  // Daftar brand yang sudah terdaftar (untuk validasi: brand wajib sudah ada)
+  const { data: registeredBrands } = useQuery({
+    queryKey: ["registered-brand-names"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("phone_models").select("brand");
+      if (error) throw error;
+      return [...new Set((data || []).map((b) => b.brand.trim().toUpperCase()))];
+    },
+  });
+  const brandSet = useMemo(() => new Set(registeredBrands || []), [registeredBrands]);
 
   const parsed: ParsedRow[] = useMemo(() => {
     if (!text.trim()) return [];
@@ -93,19 +108,25 @@ export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
       const [dateStr, brandStr, modelStr, storageStr, labelStr, imeiStr, colorStr] = cols;
       const date = parseDate(dateStr);
       if (!date) {
-        rows.push({ raw: line, lineNo, error: `Tanggal tidak valid: ${dateStr}` });
+        rows.push({ raw: line, lineNo, error: `Tanggal tidak valid: ${dateStr} (pakai DD-MM-YYYY / DD/MM/YYYY, tanggal harus beneran ada)` });
         continue;
       }
-      if (!brandStr) {
+      const brandUpper = brandStr.trim().toUpperCase();
+      if (!brandUpper) {
         rows.push({ raw: line, lineNo, date, error: "Brand kosong" });
+        continue;
+      }
+      if (registeredBrands && !brandSet.has(brandUpper)) {
+        rows.push({ raw: line, lineNo, date, error: `Brand "${brandStr}" belum terdaftar. Daftarkan dulu di Pengaturan → Model HP.` });
         continue;
       }
       if (!modelStr) {
         rows.push({ raw: line, lineNo, date, error: "Tipe kosong" });
         continue;
       }
-      if (!storageStr) {
-        rows.push({ raw: line, lineNo, date, error: "RAM/ROM kosong" });
+      const storage = normalizeStorage(storageStr);
+      if (!storage) {
+        rows.push({ raw: line, lineNo, date, error: `RAM/ROM tidak valid: ${storageStr} (wajib format angka/angka, mis. 4/64)` });
         continue;
       }
       if (!imeiStr || !/^\d{15}$/.test(imeiStr)) {
@@ -120,16 +141,16 @@ export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
         raw: line,
         lineNo,
         date,
-        brand: brandStr.toUpperCase(),
+        brand: brandUpper,
         model: modelStr,
-        storage: normalizeStorage(storageStr),
+        storage,
         label: labelStr || undefined,
         color: colorStr,
         imei: imeiStr,
       });
     }
     return rows;
-  }, [text]);
+  }, [text, registeredBrands, brandSet]);
 
   const validRows = parsed.filter((r) => !r.error);
   const errorRows = parsed.filter((r) => r.error);
@@ -150,7 +171,7 @@ export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
         throw new Error(`IMEI sudah terdaftar: ${existing.map((s: { imei: string }) => s.imei).join(", ")}`);
       }
 
-      // Ensure a phone_model per brand+model+storage exists
+      // Ensure a phone_model per brand+model+storage exists (tipe boleh baru, brand wajib sudah ada)
       const modelMap = new Map<string, string>();
       for (const r of validRows) {
         const key = `${r.brand}|${r.model}|${r.storage}`;
@@ -160,14 +181,14 @@ export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
           .select("id")
           .ilike("brand", r.brand!)
           .ilike("model", r.model!)
-          .eq("storage_capacity", r.storage ?? "")
+          .eq("storage_capacity", r.storage!)
           .maybeSingle();
         if (found?.id) {
           modelMap.set(key, found.id);
         } else {
           const { data: created, error: cErr } = await supabase
             .from("phone_models")
-            .insert({ brand: r.brand!, model: r.model!, storage_capacity: r.storage ?? "" })
+            .insert({ brand: r.brand!, model: r.model!, storage_capacity: r.storage! })
             .select("id")
             .single();
           if (cErr) throw new Error(`Gagal buat ${r.brand} ${r.model} ${r.storage}: ${cErr.message}`);
@@ -224,7 +245,7 @@ export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
             Impor HP Datang (Teks)
           </DialogTitle>
           <DialogDescription>
-            Format tiap baris: <code className="text-xs">Tanggal,Brand,Tipe,RAM/ROM,Label,IMEI,Warna</code>. Label opsional — kosongkan dengan koma ganda (,,). Contoh: <code className="text-xs">23/08/2026,VIVO,Y05,4/64,REPACK,123456789101112,BLUE</code>
+            Format tiap baris: <code className="text-xs">Tanggal,Brand,Tipe,RAM/ROM,Label,IMEI,Warna</code>. Label opsional — kosongkan dengan koma ganda (,,). Brand wajib sudah terdaftar di Pengaturan → Model HP (tipe baru otomatis dibuatkan). Contoh: <code className="text-xs">23/08/2026,VIVO,Y05,4/64,REPACK,123456789101112,BLUE</code>
           </DialogDescription>
         </DialogHeader>
 
@@ -266,7 +287,7 @@ export function TextImportIncomingDialog({ open, onOpenChange }: Props) {
               className="font-mono text-xs"
             />
             <p className="text-[11px] text-muted-foreground">
-              Tanggal: <code>DD-MM-YYYY</code> atau <code>DD/MM/YYYY</code>. IMEI: 15 digit. RAM/ROM: <code>4/64</code>, <code>6/128</code>. Label <code>REPACK</code> boleh IMEI duplikat.
+              Tanggal: <code>DD-MM-YYYY</code>/<code>DD/MM/YYYY</code> (harus tanggal beneran). Brand: wajib sudah terdaftar. RAM/ROM: <code>4/64</code>, <code>8/128</code>. IMEI: 15 digit angka. Warna: wajib isi. Label <code>REPACK</code> boleh IMEI duplikat.
             </p>
           </div>
 
