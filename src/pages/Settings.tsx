@@ -28,7 +28,9 @@ import {
   Layers,
   Tags,
   ChevronDown,
-  MapPin
+  MapPin,
+  Search,
+  X
 } from "lucide-react";
 import { 
   AlertDialog, 
@@ -77,6 +79,8 @@ const Settings = () => {
   const [isBulkAddModelOpen, setIsBulkAddModelOpen] = useState(false);
   const [isBrandsDialogOpen, setIsBrandsDialogOpen] = useState(false);
   const [isAddLocationOpen, setIsAddLocationOpen] = useState(false);
+  const [modelSearch, setModelSearch] = useState("");
+  const [deletingLocation, setDeletingLocation] = useState<{ id: string; name: string } | null>(null);
 
   // Fetch labels for display
   const { data: labelsData } = useQuery({
@@ -114,6 +118,18 @@ const Settings = () => {
       navigate('/login');
     }
   };
+
+  const { data: locationsList } = useQuery({
+    queryKey: ['stock-locations-list'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('stock_locations')
+        .select('id, name')
+        .order('name');
+      if (error) throw error;
+      return data;
+    },
+  });
 
   const { data: phoneModels } = useQuery({
     queryKey: ['phone-models'],
@@ -532,6 +548,35 @@ const Settings = () => {
     },
   });
 
+  const deleteLocationMutation = useMutation({
+    mutationFn: async (locationId: string) => {
+      const { count: entryCount, error: e1 } = await supabase
+        .from('stock_entries').select('id', { count: 'exact', head: true }).eq('location_id', locationId);
+      if (e1) throw e1;
+      const { count: eventCount, error: e2 } = await supabase
+        .from('stock_events').select('id', { count: 'exact', head: true }).eq('location_id', locationId);
+      if (e2) throw e2;
+      if ((entryCount || 0) + (eventCount || 0) > 0) {
+        throw new Error('Lokasi tidak bisa dihapus karena masih ada data stok yang menggunakannya.');
+      }
+      const { error } = await supabase.from('stock_locations').delete().eq('id', locationId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: "Lokasi Dihapus", description: "Lokasi berhasil dihapus." });
+      queryClient.invalidateQueries({ queryKey: ['stock-locations-list'] });
+      queryClient.invalidateQueries({ queryKey: ['locations'] });
+      setDeletingLocation(null);
+    },
+    onError: (error: Error) => {
+      const msg = /foreign key|violates/i.test(error.message)
+        ? "Lokasi tidak bisa dihapus karena masih dipakai di data stok."
+        : error.message;
+      toast({ title: "Gagal Menghapus", description: msg, variant: "destructive" });
+      setDeletingLocation(null);
+    },
+  });
+
   const handleDeleteModel = () => {
     if (deletingModel) {
       deleteModelMutation.mutate({
@@ -640,11 +685,49 @@ const Settings = () => {
               </Button>
             </div>
           </div>
+          {/* Search model */}
+          <div className="relative mt-3">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+            <Input
+              placeholder="Cari merk / tipe / RAM..."
+              value={modelSearch}
+              onChange={(e) => setModelSearch(e.target.value)}
+              className="pl-9 h-10 rounded-xl bg-background/60"
+            />
+            {modelSearch && (
+              <button
+                onClick={() => setModelSearch("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="pt-0">
           <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1 overscroll-contain">
-            {Object.entries(groupedModels).map(([brand, models]) => (
-              <details key={brand} className="group rounded-xl border border-border/50 bg-muted/20 overflow-hidden">
+            {(() => {
+              const q = modelSearch.trim().toLowerCase();
+              const filtered = q
+                ? (phoneModels || []).filter((m) =>
+                    m.brand.toLowerCase().includes(q) ||
+                    m.model.toLowerCase().includes(q) ||
+                    (m.storage_capacity || "").toLowerCase().includes(q)
+                  )
+                : null;
+              const groups = filtered
+                ? { [`Hasil "${modelSearch.trim()}"`]: filtered }
+                : groupedModels;
+              const entries = Object.entries(groups);
+              if (entries.length === 0) {
+                return (
+                  <div className="text-center py-8 text-muted-foreground text-sm">
+                    {q ? `Tidak ketemu "${modelSearch.trim()}"` : "Belum ada model HP terdaftar"}
+                  </div>
+                );
+              }
+              return entries.map(([brand, models]) => (
+              <details key={brand} className="group rounded-xl border border-border/50 bg-muted/20 overflow-hidden" open={!!filtered}>
                 <summary className="flex items-center justify-between p-3 cursor-pointer list-none hover:bg-muted/40 transition-colors">
                   <div className="flex items-center gap-2 min-w-0">
                     <Badge variant="secondary" className="text-xs font-bold shrink-0">
@@ -654,11 +737,11 @@ const Settings = () => {
                       {(models ?? []).length} model
                     </span>
                   </div>
-                  <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0 transition-transform group-open:rotate-180" />
+                  {!filtered && <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0 transition-transform group-open:rotate-180" />}
                 </summary>
                 <div className="px-2 pb-2 space-y-1.5">
                   {(models ?? []).map((model) => (
-                    <div 
+                    <div
                       key={model.id}
                       className="flex items-center justify-between p-2.5 rounded-lg bg-background/60 border border-border/40"
                     >
@@ -676,7 +759,7 @@ const Settings = () => {
                           "text-sm font-bold tabular mr-1",
                           model.srp > 0 ? "text-[hsl(var(--success))]" : "text-muted-foreground"
                         )}>
-                          {model.srp > 0 
+                          {model.srp > 0
                             ? `Rp ${(model.srp/1000000).toFixed(model.srp % 1000000 === 0 ? 0 : 1)}jt`
                             : '-'
                           }
@@ -684,33 +767,29 @@ const Settings = () => {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 rounded-lg"
+                          className="h-9 w-9 rounded-lg active:scale-90 transition-transform"
                           onClick={() => {
                             setEditingModel(model);
                             setIsEditDialogOpen(true);
                           }}
                         >
-                          <Pencil className="h-3.5 w-3.5" />
+                          <Pencil className="h-4 w-4" />
                         </Button>
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 rounded-lg text-destructive hover:text-destructive hover:bg-destructive/10"
+                          className="h-9 w-9 rounded-lg text-destructive hover:text-destructive hover:bg-destructive/10 active:scale-90 transition-transform"
                           onClick={() => openDeleteModelDialog(model)}
                         >
-                          <Trash2 className="h-3.5 w-3.5" />
+                          <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>
                   ))}
                 </div>
               </details>
-            ))}
-            {(!phoneModels || phoneModels.length === 0) && (
-              <div className="text-center py-8 text-muted-foreground text-sm">
-                Belum ada model HP terdaftar
-              </div>
-            )}
+              ));
+            })()}
           </div>
         </CardContent>
       </Card>
@@ -779,50 +858,83 @@ const Settings = () => {
 
       <Card className="glass rounded-[1.2rem] shadow-[var(--shadow-card)] overflow-hidden">
         <CardHeader className="pb-3">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-success/10 flex items-center justify-center">
-              <Database className="h-5 w-5 text-success" />
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-[hsl(var(--info))]/20 to-[hsl(var(--info))]/5 flex items-center justify-center shrink-0">
+                <MapPin className="h-5 w-5 text-[hsl(var(--info))]" strokeWidth={2.2} />
+              </div>
+              <div className="min-w-0">
+                <CardTitle className="text-base font-extrabold">Lokasi / Cabang</CardTitle>
+                <p className="text-xs text-muted-foreground mt-0.5 font-medium">
+                  {locationsList?.length || 0} lokasi
+                </p>
+              </div>
             </div>
-            <CardTitle className="text-base">Kelola Data</CardTitle>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-9 rounded-xl shrink-0"
+              onClick={() => setIsAddLocationOpen(true)}
+            >
+              <Plus className="h-3.5 w-3.5 sm:mr-1" />
+              <span className="hidden sm:inline">Tambah</span>
+            </Button>
           </div>
         </CardHeader>
-        <CardContent className="pt-0 space-y-3">
-          {/* Tambah Lokasi (dipindah dari Aksi Cepat) */}
+        <CardContent className="pt-0">
+          <div className="space-y-1.5">
+            {locationsList?.map((loc) => (
+              <div
+                key={loc.id}
+                className="flex items-center justify-between p-2.5 rounded-xl bg-muted/30 border border-border/40"
+              >
+                <span className="text-sm font-semibold flex items-center gap-2 min-w-0">
+                  <MapPin className="h-4 w-4 text-[hsl(var(--info))] shrink-0" />
+                  <span className="truncate">{loc.name}</span>
+                </span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 rounded-lg text-destructive hover:text-destructive hover:bg-destructive/10 active:scale-90 transition-transform shrink-0"
+                  onClick={() => setDeletingLocation({ id: loc.id, name: loc.name })}
+                  title={`Hapus ${loc.name}`}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+            {(!locationsList || locationsList.length === 0) && (
+              <p className="text-sm text-muted-foreground text-center py-4">Belum ada lokasi.</p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="glass rounded-[1.2rem] shadow-[var(--shadow-card)] overflow-hidden">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-3">
+            <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-[hsl(var(--success))]/20 to-[hsl(var(--success))]/5 flex items-center justify-center shrink-0">
+              <Database className="h-5 w-5 text-[hsl(var(--success))]" strokeWidth={2.2} />
+            </div>
+            <CardTitle className="text-base font-extrabold">Kelola Data</CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-0 space-y-2.5">
+          {/* Export */}
           <div className="p-3 rounded-xl bg-muted/30 border border-border/40">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-3 min-w-0">
-                <MapPin className="h-4 w-4 text-[hsl(var(--info))] shrink-0" />
+                <Download className="h-4 w-4 text-muted-foreground shrink-0" />
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold">Lokasi / Cabang</p>
-                  <p className="text-xs text-muted-foreground">Buat cabang atau gudang baru</p>
-                </div>
-              </div>
-              <Button 
-                size="sm" 
-                variant="secondary"
-                className="rounded-xl shrink-0"
-                onClick={() => setIsAddLocationOpen(true)}
-              >
-                <Plus className="h-3.5 w-3.5 mr-1" />
-                Tambah
-              </Button>
-            </div>
-          </div>
-
-          {/* Export */}
-          <div className="p-3 rounded-lg bg-muted/30">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Download className="h-4 w-4 text-muted-foreground" />
-                <div>
-                  <p className="text-sm font-medium">Export Data</p>
+                  <p className="text-sm font-semibold">Export Data</p>
                   <p className="text-xs text-muted-foreground">Download semua data stok (CSV)</p>
                 </div>
               </div>
-              <Button 
-                size="sm" 
+              <Button
+                size="sm"
                 variant="secondary"
-                onClick={handleExportAllStock} 
+                className="rounded-xl shrink-0"
+                onClick={handleExportAllStock}
                 disabled={isExporting}
               >
                 {isExporting ? "..." : "Export"}
@@ -831,25 +943,26 @@ const Settings = () => {
           </div>
 
           {/* Import */}
-          <div className="p-3 rounded-lg bg-muted/30 space-y-3">
+          <div className="p-3 rounded-xl bg-muted/30 border border-border/40 space-y-3">
             <div className="flex items-center gap-3">
-              <FileUp className="h-4 w-4 text-muted-foreground" />
+              <FileUp className="h-4 w-4 text-muted-foreground shrink-0" />
               <div>
-                <p className="text-sm font-medium">Import Data</p>
+                <p className="text-sm font-semibold">Import Data</p>
                 <p className="text-xs text-muted-foreground">Upload file CSV untuk import stok</p>
               </div>
             </div>
             <div className="flex gap-2">
-              <Input 
-                id="csv-import" 
-                type="file" 
-                accept=".csv" 
+              <Input
+                id="csv-import"
+                type="file"
+                accept=".csv"
                 onChange={handleFileChange}
                 className="text-xs"
               />
-              <Button 
+              <Button
                 size="sm"
-                onClick={handleImport} 
+                className="rounded-xl shrink-0"
+                onClick={handleImport}
                 disabled={!selectedFile || isImporting}
               >
                 <Upload className="h-3.5 w-3.5 mr-1" />
@@ -934,6 +1047,28 @@ const Settings = () => {
           <AddLocationDialog open={isAddLocationOpen} onOpenChange={setIsAddLocationOpen} />
         )}
       </Suspense>
+      {/* Delete Location Dialog */}
+      <AlertDialog open={!!deletingLocation} onOpenChange={(open) => !open && setDeletingLocation(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hapus Lokasi?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Hapus lokasi <strong>{deletingLocation?.name}</strong>? Tindakan ini tidak dapat dibatalkan.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deletingLocation && deleteLocationMutation.mutate(deletingLocation.id)}
+              disabled={deleteLocationMutation.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteLocationMutation.isPending ? 'Menghapus...' : 'Hapus'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Delete Model Dialog */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
