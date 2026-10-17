@@ -69,6 +69,7 @@ const Settings = () => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [deletingModel, setDeletingModel] = useState<PhoneModelRow | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [modelHistoryCount, setModelHistoryCount] = useState<number | null>(null);
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
   const [isLabelsDialogOpen, setIsLabelsDialogOpen] = useState(false);
   const [isColorsDialogOpen, setIsColorsDialogOpen] = useState(false);
@@ -462,26 +463,42 @@ const Settings = () => {
   };
 
   const deleteModelMutation = useMutation({
-    mutationFn: async (modelId: string) => {
-      // Cek dulu: model masih dipakai di riwayat stok?
-      const { count: entryCount, error: entryErr } = await supabase
-        .from('stock_entries')
-        .select('id', { count: 'exact', head: true })
-        .eq('phone_model_id', modelId);
-      if (entryErr) throw entryErr;
+    mutationFn: async ({ modelId, withHistory }: { modelId: string; withHistory: boolean }) => {
+      if (withHistory) {
+        // Hapus seluruh riwayat dulu: events dulu (trigger cascade ikut jalan),
+        // baru entries (bersih sisa hasil recalc), terakhir modelnya.
+        const { error: evErr } = await supabase
+          .from('stock_events')
+          .delete()
+          .eq('phone_model_id', modelId);
+        if (evErr) throw new Error(`Gagal menghapus riwayat event: ${evErr.message}`);
 
-      const { count: eventCount, error: eventErr } = await supabase
-        .from('stock_events')
-        .select('id', { count: 'exact', head: true })
-        .eq('phone_model_id', modelId);
-      if (eventErr) throw eventErr;
+        const { error: enErr } = await supabase
+          .from('stock_entries')
+          .delete()
+          .eq('phone_model_id', modelId);
+        if (enErr) throw new Error(`Gagal menghapus riwayat stok: ${enErr.message}`);
+      } else {
+        // Cek dulu: model masih dipakai di riwayat stok?
+        const { count: entryCount, error: entryErr } = await supabase
+          .from('stock_entries')
+          .select('id', { count: 'exact', head: true })
+          .eq('phone_model_id', modelId);
+        if (entryErr) throw entryErr;
 
-      const total = (entryCount || 0) + (eventCount || 0);
-      if (total > 0) {
-        throw new Error(
-          `Model tidak bisa dihapus karena masih ada ${total} riwayat stok yang menggunakannya. ` +
-          `Hapus dulu semua data stok model ini bila benar-benar ingin menghapus modelnya.`
-        );
+        const { count: eventCount, error: eventErr } = await supabase
+          .from('stock_events')
+          .select('id', { count: 'exact', head: true })
+          .eq('phone_model_id', modelId);
+        if (eventErr) throw eventErr;
+
+        const total = (entryCount || 0) + (eventCount || 0);
+        if (total > 0) {
+          throw new Error(
+            `Model tidak bisa dihapus karena masih ada ${total} riwayat stok yang menggunakannya. ` +
+            `Hapus dulu semua data stok model ini bila benar-benar ingin menghapus modelnya.`
+          );
+        }
       }
 
       const { error } = await supabase
@@ -490,14 +507,18 @@ const Settings = () => {
         .eq('id', modelId);
       if (error) throw error;
     },
-    onSuccess: () => {
-      toast({ 
-        title: "Model Dihapus", 
-        description: "Model HP telah berhasil dihapus." 
+    onSuccess: (_, vars) => {
+      toast({
+        title: "Model Dihapus",
+        description: vars.withHistory
+          ? "Model HP beserta seluruh riwayat stoknya telah dihapus."
+          : "Model HP telah berhasil dihapus."
       });
       queryClient.invalidateQueries({ queryKey: ['phone-models'] });
+      queryClient.invalidateQueries({ queryKey: ['stock-entries'] });
       setIsDeleteDialogOpen(false);
       setDeletingModel(null);
+      setModelHistoryCount(null);
     },
     onError: (error: Error) => {
       const msg = /foreign key|violates/i.test(error.message)
@@ -513,7 +534,26 @@ const Settings = () => {
 
   const handleDeleteModel = () => {
     if (deletingModel) {
-      deleteModelMutation.mutate(deletingModel.id);
+      deleteModelMutation.mutate({
+        modelId: deletingModel.id,
+        withHistory: (modelHistoryCount || 0) > 0,
+      });
+    }
+  };
+
+  const openDeleteModelDialog = async (model: PhoneModelRow) => {
+    setDeletingModel(model);
+    setModelHistoryCount(null);
+    setIsDeleteDialogOpen(true);
+    // Hitung sisa riwayat biar dialog bisa kasih opsi hapus beserta riwayat
+    try {
+      const [{ count: entryCount }, { count: eventCount }] = await Promise.all([
+        supabase.from('stock_entries').select('id', { count: 'exact', head: true }).eq('phone_model_id', model.id),
+        supabase.from('stock_events').select('id', { count: 'exact', head: true }).eq('phone_model_id', model.id),
+      ]);
+      setModelHistoryCount((entryCount || 0) + (eventCount || 0));
+    } catch {
+      setModelHistoryCount(0);
     }
   };
 
@@ -656,10 +696,7 @@ const Settings = () => {
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8 rounded-lg text-destructive hover:text-destructive hover:bg-destructive/10"
-                          onClick={() => {
-                            setDeletingModel(model);
-                            setIsDeleteDialogOpen(true);
-                          }}
+                          onClick={() => openDeleteModelDialog(model)}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
@@ -904,16 +941,25 @@ const Settings = () => {
             <AlertDialogTitle>Hapus Model HP?</AlertDialogTitle>
             <AlertDialogDescription>
               Apakah Anda yakin ingin menghapus model HP <strong>{deletingModel?.brand} {deletingModel?.model} {deletingModel?.storage_capacity}</strong>?
-              {' '}Tindakan ini tidak dapat dibatalkan.
+              {(modelHistoryCount || 0) > 0 ? (
+                <>
+                  {' '}<strong className="text-destructive">Model ini masih punya {modelHistoryCount} riwayat stok</strong> (mungkin di tanggal lain yang tidak terlihat di tabel). Menghapus akan ikut menghapus <strong>seluruh riwayat stok model ini</strong>.
+                </>
+              ) : (
+                <>{' '}Tindakan ini tidak dapat dibatalkan.</>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Batal</AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogCancel onClick={() => setModelHistoryCount(null)}>Batal</AlertDialogCancel>
+            <AlertDialogAction
               onClick={handleDeleteModel}
+              disabled={deleteModelMutation.isPending || modelHistoryCount === null}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Hapus
+              {deleteModelMutation.isPending
+                ? 'Menghapus...'
+                : (modelHistoryCount || 0) > 0 ? 'Hapus Model + Riwayat' : 'Hapus'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
