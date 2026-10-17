@@ -17,6 +17,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 const BarcodeScanner = lazy(() => import("@/components/BarcodeScanner").then(m => ({ default: m.BarcodeScanner })));
 import { LabelSelect } from "@/components/LabelSelect";
+import { AddPhoneModelDialog } from "@/components/AddPhoneModelDialog";
 import { ColorSelect } from "@/components/ColorSelect";
 
 interface IncomingStockDialogProps {
@@ -35,6 +36,7 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
   const [selectedLocation, setSelectedLocation] = useState<string>("");
   const [selectedBrand, setSelectedBrand] = useState<string>("");
   const [selectedModel, setSelectedModel] = useState<string>("");
+  const [showAddModel, setShowAddModel] = useState(false);
   const [condition, setCondition] = useState<"baru" | "second">("baru");
   const [imeiList, setImeiList] = useState<ImeiEntry[]>([{ imei: "", color: "", label: "" }]);
   const [scanningIndex, setScanningIndex] = useState<number | null>(null);
@@ -278,7 +280,18 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
           </div>
 
           <div className="space-y-2">
-            <Label>Model HP</Label>
+            <div className="flex items-center justify-between">
+              <Label>Model HP</Label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-xs gap-1 text-primary"
+                onClick={() => setShowAddModel(true)}
+              >
+                <Plus className="h-3 w-3" /> Model Baru
+              </Button>
+            </div>
             <Select value={selectedModel} onValueChange={setSelectedModel} disabled={!selectedBrand}>
               <SelectTrigger>
                 <SelectValue placeholder="Pilih model HP" />
@@ -404,6 +417,17 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
           </div>
         </div>
       </DialogContent>
+
+      <AddPhoneModelDialog
+        open={showAddModel}
+        onOpenChange={setShowAddModel}
+        onAdded={(m) => {
+          // Kalau brand beda, ganti brand dulu biar daftar model ke-refresh,
+          // lalu otomatis pilih model yang baru dibuat.
+          if (m.brand !== selectedBrand) setSelectedBrand(m.brand);
+          setSelectedModel(m.id);
+        }}
+      />
 
       {scanningIndex !== null && (
         <Suspense fallback={null}><BarcodeScanner

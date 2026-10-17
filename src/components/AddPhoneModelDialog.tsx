@@ -17,9 +17,10 @@ import { useToast } from '@/hooks/use-toast';
 interface AddPhoneModelDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onAdded?: (model: { id: string; brand: string; model: string; storage_capacity: string | null }) => void;
 }
 
-export function AddPhoneModelDialog({ open, onOpenChange }: AddPhoneModelDialogProps) {
+export function AddPhoneModelDialog({ open, onOpenChange, onAdded }: AddPhoneModelDialogProps) {
   const [brand, setBrand] = useState('');
   const [model, setModel] = useState('');
   const [storage, setStorage] = useState('');
@@ -52,18 +53,24 @@ export function AddPhoneModelDialog({ open, onOpenChange }: AddPhoneModelDialogP
         throw new Error(`Model ${dataToInsert.brand} ${dataToInsert.model} sudah ada di sistem`);
       }
 
-      const { error } = await supabase.from('phone_models').insert(dataToInsert);
+      const { data: created, error } = await supabase
+        .from('phone_models')
+        .insert(dataToInsert)
+        .select('id, brand, model, storage_capacity')
+        .single();
       if (error) {
         if (error.code === '23505') {
           throw new Error(`Model ${dataToInsert.brand} ${dataToInsert.model} sudah ada di sistem`);
         }
         throw error;
       }
+      return created;
     },
-    onSuccess: () => {
+    onSuccess: (created) => {
       toast({ title: 'Model HP berhasil ditambahkan' });
       queryClient.invalidateQueries({ queryKey: ['phone-models'] });
       queryClient.invalidateQueries({ queryKey: ['brands'] });
+      onAdded?.(created);
       onOpenChange(false);
       resetForm();
     },
