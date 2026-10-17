@@ -280,19 +280,18 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
           </div>
 
           <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>Model HP</Label>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-6 px-2 text-xs gap-1 text-primary"
-                onClick={() => setShowAddModel(true)}
-              >
-                <Plus className="h-3 w-3" /> Model Baru
-              </Button>
-            </div>
-            <Select value={selectedModel} onValueChange={setSelectedModel} disabled={!selectedBrand}>
+            <Label>Model HP</Label>
+            <Select
+              value={selectedModel}
+              onValueChange={(v) => {
+                if (v === "__add_new__") {
+                  setShowAddModel(true);
+                } else {
+                  setSelectedModel(v);
+                }
+              }}
+              disabled={!selectedBrand}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Pilih model HP" />
               </SelectTrigger>
@@ -302,6 +301,9 @@ export function IncomingStockDialog({ open, onOpenChange }: IncomingStockDialogP
                     {model.model} {model.storage_capacity && `- ${model.storage_capacity}`}
                   </SelectItem>
                 ))}
+                <SelectItem value="__add_new__" className="text-primary font-medium">
+                  <span className="flex items-center gap-1.5"><Plus className="h-3.5 w-3.5" /> Tambah Model Baru...</span>
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>

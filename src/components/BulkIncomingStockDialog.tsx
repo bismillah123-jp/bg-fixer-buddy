@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 const BarcodeScanner = lazy(() => import("@/components/BarcodeScanner").then(m => ({ default: m.BarcodeScanner })));
 import { LabelSelect } from "@/components/LabelSelect";
 import { ColorSelect } from "@/components/ColorSelect";
+import { AddPhoneModelDialog } from "@/components/AddPhoneModelDialog";
 
 interface BulkIncomingStockDialogProps {
   open: boolean;
@@ -36,6 +37,8 @@ export function BulkIncomingStockDialog({ open, onOpenChange }: BulkIncomingStoc
   const [selectedLocation, setSelectedLocation] = useState<string>("");
   const [condition, setCondition] = useState<"baru" | "second">("baru");
   const [entries, setEntries] = useState<BulkEntry[]>([{ brand: "", model: "", imei: "", color: "", label: "" }]);
+  const [showAddModel, setShowAddModel] = useState(false);
+  const [addModelRow, setAddModelRow] = useState<number | null>(null);
   const [scanningIndex, setScanningIndex] = useState<number | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -266,7 +269,14 @@ export function BulkIncomingStockDialog({ open, onOpenChange }: BulkIncomingStoc
 
                     <Select
                       value={entry.model}
-                      onValueChange={(v) => updateEntry(idx, 'model', v)}
+                      onValueChange={(v) => {
+                        if (v === "__add_new__") {
+                          setAddModelRow(idx);
+                          setShowAddModel(true);
+                        } else {
+                          updateEntry(idx, 'model', v);
+                        }
+                      }}
                       disabled={!entry.brand}
                     >
                       <SelectTrigger className="text-xs h-9">
@@ -278,6 +288,9 @@ export function BulkIncomingStockDialog({ open, onOpenChange }: BulkIncomingStoc
                             {m.model} {m.storage_capacity && `- ${m.storage_capacity}`}
                           </SelectItem>
                         ))}
+                        <SelectItem value="__add_new__" className="text-primary font-medium text-xs">
+                          <span className="flex items-center gap-1.5"><Plus className="h-3.5 w-3.5" /> Tambah Model Baru...</span>
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -329,6 +342,19 @@ export function BulkIncomingStockDialog({ open, onOpenChange }: BulkIncomingStoc
           </div>
         </div>
       </DialogContent>
+
+      <AddPhoneModelDialog
+        open={showAddModel}
+        onOpenChange={setShowAddModel}
+        onAdded={(m) => {
+          if (addModelRow !== null) {
+            const newEntries = [...entries];
+            newEntries[addModelRow] = { ...newEntries[addModelRow], brand: m.brand, model: m.id };
+            setEntries(newEntries);
+          }
+          setAddModelRow(null);
+        }}
+      />
 
       {scanningIndex !== null && (
         <Suspense fallback={null}><BarcodeScanner

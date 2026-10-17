@@ -69,6 +69,7 @@ export function AddPhoneModelDialog({ open, onOpenChange, onAdded }: AddPhoneMod
     onSuccess: (created) => {
       toast({ title: 'Model HP berhasil ditambahkan' });
       queryClient.invalidateQueries({ queryKey: ['phone-models'] });
+      queryClient.invalidateQueries({ queryKey: ['all-phone-models'] });
       queryClient.invalidateQueries({ queryKey: ['brands'] });
       onAdded?.(created);
       onOpenChange(false);
