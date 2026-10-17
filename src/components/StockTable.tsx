@@ -573,7 +573,7 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange, lockedCo
               {/* Filter Dropdowns */}
               <div className="flex flex-wrap gap-2">
                 <Select value={brandFilter} onValueChange={handleBrandFilterChange}>
-                  <SelectTrigger className="w-[140px] h-9 text-sm">
+                  <SelectTrigger className="w-[140px] h-10 text-sm">
                     <SelectValue placeholder="Semua Merk" />
                   </SelectTrigger>
                   <SelectContent>
@@ -585,7 +585,7 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange, lockedCo
                 </Select>
 
                 <Select value={locationFilter} onValueChange={handleLocationFilterChange}>
-                  <SelectTrigger className="w-[140px] h-9 text-sm">
+                  <SelectTrigger className="w-[140px] h-10 text-sm">
                     <SelectValue placeholder="Semua Lokasi" />
                   </SelectTrigger>
                   <SelectContent>
@@ -597,7 +597,7 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange, lockedCo
                 </Select>
 
                 <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
-                  <SelectTrigger className="w-[130px] h-9 text-sm">
+                  <SelectTrigger className="w-[130px] h-10 text-sm">
                     <SelectValue placeholder="Semua Status" />
                   </SelectTrigger>
                   <SelectContent>
@@ -608,7 +608,7 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange, lockedCo
                 </Select>
 
                 <Select value={labelFilter} onValueChange={handleLabelFilterChange}>
-                  <SelectTrigger className="w-[140px] h-9 text-sm">
+                  <SelectTrigger className="w-[140px] h-10 text-sm">
                     <SelectValue placeholder="Semua Label">
                       {labelFilter === 'all' ? 'Semua Label' : labelFilter === '__none__' ? 'Tanpa Label' : (
                         <span className="flex items-center gap-1.5">
@@ -640,7 +640,7 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange, lockedCo
 
                 {!lockedCondition && (
                   <Select value={conditionFilter} onValueChange={handleConditionFilterChange}>
-                    <SelectTrigger className="w-[130px] h-9 text-sm">
+                    <SelectTrigger className="w-[130px] h-10 text-sm">
                       <SelectValue placeholder="Semua Kondisi" />
                     </SelectTrigger>
                     <SelectContent>
@@ -792,7 +792,9 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange, lockedCo
                                 <Undo2 className="h-3 w-3" /> {undoInfo.remainingMinutes}m
                               </span>
                             )}
-                            <div className="flex items-center gap-2 text-sm">
+                            <div className="flex flex-col items-end gap-0.5 shrink-0">
+                              <span className="text-[10px] text-muted-foreground/70 font-medium uppercase tracking-wide">Pagi → Malam</span>
+                              <div className="flex items-center gap-2 text-sm">
                               <span className="text-muted-foreground">{entry.morning_stock}</span>
                               <span className="text-muted-foreground">→</span>
                               <span className={cn(
@@ -801,6 +803,7 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange, lockedCo
                               )}>
                                 {entry.night_stock}
                               </span>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -812,57 +815,59 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange, lockedCo
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-10 w-10 rounded-none hover:bg-orange-500/10 hover:text-orange-500"
+                            className="h-11 w-11 rounded-none active:scale-90 transition-transform hover:bg-orange-500/10 hover:text-orange-500"
                             onClick={() => handleUndoSaleClick(entry)}
                             title={`Batalkan Laku (${undoInfo.remainingMinutes} menit lagi)`}
                           >
-                            <Undo2 className="h-4 w-4" />
+                            <Undo2 className="h-5 w-5" />
                           </Button>
                         ) : (
                           <Button
                             variant="ghost"
                             size="icon"
                             className={cn(
-                              "h-10 w-10 rounded-none",
-                              entry.night_stock > 0 && "hover:bg-success/10 hover:text-success"
+                              "h-11 w-11 rounded-none active:scale-90 transition-transform",
+                              entry.night_stock > 0
+                                ? "text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/15"
+                                : "text-muted-foreground/40"
                             )}
                             onClick={() => handleMarkAsSoldClick(entry)}
                             disabled={entry.night_stock === 0}
                             title="Tandai Terjual"
                           >
-                            <CheckCircle className="h-4 w-4" />
+                            <CheckCircle className="h-5 w-5" strokeWidth={2.4} />
                           </Button>
                         )}
                         <Button
                           variant="ghost"
                           size="icon"
                           className={cn(
-                            "h-10 w-10 rounded-none",
+                            "h-11 w-11 rounded-none active:scale-90 transition-transform",
                             entry.night_stock > 0 && "hover:bg-primary/10 hover:text-primary"
                           )}
                           onClick={() => handleTransferClick(entry)}
                           disabled={entry.night_stock === 0}
                           title="Transfer"
                         >
-                          <ArrowRightLeft className="h-4 w-4" />
+                          <ArrowRightLeft className="h-5 w-5" />
                         </Button>
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-10 w-10 rounded-none hover:bg-warning/10 hover:text-warning"
+                          className="h-11 w-11 rounded-none active:scale-90 transition-transform hover:bg-warning/10 hover:text-warning"
                           onClick={() => handleEditClick(entry)}
                           title="Edit"
                         >
-                          <Edit2 className="h-4 w-4" />
+                          <Edit2 className="h-5 w-5" />
                         </Button>
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-10 w-10 rounded-none hover:bg-destructive/10 hover:text-destructive"
+                          className="h-11 w-11 rounded-none active:scale-90 transition-transform hover:bg-destructive/10 hover:text-destructive"
                           onClick={() => handleDeleteClick(entry)}
                           title="Hapus"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-5 w-5" />
                         </Button>
                       </div>
                     </div>
