@@ -19,6 +19,7 @@ interface StockDetailEntry {
   location: string;
   count: number;
   imeis: string[];
+  condition: 'baru' | 'second';
 }
 
 export function StockDetailView({ selectedDate }: StockDetailViewProps) {
@@ -33,6 +34,7 @@ export function StockDetailView({ selectedDate }: StockDetailViewProps) {
           imei,
           night_stock,
           metadata,
+          condition,
           phone_models (brand, model, color, storage_capacity),
           stock_locations (name)
         `)
@@ -41,16 +43,28 @@ export function StockDetailView({ selectedDate }: StockDetailViewProps) {
       
       if (error) throw error;
 
+      // Kolom 'condition' ada di DB setelah migrasi 20261017000004,
+      // tapi belum ada di generated types — akses via cast aman.
+      const rows = (data || []) as unknown as Array<{
+        imei?: string | null;
+        night_stock?: number | null;
+        metadata?: unknown;
+        condition?: string | null;
+        phone_models?: { brand?: string; model?: string; color?: string | null; storage_capacity?: string } | null;
+        stock_locations?: { name?: string } | null;
+      }>;
+      
       const grouped = new Map<string, StockDetailEntry>();
       
-      for (const entry of data || []) {
+      for (const entry of rows) {
         const brand = entry.phone_models?.brand || 'Unknown';
         const model = entry.phone_models?.model || 'Unknown';
         const color = (entry.metadata as Record<string, unknown> | undefined)?.color as string | undefined || entry.phone_models?.color || '-';
         const storage = entry.phone_models?.storage_capacity || '-';
         const location = entry.stock_locations?.name || 'Unknown';
+        const condition = (entry.condition === 'second' ? 'second' : 'baru') as 'baru' | 'second';
         
-        const key = `${brand}|${model}|${color}|${storage}|${location}`;
+        const key = `${brand}|${model}|${color}|${storage}|${location}|${condition}`;
         
         if (!grouped.has(key)) {
           grouped.set(key, {
@@ -60,7 +74,8 @@ export function StockDetailView({ selectedDate }: StockDetailViewProps) {
             storage_capacity: storage,
             location,
             count: 0,
-            imeis: []
+            imeis: [],
+            condition
           });
         }
         
@@ -184,8 +199,15 @@ export function StockDetailView({ selectedDate }: StockDetailViewProps) {
                     className="flex items-center justify-between p-2.5 rounded-xl bg-muted/30 border border-transparent hover:border-border/60 transition-all"
                   >
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold truncate">
+                      <p className="text-sm font-semibold truncate flex items-center gap-1.5">
                         {item.model}
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${
+                          item.condition === 'second'
+                            ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                            : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                        }`}>
+                          {item.condition === 'second' ? 'Second' : 'Baru'}
+                        </span>
                       </p>
                       <p className="text-xs text-muted-foreground mt-0.5">
                         {item.storage_capacity}

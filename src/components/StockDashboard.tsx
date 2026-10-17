@@ -26,6 +26,12 @@ interface LocationData {
   morning_stock: number;
   night_stock: number;
   sold: number;
+  baru_morning: number;
+  second_morning: number;
+  baru_night: number;
+  second_night: number;
+  baru_sold: number;
+  second_sold: number;
 }
 
 interface DashboardStats {
@@ -38,6 +44,12 @@ interface DashboardStats {
   totalSoldThisMonth: number;
   baruStock: number;
   secondStock: number;
+  baruMorning: number;
+  secondMorning: number;
+  baruSold: number;
+  secondSold: number;
+  baruIncoming: number;
+  secondIncoming: number;
   breakdown: {
     [location: string]: LocationData;
   };
@@ -177,20 +189,37 @@ export function StockDashboard() {
       const totalIncoming = rows.reduce((sum, entry) => sum + (entry.incoming || 0), 0);
       const totalFinalStock = totalNightStock;
 
-      // Pisahan Baru vs Second (berdasarkan kolom condition)
-      const baruStock = rows.reduce((sum, entry) => sum + ((entry.condition || 'baru') === 'baru' ? (entry.night_stock || 0) : 0), 0);
-      const secondStock = rows.reduce((sum, entry) => sum + (entry.condition === 'second' ? (entry.night_stock || 0) : 0), 0);
+      // Pisahan Baru vs Second (berdasarkan kolom condition) — untuk SEMUA metrik
+      const isSecond = (entry: { condition?: string | null }) => entry.condition === 'second';
+      const baruStock = rows.reduce((sum, entry) => sum + (!isSecond(entry) ? (entry.night_stock || 0) : 0), 0);
+      const secondStock = rows.reduce((sum, entry) => sum + (isSecond(entry) ? (entry.night_stock || 0) : 0), 0);
+      const baruMorning = rows.reduce((sum, entry) => sum + (!isSecond(entry) ? (entry.morning_stock || 0) : 0), 0);
+      const secondMorning = rows.reduce((sum, entry) => sum + (isSecond(entry) ? (entry.morning_stock || 0) : 0), 0);
+      const baruSold = rows.reduce((sum, entry) => sum + (!isSecond(entry) ? (entry.sold || 0) : 0), 0);
+      const secondSold = rows.reduce((sum, entry) => sum + (isSecond(entry) ? (entry.sold || 0) : 0), 0);
+      const baruIncoming = rows.reduce((sum, entry) => sum + (!isSecond(entry) ? (entry.incoming || 0) : 0), 0);
+      const secondIncoming = rows.reduce((sum, entry) => sum + (isSecond(entry) ? (entry.incoming || 0) : 0), 0);
 
       const breakdown: { [location: string]: LocationData } = {};
       
       for (const entry of rows) {
         const loc = entry.stock_locations?.name || 'Unknown';
         if (!breakdown[loc]) {
-          breakdown[loc] = { morning_stock: 0, night_stock: 0, sold: 0 };
+          breakdown[loc] = { morning_stock: 0, night_stock: 0, sold: 0, baru_morning: 0, second_morning: 0, baru_night: 0, second_night: 0, baru_sold: 0, second_sold: 0 };
         }
+        const second = isSecond(entry);
         breakdown[loc].morning_stock += entry.morning_stock;
         breakdown[loc].night_stock += entry.night_stock;
         breakdown[loc].sold += entry.sold;
+        if (second) {
+          breakdown[loc].second_morning += entry.morning_stock;
+          breakdown[loc].second_night += entry.night_stock;
+          breakdown[loc].second_sold += entry.sold;
+        } else {
+          breakdown[loc].baru_morning += entry.morning_stock;
+          breakdown[loc].baru_night += entry.night_stock;
+          breakdown[loc].baru_sold += entry.sold;
+        }
       }
 
       // Get transfer data from stock_events
@@ -240,6 +269,12 @@ export function StockDashboard() {
         totalSoldThisMonth,
         baruStock,
         secondStock,
+        baruMorning,
+        secondMorning,
+        baruSold,
+        secondSold,
+        baruIncoming,
+        secondIncoming,
         breakdown: breakdown,
         transferBreakdown: { toSoko, toMbutoh }
       };
@@ -392,6 +427,13 @@ export function StockDashboard() {
                     >
                       <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Laku</p>
                       <p className="mt-1 text-xl sm:text-3xl font-extrabold tabular text-destructive">{statsLoading ? "–" : (stats?.totalSold ?? 0)}</p>
+                      {!statsLoading && (
+                        <p className="mt-1 text-[10px] sm:text-[11px] text-muted-foreground tabular">
+                          <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{stats?.baruSold ?? 0} baru</span>
+                          {" · "}
+                          <span className="text-amber-600 dark:text-amber-400 font-semibold">{stats?.secondSold ?? 0} second</span>
+                        </p>
+                      )}
                     </button>
                     <button
                       onClick={() => handleCardClick('incoming')}
@@ -399,6 +441,13 @@ export function StockDashboard() {
                     >
                       <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Datang</p>
                       <p className="mt-1 text-xl sm:text-3xl font-extrabold tabular text-[hsl(var(--success))]">{statsLoading ? "–" : (stats?.totalIncoming ?? 0)}</p>
+                      {!statsLoading && (
+                        <p className="mt-1 text-[10px] sm:text-[11px] text-muted-foreground tabular">
+                          <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{stats?.baruIncoming ?? 0} baru</span>
+                          {" · "}
+                          <span className="text-amber-600 dark:text-amber-400 font-semibold">{stats?.secondIncoming ?? 0} second</span>
+                        </p>
+                      )}
                     </button>
                   </div>
                 </div>
@@ -474,6 +523,11 @@ export function StockDashboard() {
                             </div>
                             <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1 font-semibold">Pagi</p>
                             <p className="text-2xl font-extrabold tabular">{data.morning_stock}</p>
+                            <p className="mt-0.5 text-[10px] text-muted-foreground tabular">
+                              <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{data.baru_morning}</span>
+                              {" · "}
+                              <span className="text-amber-600 dark:text-amber-400 font-semibold">{data.second_morning}</span>
+                            </p>
                           </div>
                           
                           {/* Laku - Clickable */}
@@ -489,6 +543,11 @@ export function StockDashboard() {
                             </div>
                             <p className="text-[10px] text-destructive/80 uppercase tracking-wider mb-1 font-semibold">Laku</p>
                             <p className="text-2xl font-extrabold tabular text-destructive">{data.sold}</p>
+                            <p className="mt-0.5 text-[10px] text-muted-foreground tabular">
+                              <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{data.baru_sold}</span>
+                              {" · "}
+                              <span className="text-amber-600 dark:text-amber-400 font-semibold">{data.second_sold}</span>
+                            </p>
                           </div>
                           
                           {/* Stok Malam - Clickable */}
@@ -504,6 +563,11 @@ export function StockDashboard() {
                             </div>
                             <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1 font-semibold">Malam</p>
                             <p className="text-2xl font-extrabold tabular">{data.night_stock}</p>
+                            <p className="mt-0.5 text-[10px] text-muted-foreground tabular">
+                              <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{data.baru_night}</span>
+                              {" · "}
+                              <span className="text-amber-600 dark:text-amber-400 font-semibold">{data.second_night}</span>
+                            </p>
                           </div>
                         </div>
                       </CardContent>
