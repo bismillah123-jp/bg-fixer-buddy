@@ -1,13 +1,15 @@
-import { useState, useEffect, lazy, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { lazyWithRetry } from "@/lib/lazyWithRetry";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
 import Login from "./pages/Login";
-const Index = lazy(() => import("./pages/Index"));
-const NotFound = lazy(() => import("./pages/NotFound"));
-const Callback = lazy(() => import("./pages/Callback"));
-const Settings = lazy(() => import("./pages/Settings"));
+const Index = lazyWithRetry(() => import("./pages/Index"), "Index");
+const NotFound = lazyWithRetry(() => import("./pages/NotFound"), "NotFound");
+const Callback = lazyWithRetry(() => import("./pages/Callback"), "Callback");
+const Settings = lazyWithRetry(() => import("./pages/Settings"), "SettingsPage");
 import { supabase } from "./integrations/supabase/client";
 import { useRealtimeSubscription } from "./hooks/useRealtimeSubscription";
 import type { Session } from "@supabase/supabase-js";
@@ -55,6 +57,7 @@ const App = () => {
     <TooltipProvider>
       <Toaster />
       <Sonner />
+      <ErrorBoundary>
       <Suspense fallback={<div className="flex items-center justify-center h-screen"><div className="h-10 w-10 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>}>
       <Routes>
         <Route path="/login" element={<Login />} />
@@ -65,6 +68,7 @@ const App = () => {
         <Route path="*" element={<NotFound />} />
       </Routes>
       </Suspense>
+      </ErrorBoundary>
     </TooltipProvider>
   );
 };

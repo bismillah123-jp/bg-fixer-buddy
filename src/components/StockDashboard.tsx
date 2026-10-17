@@ -1,4 +1,6 @@
-import { useState, useEffect, lazy, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { lazyWithRetry } from "@/lib/lazyWithRetry";
+import { ErrorBoundary } from "./ErrorBoundary";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
@@ -11,14 +13,14 @@ import { Calendar } from "@/components/ui/calendar";
 import { Truck, TrendingUp, AlertTriangle, Package, Recycle, BarChart3, LogOut, Calendar as CalendarIcon, ArrowLeftRight, Settings as SettingsIcon, Sun, Tag, Moon, ListTree, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-const StockTable = lazy(() => import("./StockTable").then(m => ({ default: m.StockTable })));
-const StockAnalytics = lazy(() => import("./StockAnalytics").then(m => ({ default: m.StockAnalytics })));
-const StockDetailView = lazy(() => import("./StockDetailView").then(m => ({ default: m.StockDetailView })));
-const Settings = lazy(() => import("@/pages/Settings"));
+const StockTable = lazyWithRetry(() => import("./StockTable").then(m => ({ default: m.StockTable })), "StockTable");
+const StockAnalytics = lazyWithRetry(() => import("./StockAnalytics").then(m => ({ default: m.StockAnalytics })), "StockAnalytics");
+const StockDetailView = lazyWithRetry(() => import("./StockDetailView").then(m => ({ default: m.StockDetailView })), "StockDetailView");
+const Settings = lazyWithRetry(() => import("@/pages/Settings"), "Settings");
 import { ThemeToggle } from "./ThemeToggle";
 import { MobileNavigation } from "./MobileNavigation";
 import { FabMenu } from "./FabMenu";
-const AIChatPage = lazy(() => import("./AIChatPage").then(m => ({ default: m.AIChatPage })));
+const AIChatPage = lazyWithRetry(() => import("./AIChatPage").then(m => ({ default: m.AIChatPage })), "AIChatPage");
 
 interface LocationData {
   morning_stock: number;
@@ -550,6 +552,7 @@ export function StockDashboard() {
             </div>
           )}
 
+          <ErrorBoundary key={activeTab}>
           <Suspense fallback={<ViewFallback />}>
             {activeTab === 'stok-baru' && (
               <StockTable selectedDate={date} quickFilter={quickFilter} onFilterChange={() => setQuickFilter(null)} lockedCondition="baru" />
@@ -562,6 +565,7 @@ export function StockDashboard() {
             {activeTab === 'ai-chat' && <AIChatPage />}
             {activeTab === 'settings' && <Settings />}
           </Suspense>
+          </ErrorBoundary>
         </div>
       </main>
 
