@@ -35,6 +35,7 @@ interface StockTableProps {
   selectedDate: Date;
   quickFilter?: 'incoming' | 'sold' | 'transfer' | null;
   onFilterChange?: () => void;
+  lockedCondition?: 'baru' | 'second';
 }
 
 export interface StockEntry {
@@ -70,7 +71,7 @@ export interface StockEntry {
   };
 }
 
-export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockTableProps) {
+export function StockTable({ selectedDate, quickFilter, onFilterChange, lockedCondition }: StockTableProps) {
   const { data: labelsData } = useLabels();
   const labelColorMap = new Map(labelsData?.map(l => [l.name, l.color]) || []);
   // Load filters from localStorage
@@ -90,8 +91,13 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
     return localStorage.getItem('stockTableLabelFilter') || "all";
   });
   const [conditionFilter, setConditionFilter] = useState(() => {
-    return localStorage.getItem('stockTableConditionFilter') || "all";
+    return lockedCondition || localStorage.getItem('stockTableConditionFilter') || "all";
   });
+
+  // Kalau tab mengunci kondisi (Stok Baru / Stok Second), paksa filter mengikuti tab
+  useEffect(() => {
+    if (lockedCondition) setConditionFilter(lockedCondition);
+  }, [lockedCondition]);
 
   // Apply quick filter from dashboard
   useEffect(() => {
@@ -519,7 +525,7 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
     setIsUndoDialogOpen(true);
   };
 
-  const hasActiveFilters = searchTerm || brandFilter !== 'all' || locationFilter !== 'all' || statusFilter !== 'all' || labelFilter !== 'all' || conditionFilter !== 'all';
+  const hasActiveFilters = searchTerm || brandFilter !== 'all' || locationFilter !== 'all' || statusFilter !== 'all' || labelFilter !== 'all' || (!lockedCondition && conditionFilter !== 'all');
 
   return (
     <>
@@ -632,16 +638,18 @@ export function StockTable({ selectedDate, quickFilter, onFilterChange }: StockT
                   </SelectContent>
                 </Select>
 
-                <Select value={conditionFilter} onValueChange={handleConditionFilterChange}>
-                  <SelectTrigger className="w-[130px] h-9 text-sm">
-                    <SelectValue placeholder="Semua Kondisi" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Semua Kondisi</SelectItem>
-                    <SelectItem value="baru">Baru</SelectItem>
-                    <SelectItem value="second">Second</SelectItem>
-                  </SelectContent>
-                </Select>
+                {!lockedCondition && (
+                  <Select value={conditionFilter} onValueChange={handleConditionFilterChange}>
+                    <SelectTrigger className="w-[130px] h-9 text-sm">
+                      <SelectValue placeholder="Semua Kondisi" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Semua Kondisi</SelectItem>
+                      <SelectItem value="baru">Baru</SelectItem>
+                      <SelectItem value="second">Second</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
 
                 {quickFilter && (
                   <Badge variant="secondary" className="h-9 px-3 flex items-center gap-2">

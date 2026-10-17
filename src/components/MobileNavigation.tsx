@@ -1,16 +1,17 @@
-import { BarChart3, Package, TrendingUp, Settings, ListTree, Sparkles } from "lucide-react";
+import { BarChart3, Package, Recycle, TrendingUp, Settings, ListTree, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface MobileNavigationProps {
-  activeTab: 'dashboard' | 'table' | 'stock-detail' | 'analytics' | 'ai-chat' | 'settings';
-  onTabChange: (tab: 'dashboard' | 'table' | 'stock-detail' | 'analytics' | 'ai-chat' | 'settings') => void;
+  activeTab: 'dashboard' | 'stok-baru' | 'stok-second' | 'stock-detail' | 'analytics' | 'ai-chat' | 'settings';
+  onTabChange: (tab: 'dashboard' | 'stok-baru' | 'stok-second' | 'stock-detail' | 'analytics' | 'ai-chat' | 'settings') => void;
 }
 
 export function MobileNavigation({ activeTab, onTabChange }: MobileNavigationProps) {
-  type TabId = 'dashboard' | 'table' | 'stock-detail' | 'analytics' | 'ai-chat' | 'settings';
+  type TabId = 'dashboard' | 'stok-baru' | 'stok-second' | 'stock-detail' | 'analytics' | 'ai-chat' | 'settings';
   const navItems: { id: TabId; label: string; icon: typeof BarChart3 }[] = [
     { id: 'dashboard', label: 'Home', icon: BarChart3 },
-    { id: 'table', label: 'Data', icon: Package },
+    { id: 'stok-baru', label: 'Baru', icon: Package },
+    { id: 'stok-second', label: 'Second', icon: Recycle },
     { id: 'stock-detail', label: 'Detail', icon: ListTree },
     { id: 'analytics', label: 'Stats', icon: TrendingUp },
     { id: 'ai-chat', label: 'AI', icon: Sparkles },

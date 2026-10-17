@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { Truck, TrendingUp, AlertTriangle, Package, BarChart3, LogOut, Calendar as CalendarIcon, ArrowLeftRight, Settings as SettingsIcon, Sun, Tag, Moon, ListTree, Sparkles } from "lucide-react";
+import { Truck, TrendingUp, AlertTriangle, Package, Recycle, BarChart3, LogOut, Calendar as CalendarIcon, ArrowLeftRight, Settings as SettingsIcon, Sun, Tag, Moon, ListTree, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 const StockTable = lazy(() => import("./StockTable").then(m => ({ default: m.StockTable })));
@@ -54,7 +54,7 @@ function ViewFallback() {
 }
 
 export function StockDashboard() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'table' | 'stock-detail' | 'analytics' | 'ai-chat' | 'settings'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'stok-baru' | 'stok-second' | 'stock-detail' | 'analytics' | 'ai-chat' | 'settings'>('dashboard');
   const [date, setDate] = useState<Date>(new Date());
   const [quickFilter, setQuickFilter] = useState<'incoming' | 'sold' | 'transfer' | null>(null);
   const { toast } = useToast();
@@ -62,7 +62,7 @@ export function StockDashboard() {
 
   const handleCardClick = (filterType: 'incoming' | 'sold' | 'transfer') => {
     setQuickFilter(filterType);
-    setActiveTab('table');
+    setActiveTab('stok-baru');
   };
 
   // Invalidate all queries when date changes to force refetch
@@ -314,7 +314,8 @@ export function StockDashboard() {
           <nav className="flex gap-1.5 -mb-px pt-2">
             {([
               { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
-              { id: 'table', label: 'Data Stok', icon: Package },
+              { id: 'stok-baru', label: 'Stok Baru', icon: Package },
+              { id: 'stok-second', label: 'Stok Second', icon: Recycle },
               { id: 'stock-detail', label: 'Detail Stok', icon: ListTree },
               { id: 'analytics', label: 'Statistik', icon: TrendingUp },
               { id: 'ai-chat', label: 'Asisten AI', icon: Sparkles },
@@ -370,7 +371,7 @@ export function StockDashboard() {
                   </h2>
                   <div className="mt-4 grid grid-cols-3 gap-3">
                     <button
-                      onClick={() => { setQuickFilter(null); setActiveTab('table'); }}
+                      onClick={() => { setQuickFilter(null); setActiveTab('stok-baru'); }}
                       className="rounded-2xl bg-background/50 border border-border/50 p-3 sm:p-4 backdrop-blur-sm text-left card-lift pressable"
                     >
                       <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Stok Akhir</p>
@@ -461,7 +462,7 @@ export function StockDashboard() {
                               const locId = locations?.find(l => l.name === location)?.id;
                               if (locId) {
                                 setQuickFilter(null);
-                                setActiveTab('table');
+                                setActiveTab('stok-baru');
                                 // Add location filter state if needed
                               }
                             }}
@@ -478,7 +479,7 @@ export function StockDashboard() {
                             className="relative p-3 sm:p-4 rounded-2xl bg-destructive/[0.07] border border-destructive/20 cursor-pointer card-lift pressable"
                             onClick={() => {
                               setQuickFilter('sold');
-                              setActiveTab('table');
+                              setActiveTab('stok-baru');
                             }}
                           >
                             <div className="absolute top-2.5 right-2.5">
@@ -493,7 +494,7 @@ export function StockDashboard() {
                             className="relative p-3 sm:p-4 rounded-2xl bg-background/60 border border-border/60 cursor-pointer card-lift pressable"
                             onClick={() => {
                               setQuickFilter(null);
-                              setActiveTab('table');
+                              setActiveTab('stok-baru');
                             }}
                           >
                             <div className="absolute top-2.5 right-2.5">
@@ -550,8 +551,11 @@ export function StockDashboard() {
           )}
 
           <Suspense fallback={<ViewFallback />}>
-            {activeTab === 'table' && (
-              <StockTable selectedDate={date} quickFilter={quickFilter} onFilterChange={() => setQuickFilter(null)} />
+            {activeTab === 'stok-baru' && (
+              <StockTable selectedDate={date} quickFilter={quickFilter} onFilterChange={() => setQuickFilter(null)} lockedCondition="baru" />
+            )}
+            {activeTab === 'stok-second' && (
+              <StockTable selectedDate={date} quickFilter={quickFilter} onFilterChange={() => setQuickFilter(null)} lockedCondition="second" />
             )}
             {activeTab === 'stock-detail' && <StockDetailView selectedDate={date} />}
             {activeTab === 'analytics' && <StockAnalytics selectedDate={date} />}
