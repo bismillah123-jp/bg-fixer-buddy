@@ -134,4 +134,4 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION public.record_sale(UUID, TEXT, UUID, UUID, DATE, NUMERIC, NUMERIC, NUMERIC) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.transfer_stock_unit(TEXT, UUID, UUID, UUID, DATE, TEXT, JSONB) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.transfer_stock_unit(TEXT, UUID, UUID, UUID, DATE, TEXT, TEXT, JSONB) TO authenticated;
