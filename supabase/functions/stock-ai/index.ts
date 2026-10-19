@@ -336,7 +336,7 @@ async function runChat(
     const { data: allEvents } = await supabase
       .from("stock_events")
       .select(`
-        date, imei, qty, event_type, metadata, label,
+        date, imei, qty, event_type, metadata, label, condition,
         phone_model:phone_models(brand, model, storage_capacity),
         location:stock_locations(name)
       `)
@@ -348,7 +348,7 @@ async function runChat(
     const { data: allEntries } = await supabase
       .from("stock_entries")
       .select(`
-        date, imei, morning_stock, incoming, add_stock, returns, sold, adjustment, night_stock,
+        date, imei, morning_stock, incoming, add_stock, returns, sold, adjustment, night_stock, condition,
         phone_model:phone_models(brand, model, storage_capacity),
         location:stock_locations(name)
       `)
@@ -371,12 +371,17 @@ async function runChat(
     stockData?.forEach((entry: any) => {
       const brand = entry.phone_model?.brand || "Unknown";
       const loc = entry.location?.name || "Unknown";
+      const cond = entry.condition === "second" ? "second" : "baru";
       const key = `${brand}-${loc}`;
-      if (!stockSummary[key]) stockSummary[key] = { brand, location: loc, total: 0, sold_today: 0, incoming_today: 0 };
-      stockSummary[key].total += entry.night_stock;
+      if (!stockSummary[key]) stockSummary[key] = { brand, location: loc, total: 0, baru: 0, second: 0, sold_today: 0, incoming_today: 0 };
+      const units = entry.night_stock || 0;
+      stockSummary[key].total += units;
+      stockSummary[key][cond] += units;
       stockSummary[key].sold_today += entry.sold;
       stockSummary[key].incoming_today += entry.incoming;
     });
+    const totalBaru = Object.values(stockSummary).reduce((a: number, s: any) => a + s.baru, 0);
+    const totalSecond = Object.values(stockSummary).reduce((a: number, s: any) => a + s.second, 0);
 
     // === Rekap harian LENGKAP untuk SEMUA tanggal ===
     type DayRec = { laku: number; masuk: number; retur: number; lain: number };
@@ -406,7 +411,7 @@ async function runChat(
 
       // Detail untuk SEMUA tanggal (bukan cuma hari ini/kemarin)
       (perDayDetail[d] ||= []).push(
-        `${t.toUpperCase()} | ${brand} ${ev.phone_model?.model || ""} ${ev.phone_model?.storage_capacity || ""} | Warna: ${ev.metadata?.color || "-"} | IMEI: ${ev.imei} | ${ev.location?.name || "-"} | Label: ${ev.label || "-"}`,
+        `${t.toUpperCase()} | ${brand} ${ev.phone_model?.model || ""} ${ev.phone_model?.storage_capacity || ""} | Kondisi: ${ev.condition || "-"} | Warna: ${ev.metadata?.color || "-"} | IMEI: ${ev.imei} | ${ev.location?.name || "-"} | Label: ${ev.label || "-"}`,
       );
     }
 
@@ -425,7 +430,7 @@ async function runChat(
       dailyStock[d].koreksi += en.adjustment || 0;
 
       (entryDetail[d] ||= []).push(
-        `${en.phone_model?.brand || "-"} ${en.phone_model?.model || ""} ${en.phone_model?.storage_capacity || ""} | IMEI: ${en.imei || "-"} | ${en.location?.name || "-"} | Pagi: ${en.morning_stock ?? 0} | Masuk: ${(en.incoming ?? 0) + (en.add_stock ?? 0)} | Laku: ${en.sold ?? 0} | Retur: ${en.returns ?? 0} | Koreksi: ${en.adjustment ?? 0} | Malam: ${en.night_stock ?? 0}`,
+        `${en.phone_model?.brand || "-"} ${en.phone_model?.model || ""} ${en.phone_model?.storage_capacity || ""} | IMEI: ${en.imei || "-"} | ${en.location?.name || "-"} | Kondisi: ${en.condition || "baru"} | Pagi: ${en.morning_stock ?? 0} | Masuk: ${(en.incoming ?? 0) + (en.add_stock ?? 0)} | Laku: ${en.sold ?? 0} | Retur: ${en.returns ?? 0} | Koreksi: ${en.adjustment ?? 0} | Malam: ${en.night_stock ?? 0}`,
       );
     }
     const sortedStockDays = Object.keys(dailyStock).sort((a, b) => (a < b ? 1 : -1));
@@ -450,11 +455,11 @@ Rentang data tersedia: ${sortedDays[sortedDays.length - 1] || "-"} s/d ${sortedD
 
 === DATA STOK HARI INI (${today}) ===
 Lokasi: ${locationNames}
-Total unit tersedia: ${availableStock.length}
+Total unit tersedia: ${availableStock.length} (baru: ${totalBaru}, second: ${totalSecond})
 
-Ringkasan per Merk & Lokasi:
+Ringkasan per Merk & Lokasi (pecah baru/second):
 ${Object.values(stockSummary).map((s: any) =>
-  `- ${s.brand} di ${s.location}: ${s.total} unit, terjual hari ini: ${s.sold_today}, masuk hari ini: ${s.incoming_today}`
+  `- ${s.brand} di ${s.location}: ${s.total} unit (baru: ${s.baru}, second: ${s.second}), terjual hari ini: ${s.sold_today}, masuk hari ini: ${s.incoming_today}`
 ).join("\n") || "Tidak ada data"}
 
 === REKAP HARIAN SEMUA TANGGAL (terbaru → terlama) ===
