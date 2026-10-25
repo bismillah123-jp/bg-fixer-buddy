@@ -281,6 +281,7 @@ export type Database = {
         Row: {
           add_stock: number
           adjustment: number
+          condition: string | null
           cost_price: number | null
           created_at: string
           date: string
@@ -304,6 +305,7 @@ export type Database = {
         Insert: {
           add_stock?: number
           adjustment?: number
+          condition?: string | null
           cost_price?: number | null
           created_at?: string
           date?: string
@@ -327,6 +329,7 @@ export type Database = {
         Update: {
           add_stock?: number
           adjustment?: number
+          condition?: string | null
           cost_price?: number | null
           created_at?: string
           date?: string
@@ -366,6 +369,7 @@ export type Database = {
       }
       stock_events: {
         Row: {
+          condition: string | null
           created_at: string
           created_by: string | null
           date: string
@@ -380,6 +384,7 @@ export type Database = {
           qty: number
         }
         Insert: {
+          condition?: string | null
           created_at?: string
           created_by?: string | null
           date: string
@@ -394,6 +399,7 @@ export type Database = {
           qty?: number
         }
         Update: {
+          condition?: string | null
           created_at?: string
           created_by?: string | null
           date?: string
@@ -552,36 +558,6 @@ export type Database = {
     }
     Functions: {
       bulk_insert_stock: { Args: { entries: Json[] }; Returns: undefined }
-      record_sale: {
-        Args: {
-          p_entry_id: string
-          p_imei: string
-          p_location_id: string
-          p_phone_model_id: string
-          p_sale_date: string
-          p_price: number
-          p_srp: number
-          p_cost_price: number
-        }
-        Returns: Json
-      }
-      transfer_stock_unit: {
-        Args: {
-          p_imei: string
-          p_source_location_id: string
-          p_dest_location_id: string
-          p_phone_model_id: string
-          p_date: string
-          p_notes?: string | null
-          p_label?: string | null
-          p_metadata?: Json | null
-        }
-        Returns: Json
-      }
-      unit_balance: {
-        Args: { p_imei: string; p_location_id: string }
-        Returns: number
-      }
       calculate_night_stock: {
         Args: {
           p_add_stock: number
@@ -666,8 +642,50 @@ export type Database = {
         Args: { p_from_date: string; p_to_date?: string }
         Returns: undefined
       }
+      record_sale: {
+        Args: {
+          p_cost_price: number
+          p_entry_id: string
+          p_imei: string
+          p_location_id: string
+          p_phone_model_id: string
+          p_price: number
+          p_sale_date: string
+          p_srp: number
+        }
+        Returns: Json
+      }
       reset_all_data: { Args: never; Returns: undefined }
       rollover_to_new_day: { Args: { target_date: string }; Returns: undefined }
+      transfer_stock_unit: {
+        Args: {
+          p_date: string
+          p_dest_location_id: string
+          p_imei: string
+          p_label?: string
+          p_metadata?: Json
+          p_notes?: string
+          p_phone_model_id: string
+          p_source_location_id: string
+        }
+        Returns: Json
+      }
+      undo_sale: {
+        Args: {
+          p_entry_id: string
+          p_event_id: string
+          p_from_date: string
+          p_imei: string
+          p_location_id: string
+          p_phone_model_id: string
+          p_to_date: string
+        }
+        Returns: undefined
+      }
+      unit_balance: {
+        Args: { p_imei: string; p_location_id: string }
+        Returns: number
+      }
       update_brand_name: {
         Args: { new_brand_name: string; old_brand_name: string }
         Returns: undefined
